@@ -225,9 +225,12 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
   <div class="topbar-right">
     <span class="badge" id="vault-name-badge">Vault</span>
+    <input type="file" id="cfg-file" accept="application/json,.json" style="display:none" onchange="loadConfigFromFile(this)"/>
+    <button class="btn btn-primary" onclick="document.getElementById('cfg-file').click()">📂 Load Data</button>
     <button class="btn btn-ghost" onclick="exportAllJSON()">⬇ Export JSON</button>
     <button class="btn btn-warn" onclick="printDoc()">🖨 Print / PDF</button>
-    <button class="btn btn-success" onclick="notify('Configuration saved!')">💾 Save</button>
+    <button class="btn btn-success" onclick="saveLocal(true)">💾 Save</button>
+    <button class="btn btn-ghost" onclick="resetSample()" title="Discard data and reload the built-in sample">↺ Reset</button>
   </div>
 </div>
 
@@ -260,6 +263,22 @@ input:checked+.slider:before{transform:translateX(18px);}
 <div class="page active" id="page-overview">
   <div class="page-title">Vault Configuration Overview</div>
   <div class="page-sub">Summary of all configuration settings captured for this Vault instance.</div>
+
+  <div class="card" style="border-color:var(--accent)">
+    <h3>📂 Load Real Vault Data</h3>
+    <p style="font-size:.8rem;color:var(--text-muted);line-height:1.6">
+      This dashboard ships with sample data. To document a real environment, load a configuration JSON file
+      with <b>📂 Load Data</b> (top right). It accepts this dashboard's own exported JSON <i>and</i> raw Vault
+      API output. Generate that JSON from your Vault by running the included
+      <code style="background:var(--surface2);padding:1px 6px;border-radius:4px">Export-VaultConfig.ps1</code>
+      PowerShell script against your ADMS/Vault server, then load the resulting file here.
+      Your data is kept only in this browser (💾 Save / ↺ Reset) — nothing is uploaded.
+    </p>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('cfg-file').click()">📂 Load Configuration File…</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportAllJSON()">⬇ Download Current as JSON</button>
+    </div>
+  </div>
 
   <div class="card">
     <h3>Vault Details</h3>
@@ -534,9 +553,9 @@ input:checked+.slider:before{transform:translateX(18px);}
 // ═══════════════════════════════════════════════════════════════
 //  SEED DATA
 // ═══════════════════════════════════════════════════════════════
-const PROPS = [{"Id":"1","DisplayName":"Classification","SystemName":"Classification","DataType":"String","IsSystem":true,"Active":true},{"Id":"2","DisplayName":"Version","SystemName":"VersionNumber","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"3","DisplayName":"Comment","SystemName":"Comment","DataType":"String","IsSystem":true,"Active":true},{"Id":"5","DisplayName":"Date Version Created","SystemName":"DateVersionCreated","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"6","DisplayName":"Created By","SystemName":"CreateUserName","DataType":"String","IsSystem":true,"Active":true},{"Id":"7","DisplayName":"Create Date","SystemName":"CreateDate","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"9","DisplayName":"File Name","SystemName":"ClientFileName","DataType":"String","IsSystem":true,"Active":true},{"Id":"12","DisplayName":"File Size","SystemName":"FileSize","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"13","DisplayName":"Linked to Item","SystemName":"ItemLinked","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"20","DisplayName":"Latest Version","SystemName":"LatestVersion","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"26","DisplayName":"Thumbnail","SystemName":"Thumbnail","DataType":"Image","IsSystem":true,"Active":true},{"Id":"30","DisplayName":"Name","SystemName":"Name","DataType":"String","IsSystem":true,"Active":true},{"Id":"48","DisplayName":"Category Name","SystemName":"CategoryName","DataType":"String","IsSystem":true,"Active":true},{"Id":"52","DisplayName":"Lifecycle Definition","SystemName":"LifeCycleDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"54","DisplayName":"State","SystemName":"State","DataType":"String","IsSystem":true,"Active":true},{"Id":"58","DisplayName":"Revision Scheme","SystemName":"RevisionDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"60","DisplayName":"Revision","SystemName":"Revision","DataType":"String","IsSystem":true,"Active":true},{"Id":"62","DisplayName":"Number","SystemName":"Number","DataType":"String","IsSystem":true,"Active":true},{"Id":"92","DisplayName":"Author","SystemName":"Author","DataType":"String","IsSystem":false,"Active":true},{"Id":"97","DisplayName":"Title","SystemName":"Title","DataType":"String","IsSystem":false,"Active":true},{"Id":"98","DisplayName":"Company","SystemName":"Company","DataType":"String","IsSystem":false,"Active":true},{"Id":"105","DisplayName":"Description","SystemName":"Description","DataType":"String","IsSystem":false,"Active":true},{"Id":"106","DisplayName":"Material","SystemName":"Material","DataType":"String","IsSystem":false,"Active":true},{"Id":"107","DisplayName":"Part Number","SystemName":"PartNumber","DataType":"String","IsSystem":false,"Active":true},{"Id":"111","DisplayName":"Designer","SystemName":"Designer","DataType":"String","IsSystem":false,"Active":true},{"Id":"112","DisplayName":"Engineer","SystemName":"Engineer","DataType":"String","IsSystem":false,"Active":true},{"Id":"116","DisplayName":"Project","SystemName":"Project","DataType":"String","IsSystem":false,"Active":true}];
+let PROPS = [{"Id":"1","DisplayName":"Classification","SystemName":"Classification","DataType":"String","IsSystem":true,"Active":true},{"Id":"2","DisplayName":"Version","SystemName":"VersionNumber","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"3","DisplayName":"Comment","SystemName":"Comment","DataType":"String","IsSystem":true,"Active":true},{"Id":"5","DisplayName":"Date Version Created","SystemName":"DateVersionCreated","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"6","DisplayName":"Created By","SystemName":"CreateUserName","DataType":"String","IsSystem":true,"Active":true},{"Id":"7","DisplayName":"Create Date","SystemName":"CreateDate","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"9","DisplayName":"File Name","SystemName":"ClientFileName","DataType":"String","IsSystem":true,"Active":true},{"Id":"12","DisplayName":"File Size","SystemName":"FileSize","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"13","DisplayName":"Linked to Item","SystemName":"ItemLinked","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"20","DisplayName":"Latest Version","SystemName":"LatestVersion","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"26","DisplayName":"Thumbnail","SystemName":"Thumbnail","DataType":"Image","IsSystem":true,"Active":true},{"Id":"30","DisplayName":"Name","SystemName":"Name","DataType":"String","IsSystem":true,"Active":true},{"Id":"48","DisplayName":"Category Name","SystemName":"CategoryName","DataType":"String","IsSystem":true,"Active":true},{"Id":"52","DisplayName":"Lifecycle Definition","SystemName":"LifeCycleDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"54","DisplayName":"State","SystemName":"State","DataType":"String","IsSystem":true,"Active":true},{"Id":"58","DisplayName":"Revision Scheme","SystemName":"RevisionDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"60","DisplayName":"Revision","SystemName":"Revision","DataType":"String","IsSystem":true,"Active":true},{"Id":"62","DisplayName":"Number","SystemName":"Number","DataType":"String","IsSystem":true,"Active":true},{"Id":"92","DisplayName":"Author","SystemName":"Author","DataType":"String","IsSystem":false,"Active":true},{"Id":"97","DisplayName":"Title","SystemName":"Title","DataType":"String","IsSystem":false,"Active":true},{"Id":"98","DisplayName":"Company","SystemName":"Company","DataType":"String","IsSystem":false,"Active":true},{"Id":"105","DisplayName":"Description","SystemName":"Description","DataType":"String","IsSystem":false,"Active":true},{"Id":"106","DisplayName":"Material","SystemName":"Material","DataType":"String","IsSystem":false,"Active":true},{"Id":"107","DisplayName":"Part Number","SystemName":"PartNumber","DataType":"String","IsSystem":false,"Active":true},{"Id":"111","DisplayName":"Designer","SystemName":"Designer","DataType":"String","IsSystem":false,"Active":true},{"Id":"112","DisplayName":"Engineer","SystemName":"Engineer","DataType":"String","IsSystem":false,"Active":true},{"Id":"116","DisplayName":"Project","SystemName":"Project","DataType":"String","IsSystem":false,"Active":true}];
 
-const FOLDERS = [{"id":"12","name":"Designs","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"11","name":"CAD Support","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"475","name":"Project Sync","createUserName":"Administrator","createDate":"2026-05-27"},{"id":"476","name":"Templates","createUserName":"KG","createDate":"2026-06-02"},{"id":"491","name":"Design Data","createUserName":"KG","createDate":"2026-06-02"},{"id":"494","name":"Configuration","createUserName":"KG","createDate":"2026-06-02"},{"id":"495","name":"Mold Design","createUserName":"KG","createDate":"2026-06-02"},{"id":"497","name":"Cable & Harness","createUserName":"KG","createDate":"2026-06-02"}];
+let FOLDERS = [{"id":"12","name":"Designs","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"11","name":"CAD Support","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"475","name":"Project Sync","createUserName":"Administrator","createDate":"2026-05-27"},{"id":"476","name":"Templates","createUserName":"KG","createDate":"2026-06-02"},{"id":"491","name":"Design Data","createUserName":"KG","createDate":"2026-06-02"},{"id":"494","name":"Configuration","createUserName":"KG","createDate":"2026-06-02"},{"id":"495","name":"Mold Design","createUserName":"KG","createDate":"2026-06-02"},{"id":"497","name":"Cable & Harness","createUserName":"KG","createDate":"2026-06-02"}];
 
 let ITEMS = [{id:"471",name:"Part1",entity:"ItemVersion",notes:""},{id:"450",name:"Part B",entity:"ItemVersion",notes:""},{id:"397",name:"Assembly 1",entity:"ItemVersion",notes:""},{id:"396",name:"Part A",entity:"ItemVersion",notes:""}];
 
@@ -632,15 +651,21 @@ function activeLC(){return LIFECYCLES.find(x=>x.id===activeLCId);}
 window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('last-updated').textContent=new Date().toLocaleDateString();
   document.getElementById('cfg-date').value=new Date().toISOString().split('T')[0];
-  renderPropsTable('ov-prop-tbody',PROPS,true);
-  renderPropsTable('prop-tbody',PROPS,false);
-  renderLCList(); renderFolders(); renderCategories(); renderRevisions();
-  renderItems(); renderNumbering(); renderChangeLog();
-  updateMetrics();
-  document.getElementById('prop-count-badge').textContent=PROPS.length;
-  document.getElementById('folder-count-badge').textContent=FOLDERS.length;
+  const saved=loadLocal();
+  if(saved){ try{ applyConfig(saved); notify('Restored your saved configuration'); }catch(e){ console.error(e); renderAll(); } }
+  else renderAll();
 });
 window.addEventListener('resize',()=>{ if(activeLCId!==null){lcResizeCanvas();lcDraw();} });
+
+function renderAll(){
+  renderPropsTable('ov-prop-tbody',PROPS,true);
+  renderPropsTable('prop-tbody',PROPS,false);
+  document.getElementById('prop-count-badge').textContent=PROPS.length;
+  document.getElementById('folder-count-badge').textContent=FOLDERS.length;
+  renderLCList(); renderFolders(); renderCategories(); renderRevisions();
+  renderItems(); renderNumbering(); renderChangeLog();
+  updateMetrics(); updateBadge();
+}
 
 function updateMetrics(){
   document.getElementById('ov-props').textContent=PROPS.length;
@@ -1196,16 +1221,132 @@ function doImportJSON(){
   }catch(err){alert('Invalid JSON: '+err.message);}
 }
 
-function exportAllJSON(){
-  const obj={
+function collectConfig(){
+  return {
+    schema:"vault-config-dashboard/1",
     vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),documentRevision:val('cfg-docrev'),notes:val('cfg-notes')},
     lifecycles:LIFECYCLES.map(lcExportData),
     categories:CATEGORIES,revisionSchemes:REVISIONS,numberingSchemes:NUMBERING,
     properties:PROPS,folders:FOLDERS,items:ITEMS,
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes')
   };
-  download('vault-configuration.json',obj); notify('Full configuration exported');
 }
+function exportAllJSON(){ download('vault-configuration.json',collectConfig()); notify('Full configuration exported'); }
+
+// ═══════════════════════════════════════════════════════════════
+//  LOAD REAL VAULT DATA  (file import + normalization + persistence)
+// ═══════════════════════════════════════════════════════════════
+function setVal(id,v){const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;}
+function setChk(id,v){const el=document.getElementById(id);if(el&&typeof v==='boolean')el.checked=v;}
+function pick(o,...keys){if(!o)return undefined;for(const k of keys){if(o[k]!==undefined&&o[k]!==null&&o[k]!=='')return o[k];}return undefined;}
+function firstArr(o,...keys){for(const k of keys){if(Array.isArray(o[k]))return o[k];}return undefined;}
+function asNum(v){const n=Number(v);return Number.isFinite(n)?n:null;}
+function toBool(v){return v===true||v===1||v==='1'||v==='true'||v==='True'||v==='Yes';}
+
+function colorForState(s,i){
+  if(s.color&&/^#?[0-9a-fA-F]{3,8}$/.test(String(s.color))) return String(s.color).startsWith('#')?s.color:'#'+s.color;
+  if(s.isReleasedState) return '#2ecc71';
+  if(s.isObsoleteState) return '#e74c3c';
+  const n=(s.name||'').toLowerCase();
+  if(n.includes('work in progress')||n.includes('wip')||n.includes('progress')) return '#f39c12';
+  if(n.includes('review')) return '#4f8ef7';
+  if(n.includes('quick')) return '#9b59b6';
+  if(n.includes('pre-release')||n.includes('prerelease')) return '#1abc9c';
+  return ['#f39c12','#4f8ef7','#9b59b6','#1abc9c','#7c5ff5','#2ecc71'][i%6];
+}
+function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
+function normFolder(f){return{id:String(pick(f,'id','Id','ObjectId','FldId')??'—'),name:pick(f,'name','Name','Label','FullName')||'(unnamed)',createUserName:pick(f,'createUserName','CreateUserName','createdBy','CreatedBy')||'',createDate:String(pick(f,'createDate','CreateDate','created','Created')||'').split('T')[0],notes:pick(f,'notes','Notes')||''};}
+function normItem(it){return{id:String(pick(it,'id','Id','ItemNum','Number')??'—'),name:pick(it,'name','Name','Title')||'(unnamed)',entity:pick(it,'entity','Entity','EntityType','entityType')||'ItemVersion',notes:pick(it,'notes','Notes')||''};}
+function normCat(c){return{name:pick(c,'name','Name')||'',entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||''};}
+function normRev(r){return{name:pick(r,'name','Name','DispName')||'',format:pick(r,'format','Format')||'',primary:pick(r,'primary','Primary','primarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence')||'',notes:pick(r,'notes','Notes')||''};}
+function normNum(n){return{entity:pick(n,'entity','Entity')||'',scheme:pick(n,'scheme','Scheme')||'Sequential',prefix:pick(n,'prefix','Prefix')||'',start:String(pick(n,'start','Start','startNumber')??'1'),inc:String(pick(n,'inc','Increment','increment')??'1'),notes:pick(n,'notes','Notes')||''};}
+function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],author:pick(c,'author','Author')||'',section:pick(c,'section','Section')||'',desc:pick(c,'desc','Description','description')||''};}
+function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
+
+function normLifecycle(lc,idx,nid){
+  const idMap=new Map();
+  const rawStates=firstArr(lc,'states','States','stateArray','StateArray','LfCycStates')||[];
+  const states=rawStates.map((s,i)=>{
+    const orig=String(pick(s,'id','Id','ObjId','ObjectId','StateId')??('s'+i));
+    const newId=nid(); idMap.set(orig,newId);
+    const st={id:newId,
+      name:pick(s,'name','displayName','DispName','DisplayName','Name')||('State '+(i+1)),
+      description:pick(s,'description','Description','Descr')||'',
+      comments:(firstArr(s,'comments','Comments')||[]).map(c=>typeof c==='string'?c:(pick(c,'comment','Comment','text','Text')||String(c))),
+      isDefault:toBool(pick(s,'isDefault','IsDefault','IsDflt','Default','DefState')??false),
+      isReleasedState:toBool(pick(s,'isReleasedState','IsReleased','IsRel','ReleasedState','Released','Consume')??false),
+      isObsoleteState:toBool(pick(s,'isObsoleteState','IsObsolete','IsObs','ObsoleteState','Obsolete')??false),
+      color:pick(s,'color','Color'),
+      x:asNum(pick(s.position||s,'x','X','PosX')),
+      y:asNum(pick(s.position||s,'y','Y','PosY'))};
+    return st;
+  });
+  states.forEach((s,i)=>{ s.color=colorForState(s,i); });
+  if(states.length && !states.some(s=>s.isDefault)) states[0].isDefault=true;
+  // auto-layout when positions are missing/degenerate
+  const haveXY=states.every(s=>typeof s.x==='number'&&typeof s.y==='number');
+  const xs=states.map(s=>s.x||0),ys=states.map(s=>s.y||0);
+  const spread=(Math.max(...xs,0)-Math.min(...xs,0))+(Math.max(...ys,0)-Math.min(...ys,0));
+  if(!haveXY||spread<10){const n=states.length||1;states.forEach((s,i)=>{const a=(2*Math.PI*i/n)-Math.PI/2;s.x=400+260*Math.cos(a);s.y=270+220*Math.sin(a);});}
+  const rawTrans=firstArr(lc,'transitions','Transitions','transitionArray','TransitionArray','transArray','TransArray','LfCycTransitions')||[];
+  const transitions=rawTrans.map(t=>{
+    const from=idMap.get(String(pick(t,'from','fromStateId','FromId','From','fromId','FromStateId')));
+    const to=idMap.get(String(pick(t,'to','toStateId','ToId','To','toId','ToStateId')));
+    return {id:nid(),from,to,waypoints:(firstArr(t,'waypoints','Waypoints')||[]).map(p=>({x:asNum(pick(p,'x','X'))||0,y:asNum(pick(p,'y','Y'))||0}))};
+  }).filter(t=>t.from!=null&&t.to!=null);
+  return {id:nid(),name:pick(lc,'name','displayName','DispName','DisplayName','Name')||('Lifecycle '+(idx+1)),description:pick(lc,'description','Description','Descr')||'',states,transitions};
+}
+
+function normalizeConfig(raw){
+  if(typeof raw==='string') raw=JSON.parse(raw);
+  if(Array.isArray(raw)) raw={lifecycles:raw};
+  if((raw.states||raw.States)&&(raw.transitions||raw.Transitions)&&!(raw.lifecycles||raw.Lifecycles)) raw={lifecycles:[raw]};
+  const out={}; let idc=1; const nid=()=>idc++;
+  const props=firstArr(raw,'properties','Properties','propertyDefinitions','PropertyDefinitions');           if(props) out.properties=props.map(normProp);
+  const folders=firstArr(raw,'folders','Folders');                                                          if(folders) out.folders=folders.map(normFolder);
+  const items=firstArr(raw,'items','Items');                                                                if(items) out.items=items.map(normItem);
+  const cats=firstArr(raw,'categories','Categories');                                                       if(cats) out.categories=cats.map(normCat);
+  const revs=firstArr(raw,'revisionSchemes','revisions','RevisionSchemes','Revisions');                     if(revs) out.revisions=revs.map(normRev);
+  const nums=firstArr(raw,'numberingSchemes','numbering','NumberingSchemes');                               if(nums) out.numbering=nums.map(normNum);
+  const cl=firstArr(raw,'changeLog','changelog','ChangeLog');                                               if(cl) out.changelog=cl.map(normCL);
+  const lcs=firstArr(raw,'lifecycles','Lifecycles','lifeCycleDefinitions','LifeCycleDefinitions');          if(lcs) out.lifecycles=lcs.map((l,i)=>normLifecycle(l,i,nid));
+  const v=raw.vault||raw.Vault; if(v) out.vault=normVault(v);
+  const g=raw.generalSettings||raw.general||raw.GeneralSettings; if(g) out.general=g;
+  const gn=pick(raw,'generalNotes','GeneralNotes'); if(gn!==undefined) out.generalNotes=gn;
+  return out;
+}
+
+function applyConfig(raw){
+  const c=normalizeConfig(raw);
+  if(c.properties) PROPS=c.properties;
+  if(c.folders) FOLDERS=c.folders;
+  if(c.items) ITEMS=c.items;
+  if(c.categories) CATEGORIES=c.categories;
+  if(c.revisions) REVISIONS=c.revisions;
+  if(c.numbering) NUMBERING=c.numbering;
+  if(c.changelog) CHANGELOG=c.changelog;
+  if(c.lifecycles){ LIFECYCLES=c.lifecycles; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
+  if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-docrev',v.documentRevision);setVal('cfg-notes',v.notes);}
+  if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setVal('gs-workspace',g.workspace);setVal('gs-maxsize',g.maxFileSizeMB);setVal('gs-visatt',g.visualizationAttachment);setVal('gs-auth',g.authMode);setVal('gs-timeout',g.sessionTimeout);setChk('gs-autoviz',g.autoCreateViz);setChk('gs-unique',g.enforceUniqueNames);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);setChk('gs-checkout',g.requireCheckout);setChk('gs-multi',g.allowMultiCheckout);}
+  if(c.generalNotes!==undefined) setVal('general-notes',c.generalNotes);
+  // bump id counters past anything imported
+  let maxLc=0,maxSt=0,maxTr=0;
+  LIFECYCLES.forEach(l=>{maxLc=Math.max(maxLc,l.id||0);l.states.forEach(s=>maxSt=Math.max(maxSt,s.id||0));l.transitions.forEach(t=>maxTr=Math.max(maxTr,t.id||0));});
+  lcNextId=Math.max(lcNextId,maxLc+1,maxTr+1); lcStateNextId=Math.max(lcStateNextId,maxSt+1);
+  renderAll();
+}
+
+function loadConfigFromFile(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ applyConfig(JSON.parse(r.result)); saveLocal(false); notify('Loaded '+f.name); showPage('overview'); }catch(e){ alert('Could not load "'+f.name+'":\n'+e.message); } input.value=''; };
+  r.onerror=()=>{ alert('Could not read file.'); input.value=''; };
+  r.readAsText(f);
+}
+const LS_KEY='vaultConfigDashboard.v1';
+function saveLocal(announce){ try{ localStorage.setItem(LS_KEY,JSON.stringify(collectConfig())); if(announce)notify('Saved to this browser'); }catch(e){ if(announce)notify('Save failed: '+e.message); } }
+function loadLocal(){ try{ const s=localStorage.getItem(LS_KEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function resetSample(){ if(!confirm('Discard all current data and reload the built-in sample? This clears your saved configuration in this browser.')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
 function val(id){const el=document.getElementById(id);return el?el.value:'';}
 function chk(id){const el=document.getElementById(id);return el?el.checked:false;}
 function collectGeneral(){return{workingFolder:val('gs-working'),workspace:val('gs-workspace'),maxFileSizeMB:val('gs-maxsize'),visualizationAttachment:val('gs-visatt'),autoCreateViz:chk('gs-autoviz'),enforceUniqueNames:chk('gs-unique'),enableChangeOrders:chk('gs-eco'),enableItemMaster:chk('gs-item'),authMode:val('gs-auth'),sessionTimeout:val('gs-timeout'),requireCheckout:chk('gs-checkout'),allowMultiCheckout:chk('gs-multi')};}
