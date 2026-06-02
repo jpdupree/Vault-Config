@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Vault Pro Configuration Dashboard</title>
+<style>
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3352;
+  --accent:#4f8ef7;--accent2:#7c5ff5;--green:#2ecc71;--orange:#f39c12;
+  --red:#e74c3c;--purple:#9b59b6;--cyan:#1abc9c;--text:#e8eaf6;--text-muted:#8892b0;
+  --shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow:hidden;}
+
+/* ── SHELL ── */
+.shell{display:grid;grid-template-columns:240px 1fr;grid-template-rows:56px 1fr;height:100vh;}
+
+/* ── TOPBAR ── */
+.topbar{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:12px;}
+.topbar-left{display:flex;align-items:center;gap:14px;}
+.topbar h1{font-size:1rem;font-weight:700;color:var(--accent);}
+.topbar p{font-size:.72rem;color:var(--text-muted);}
+.topbar-right{display:flex;gap:8px;align-items:center;}
+.btn{padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:.76rem;font-weight:600;transition:all .15s;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#3a78e0;}
+.btn-success{background:var(--green);color:#fff;}.btn-success:hover{background:#27ae60;}
+.btn-danger{background:var(--red);color:#fff;}.btn-danger:hover{background:#c0392b;}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn-warn{background:var(--orange);color:#fff;}
+.btn-sm{padding:3px 9px;font-size:.72rem;}
+.btn-icon{padding:3px 7px;font-size:.74rem;}
+
+/* ── NAV ── */
+.nav{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:12px 0;}
+.nav-section{padding:6px 14px 4px;font-size:.65rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-top:8px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 16px;cursor:pointer;font-size:.8rem;color:var(--text-muted);transition:all .15s;border-left:3px solid transparent;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:var(--surface2);color:var(--accent);border-left-color:var(--accent);}
+.nav-item .ni{font-size:.9rem;}
+
+/* ── MAIN ── */
+.main{overflow-y:auto;padding:28px 32px;background:var(--bg);}
+
+/* ── PAGES ── */
+.page{display:none;}.page.active{display:block;}
+.page-title{font-size:1.3rem;font-weight:700;margin-bottom:4px;}
+.page-sub{font-size:.8rem;color:var(--text-muted);margin-bottom:24px;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:18px;}
+.card h3{font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:14px;}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.metric{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+.metric .label{font-size:.72rem;color:var(--text-muted);margin-bottom:4px;}
+.metric .value{font-size:1.4rem;font-weight:700;color:var(--accent);}
+.metric .sub{font-size:.72rem;color:var(--text-muted);margin-top:2px;}
+
+/* ── TABLES ── */
+.tbl{width:100%;border-collapse:collapse;font-size:.79rem;}
+.tbl th{text-align:left;padding:8px 12px;color:var(--text-muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);}
+.tbl td{padding:8px 12px;border-bottom:1px solid rgba(46,51,82,.5);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(79,142,247,.04);}
+.tbl input,.tbl select,.tbl textarea{background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:4px 8px;font-size:.77rem;width:100%;}
+.tbl input:focus,.tbl select:focus,.tbl textarea:focus{outline:none;border-color:var(--accent);}
+.inp{background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:3px 7px;font-size:.76rem;width:100%;}
+.inp:focus{outline:none;border-color:var(--accent);}
+
+/* ── FORM ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-group{margin-bottom:12px;}
+.form-group label{display:block;font-size:.74rem;color:var(--text-muted);margin-bottom:4px;}
+.form-group input,.form-group textarea,.form-group select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:.8rem;resize:vertical;}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--accent);}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-label{font-size:.8rem;}.toggle-desc{font-size:.7rem;color:var(--text-muted);}
+.toggle{position:relative;display:inline-block;width:38px;height:20px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:20px;transition:.3s;}
+.slider:before{position:absolute;content:"";height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;}
+input:checked+.slider{background:var(--accent);}
+input:checked+.slider:before{transform:translateX(18px);}
+
+/* ── TAGS ── */
+.tag{font-size:.63rem;padding:2px 7px;border-radius:10px;font-weight:600;display:inline-block;}
+.tag-system{background:rgba(79,142,247,.15);color:var(--accent);}
+.tag-custom{background:rgba(46,204,113,.15);color:var(--green);}
+.tag-string{background:rgba(155,89,182,.15);color:var(--purple);}
+.tag-numeric{background:rgba(243,156,18,.15);color:var(--orange);}
+.tag-bool{background:rgba(26,188,156,.15);color:var(--cyan);}
+.tag-datetime{background:rgba(231,76,60,.15);color:var(--red);}
+.tag-image{background:rgba(255,255,255,.08);color:var(--text-muted);}
+.tag-default{background:rgba(79,142,247,.2);color:var(--accent);}
+.tag-released{background:rgba(46,204,113,.2);color:var(--green);}
+.tag-obsolete{background:rgba(231,76,60,.2);color:var(--red);}
+.tag-normal{background:rgba(255,255,255,.06);color:var(--text-muted);}
+.badge{background:var(--accent2);color:#fff;border-radius:20px;padding:2px 10px;font-size:.68rem;font-weight:600;}
+
+/* ── LIFECYCLE EDITOR ── */
+.lc-toolbar{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;align-items:center;}
+.tool-btn{padding:6px 12px;border-radius:5px;border:none;cursor:pointer;font-size:.75rem;font-weight:600;color:var(--text-muted);background:var(--surface2);transition:all .15s;display:flex;align-items:center;gap:4px;}
+.tool-btn:hover{background:var(--border);color:var(--text);}
+.tool-btn.active{background:var(--accent);color:#fff;}
+.tool-sep{width:1px;background:var(--border);margin:0 4px;align-self:stretch;}
+.lc-hint{font-size:.71rem;color:var(--text-muted);padding:5px 0 8px;}
+.lc-layout{display:grid;grid-template-columns:210px 1fr 250px;height:540px;}
+.lc-sidebar{background:var(--surface2);border:1px solid var(--border);border-radius:8px 0 0 8px;overflow-y:auto;padding:12px;}
+.lc-sidebar h4{font-size:.68rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:10px;}
+.lc-canvas-wrap{position:relative;overflow:hidden;background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+#lc-canvas-bg{position:absolute;inset:0;pointer-events:none;}
+#lc-svg{position:absolute;inset:0;width:100%;height:100%;}
+.lc-right{background:var(--surface2);border:1px solid var(--border);border-radius:0 8px 8px 0;overflow-y:auto;padding:12px;}
+.lc-right h4{font-size:.68rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-muted);margin-bottom:10px;}
+
+.state-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:all .15s;position:relative;}
+.state-card:hover,.state-card.active{border-color:var(--accent);}
+.state-card .sh{display:flex;align-items:center;gap:7px;}
+.state-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.state-name-t{font-size:.78rem;font-weight:600;flex:1;}
+.state-badges{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;}
+.sc-actions{position:absolute;top:5px;right:5px;display:flex;gap:2px;opacity:0;transition:opacity .15s;}
+.state-card:hover .sc-actions{opacity:1;}
+
+.detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--text-muted);}
+.detail-empty .icon{font-size:1.8rem;margin-bottom:8px;}
+.dp-title{font-size:.9rem;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:6px;}
+.dp-sub{font-size:.72rem;color:var(--text-muted);margin-bottom:12px;}
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:12px;margin-bottom:10px;}
+.section-card h5{font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;}
+.fg{margin-bottom:9px;}
+.fg label{display:block;font-size:.72rem;color:var(--text-muted);margin-bottom:3px;}
+.fg input,.fg textarea,.fg select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:5px 8px;font-size:.77rem;}
+.fg input:focus,.fg textarea:focus,.fg select:focus{outline:none;border-color:var(--accent);}
+.color-row{display:flex;align-items:center;gap:7px;}
+.color-row input[type="color"]{width:30px;height:26px;border:none;border-radius:4px;cursor:pointer;background:none;padding:0;}
+.comments-list{list-style:none;display:flex;flex-direction:column;gap:4px;margin-bottom:6px;}
+.comment-item{display:flex;align-items:center;gap:5px;background:var(--bg);border-radius:4px;padding:4px 7px;border:1px solid var(--border);}
+.comment-item input{flex:1;background:transparent;border:none;color:var(--text);font-size:.76rem;}
+.comment-item input:focus{outline:none;}
+.trans-row{display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid rgba(46,51,82,.5);font-size:.76rem;}
+.trans-row:last-child{border-bottom:none;}
+.wp-list{list-style:none;display:flex;flex-direction:column;gap:3px;margin-bottom:6px;}
+.wp-item{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:.73rem;}
+.wp-item span{flex:1;color:var(--text-muted);font-family:monospace;}
+.wp-num{width:54px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:2px 5px;font-size:.72rem;}
+.wp-num:focus{outline:none;border-color:var(--accent);}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:22px;width:400px;max-width:95vw;box-shadow:var(--shadow);}
+.modal h3{font-size:.9rem;margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+/* ── NOTIF ── */
+.notif{position:fixed;bottom:18px;right:18px;background:var(--green);color:#fff;padding:9px 16px;border-radius:7px;font-size:.78rem;font-weight:600;box-shadow:var(--shadow);z-index:300;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;}
+.notif.show{opacity:1;transform:translateY(0);}
+
+.search-bar{display:flex;gap:8px;margin-bottom:14px;}
+.search-bar input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 12px;font-size:.8rem;}
+.search-bar input:focus{outline:none;border-color:var(--accent);}
+.search-bar select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.78rem;}
+
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ═══════════════════════════════════════════════════════════════
+   PRINT / PDF  — multipage documentation output
+   The on-screen app is hidden; #print-root is shown.
+═══════════════════════════════════════════════════════════════ */
+#print-root{display:none;}
+@page{size:A4 portrait;margin:14mm 12mm;}
+@media print{
+  html,body{background:#fff!important;color:#111!important;overflow:visible!important;height:auto!important;}
+  .shell,.modal-overlay,.notif{display:none!important;}
+  #print-root{display:block!important;}
+  .pr-cover{display:flex;flex-direction:column;justify-content:center;min-height:88vh;page-break-after:always;}
+  .pr-cover h1{font-size:30px;color:#1a4f9c;margin-bottom:6px;}
+  .pr-cover .sub{font-size:13px;color:#555;margin-bottom:30px;}
+  .pr-cover table{font-size:13px;border-collapse:collapse;}
+  .pr-cover table td{padding:5px 14px 5px 0;vertical-align:top;}
+  .pr-cover table td:first-child{color:#666;font-weight:600;white-space:nowrap;}
+  .pr-section{page-break-before:always;}
+  .pr-section:first-of-type{page-break-before:avoid;}
+  .pr-h2{font-size:18px;color:#1a4f9c;border-bottom:2px solid #1a4f9c;padding-bottom:5px;margin:0 0 4px;}
+  .pr-h2-sub{font-size:11px;color:#666;margin-bottom:14px;}
+  .pr-h3{font-size:13px;color:#222;margin:18px 0 7px;font-weight:700;}
+  .pr-lc{page-break-before:always;}
+  .pr-lc-head{font-size:15px;color:#1a4f9c;font-weight:700;margin-bottom:2px;}
+  .pr-lc-desc{font-size:11px;color:#555;margin-bottom:10px;}
+  .pr-diagram{border:1px solid #ccc;border-radius:6px;margin-bottom:14px;background:#fff;page-break-inside:avoid;}
+  table.pr-tbl{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:14px;page-break-inside:auto;}
+  table.pr-tbl th{background:#eef3fb;color:#1a4f9c;text-align:left;padding:5px 7px;border:1px solid #cdd7e6;font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;}
+  table.pr-tbl td{padding:4px 7px;border:1px solid #d9dee8;vertical-align:top;}
+  table.pr-tbl tr{page-break-inside:avoid;}
+  .pr-matrix td,.pr-matrix th{text-align:center;font-size:9px;padding:3px 5px;}
+  .pr-matrix td.rowhdr,.pr-matrix th.colhdr{font-weight:700;background:#f4f6fb;}
+  .pr-yes{color:#1a7a3a;font-weight:700;}
+  .pr-pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700;border:1px solid #bbb;}
+  .pr-kv{font-size:11px;width:100%;border-collapse:collapse;}
+  .pr-kv td{padding:4px 8px;border:1px solid #d9dee8;}
+  .pr-kv td:first-child{color:#555;width:40%;background:#f7f9fc;font-weight:600;}
+  .pr-note{font-size:11px;white-space:pre-wrap;line-height:1.5;}
+  .pr-foot{font-size:9px;color:#999;text-align:center;margin-top:8px;}
+  .pr-swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ APP SHELL ═══════════════════════ -->
+<div class="shell">
+<div class="topbar">
+  <div class="topbar-left">
+    <div>
+      <h1>⚙️ Vault Pro Configuration Dashboard</h1>
+      <p>Autodesk Vault · Configuration Reference · Last updated: <span id="last-updated"></span></p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge" id="vault-name-badge">Vault</span>
+    <button class="btn btn-ghost" onclick="exportAllJSON()">⬇ Export JSON</button>
+    <button class="btn btn-warn" onclick="printDoc()">🖨 Print / PDF</button>
+    <button class="btn btn-success" onclick="notify('Configuration saved!')">💾 Save</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-section">Overview</div>
+  <div class="nav-item active" onclick="showPage('overview')" id="nav-overview"><span class="ni">🏠</span> Overview</div>
+
+  <div class="nav-section">Behaviors</div>
+  <div class="nav-item" onclick="showPage('lifecycles')" id="nav-lifecycles"><span class="ni">🔄</span> Lifecycles</div>
+  <div class="nav-item" onclick="showPage('categories')" id="nav-categories"><span class="ni">🏷</span> Categories</div>
+  <div class="nav-item" onclick="showPage('revisions')" id="nav-revisions"><span class="ni">📋</span> Revision Schemes</div>
+
+  <div class="nav-section">Properties</div>
+  <div class="nav-item" onclick="showPage('properties')" id="nav-properties"><span class="ni">🔑</span> Property Definitions</div>
+
+  <div class="nav-section">Structure</div>
+  <div class="nav-item" onclick="showPage('folders')" id="nav-folders"><span class="ni">📁</span> Folder Structure</div>
+  <div class="nav-item" onclick="showPage('items')" id="nav-items"><span class="ni">📦</span> Items</div>
+
+  <div class="nav-section">Settings</div>
+  <div class="nav-item" onclick="showPage('general')" id="nav-general"><span class="ni">⚙️</span> General Settings</div>
+  <div class="nav-item" onclick="showPage('notes')" id="nav-notes"><span class="ni">📝</span> Notes &amp; Change Log</div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- OVERVIEW -->
+<div class="page active" id="page-overview">
+  <div class="page-title">Vault Configuration Overview</div>
+  <div class="page-sub">Summary of all configuration settings captured for this Vault instance.</div>
+
+  <div class="card">
+    <h3>Vault Details</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Vault Name</label><input id="cfg-vault-name" value="Vault" oninput="updateBadge()"/></div>
+      <div class="form-group"><label>Server</label><input id="cfg-server" value="localhost"/></div>
+      <div class="form-group"><label>Vault Version</label><input id="cfg-version" placeholder="e.g. 2025.1"/></div>
+      <div class="form-group"><label>Administrator</label><input id="cfg-admin" value="Administrator"/></div>
+      <div class="form-group"><label>Organization / Client</label><input id="cfg-org" placeholder="Client / company name"/></div>
+      <div class="form-group"><label>Document Date</label><input id="cfg-date" type="date"/></div>
+      <div class="form-group"><label>Prepared By (Consultant)</label><input id="cfg-consultant" placeholder="Your name"/></div>
+      <div class="form-group"><label>Document Revision</label><input id="cfg-docrev" value="1.0"/></div>
+    </div>
+    <div class="form-group"><label>Summary Notes</label><textarea id="cfg-notes" rows="2" placeholder="General notes about this Vault configuration..."></textarea></div>
+  </div>
+
+  <div class="card-grid">
+    <div class="metric"><div class="label">Property Definitions</div><div class="value" id="ov-props">0</div><div class="sub">System + Custom</div></div>
+    <div class="metric"><div class="label">Lifecycles</div><div class="value" id="ov-lc">0</div><div class="sub">Defined workflows</div></div>
+    <div class="metric"><div class="label">Categories</div><div class="value" id="ov-cats">0</div><div class="sub">Assignment rules</div></div>
+    <div class="metric"><div class="label">Folders</div><div class="value" id="ov-folders">0</div><div class="sub">Tracked folders</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Quick Reference — Property Definitions</h3>
+    <div class="search-bar"><input placeholder="🔍 Filter properties..." oninput="filterProps(this.value,'ov-prop-tbl')"/></div>
+    <table class="tbl" id="ov-prop-tbl">
+      <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th></tr></thead>
+      <tbody id="ov-prop-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- LIFECYCLES -->
+<div class="page" id="page-lifecycles">
+  <div class="page-title">Lifecycle Definitions</div>
+  <div class="page-sub">View and edit lifecycle workflows. Select a lifecycle to open the interactive flowchart editor — add/remove states (nodes) and transition arrows, and bend connectors with waypoints.</div>
+
+  <div class="card">
+    <h3>Defined Lifecycles</h3>
+    <table class="tbl" id="lc-list-tbl">
+      <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>States</th><th>Transitions</th><th></th></tr></thead>
+      <tbody id="lc-list-tbody"></tbody>
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px;">
+      <button class="btn btn-primary" onclick="addLifecycle()">+ Add Lifecycle</button>
+    </div>
+  </div>
+
+  <!-- EDITOR -->
+  <div class="card" id="lc-editor-card" style="display:none">
+    <h3 id="lc-editor-title">Lifecycle Editor</h3>
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;flex:1;min-width:180px"><label>Name</label><input id="lc-edit-name" oninput="lcUpdateMeta()"/></div>
+      <div class="form-group" style="margin:0;flex:2;min-width:220px"><label>Description</label><input id="lc-edit-desc" oninput="lcUpdateMeta()"/></div>
+      <button class="btn btn-ghost btn-sm" onclick="closeLCEditor()">✕ Close</button>
+    </div>
+
+    <div class="lc-toolbar">
+      <button class="tool-btn active" id="lc-tool-select"       onclick="lcSetTool('select')">🖱 Select</button>
+      <button class="tool-btn"        id="lc-tool-connect"      onclick="lcSetTool('connect')">➡ Connect</button>
+      <button class="tool-btn"        id="lc-tool-waypoint"     onclick="lcSetTool('waypoint')">📍 Waypoints</button>
+      <button class="tool-btn"        id="lc-tool-delete-arrow" onclick="lcSetTool('delete-arrow')">✂ Remove Arrow</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" onclick="openAddStateModal()">+ Add State</button>
+      <button class="tool-btn" onclick="lcAutoLayout()">↺ Auto Layout</button>
+      <button class="tool-btn" onclick="lcZoomFit()">⤢ Fit</button>
+    </div>
+    <div class="lc-hint" id="lc-hint">🖱 Drag states · Click arrows to inspect · Drag empty space to pan · Scroll to zoom</div>
+
+    <div class="lc-layout">
+      <div class="lc-sidebar">
+        <h4>States</h4>
+        <div id="lc-states-list"></div>
+      </div>
+      <div class="lc-canvas-wrap" id="lc-canvas-wrap">
+        <canvas id="lc-canvas-bg"></canvas>
+        <svg id="lc-svg"></svg>
+      </div>
+      <div class="lc-right">
+        <div id="lc-right-empty" class="detail-empty">
+          <div class="icon">🔍</div>
+          <div style="font-size:.78rem">Click a state or arrow<br>to edit its details.</div>
+        </div>
+        <div id="lc-right-detail" style="display:none"></div>
+        <div id="lc-right-trans"  style="display:none"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="lcExportJSON()">⬇ Export This Lifecycle</button>
+      <button class="btn btn-ghost"   onclick="lcImportJSON()">⬆ Import JSON</button>
+      <button class="btn btn-danger"  onclick="deleteLifecycle()">🗑 Delete Lifecycle</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORIES -->
+<div class="page" id="page-categories">
+  <div class="page-title">Categories</div>
+  <div class="page-sub">File, folder, item, and change order categories and their assigned lifecycle / revision schemes.</div>
+  <div class="card">
+    <h3>Category Definitions</h3>
+    <table class="tbl" id="cat-tbl">
+      <thead><tr><th>Name</th><th>Entity Type</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="cat-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add Category</button></div>
+  </div>
+</div>
+
+<!-- REVISIONS -->
+<div class="page" id="page-revisions">
+  <div class="page-title">Revision Schemes</div>
+  <div class="page-sub">Revision numbering schemes used across lifecycle and category definitions.</div>
+  <div class="card">
+    <h3>Revision Schemes</h3>
+    <table class="tbl" id="rev-tbl">
+      <thead><tr><th>Name</th><th>Format</th><th>Primary Sequence</th><th>Secondary Sequence</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="rev-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRevision()">+ Add Scheme</button></div>
+  </div>
+</div>
+
+<!-- PROPERTIES -->
+<div class="page" id="page-properties">
+  <div class="page-title">Property Definitions</div>
+  <div class="page-sub">All system and custom property definitions captured from Vault.</div>
+  <div class="card">
+    <h3>All Properties <span class="badge" id="prop-count-badge">0</span></h3>
+    <div class="search-bar">
+      <input placeholder="🔍 Filter by name, system name, or type..." oninput="filterProps(this.value,'prop-tbl')"/>
+      <select id="prop-filter-type" onchange="reFilterProps()">
+        <option value="">All Types</option><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option><option>Image</option>
+      </select>
+      <select id="prop-filter-src" onchange="reFilterProps()">
+        <option value="">All Sources</option><option>System</option><option>Custom</option>
+      </select>
+    </div>
+    <table class="tbl" id="prop-tbl">
+      <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th></tr></thead>
+      <tbody id="prop-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FOLDERS -->
+<div class="page" id="page-folders">
+  <div class="page-title">Folder Structure</div>
+  <div class="page-sub">Top-level and key folders in the Vault. Edit names and add notes inline.</div>
+  <div class="card">
+    <h3>Folder List <span class="badge" id="folder-count-badge">0</span></h3>
+    <div class="search-bar"><input placeholder="🔍 Filter folders..." oninput="filterFolders(this.value)"/></div>
+    <table class="tbl" id="folder-tbl">
+      <thead><tr><th>ID</th><th>Name</th><th>Created By</th><th>Created Date</th><th>Notes</th></tr></thead>
+      <tbody id="folder-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ITEMS -->
+<div class="page" id="page-items">
+  <div class="page-title">Items</div>
+  <div class="page-sub">Items tracked in Vault.</div>
+  <div class="card">
+    <h3>Item List</h3>
+    <table class="tbl" id="item-tbl">
+      <thead><tr><th>ID</th><th>Name</th><th>Entity Type</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="item-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addItem()">+ Add Item</button></div>
+  </div>
+</div>
+
+<!-- GENERAL -->
+<div class="page" id="page-general">
+  <div class="page-title">General Settings</div>
+  <div class="page-sub">Document general Vault configuration settings below.</div>
+  <div class="card">
+    <h3>File Handling</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Working Folder</label><input id="gs-working" placeholder="e.g. C:\Vault Working Folder"/></div>
+      <div class="form-group"><label>Workspace</label><input id="gs-workspace" placeholder="e.g. $/Designs"/></div>
+      <div class="form-group"><label>Max File Size (MB)</label><input id="gs-maxsize" type="number" placeholder="e.g. 500"/></div>
+      <div class="form-group"><label>Visualization Attachment</label><select id="gs-visatt"><option>System</option><option>User</option><option>None</option></select></div>
+    </div>
+    <div class="toggle-row"><div><div class="toggle-label">Auto-create Visualization Attachments</div><div class="toggle-desc">Automatically generate DWF/DWFx on check-in</div></div><label class="toggle"><input type="checkbox" id="gs-autoviz" checked><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="toggle-label">Enforce Unique File Names</div><div class="toggle-desc">Prevent duplicate file names across vault</div></div><label class="toggle"><input type="checkbox" id="gs-unique"><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="toggle-label">Enable Change Orders</div><div class="toggle-desc">Allow change order workflows</div></div><label class="toggle"><input type="checkbox" id="gs-eco" checked><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="toggle-label">Enable Item Master</div><div class="toggle-desc">Track items independently of files</div></div><label class="toggle"><input type="checkbox" id="gs-item" checked><span class="slider"></span></label></div>
+  </div>
+  <div class="card">
+    <h3>Security &amp; Access</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Authentication Mode</label><select id="gs-auth"><option>Vault</option><option>Windows</option><option>Mixed</option><option>Autodesk ID (SSO)</option></select></div>
+      <div class="form-group"><label>Session Timeout (min)</label><input id="gs-timeout" type="number" placeholder="e.g. 60"/></div>
+    </div>
+    <div class="toggle-row"><div><div class="toggle-label">Require Check-out to Edit</div><div class="toggle-desc">Files must be checked out before editing</div></div><label class="toggle"><input type="checkbox" id="gs-checkout" checked><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="toggle-label">Allow Multiple Check-outs</div><div class="toggle-desc">Multiple users can check out the same file</div></div><label class="toggle"><input type="checkbox" id="gs-multi"><span class="slider"></span></label></div>
+  </div>
+  <div class="card">
+    <h3>Numbering Schemes</h3>
+    <table class="tbl" id="num-tbl">
+      <thead><tr><th>Entity</th><th>Scheme</th><th>Prefix</th><th>Start Number</th><th>Increment</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="num-tbody"></tbody>
+    </table>
+    <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="addNumRow()">+ Add Row</button></div>
+  </div>
+</div>
+
+<!-- NOTES -->
+<div class="page" id="page-notes">
+  <div class="page-title">Notes &amp; Change Log</div>
+  <div class="page-sub">Free-form notes and a change log for this Vault configuration document.</div>
+  <div class="card">
+    <h3>Change Log</h3>
+    <table class="tbl" id="changelog-tbl">
+      <thead><tr><th>Date</th><th>Author</th><th>Section</th><th>Description</th><th></th></tr></thead>
+      <tbody id="changelog-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addChangeLog()">+ Add Entry</button></div>
+  </div>
+  <div class="card">
+    <h3>General Notes</h3>
+    <textarea id="general-notes" rows="10" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-size:.8rem;resize:vertical" placeholder="Document any additional configuration notes, decisions, or context here..."></textarea>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- PRINT ROOT (populated on demand) -->
+<div id="print-root"></div>
+
+<!-- ADD STATE MODAL -->
+<div class="modal-overlay" id="add-state-modal">
+  <div class="modal">
+    <h3>➕ Add New State</h3>
+    <div class="form-group"><label>Name</label><input id="ns-name" placeholder="e.g. Pre-Release"/></div>
+    <div class="form-group"><label>Description</label><textarea id="ns-desc" rows="2" placeholder="Brief description..."></textarea></div>
+    <div class="grid2">
+      <div class="form-group"><label>Color</label>
+        <div class="color-row"><input type="color" id="ns-color" value="#4f8ef7" oninput="document.getElementById('ns-hex').textContent=this.value"/><span id="ns-hex" style="font-size:.75rem;color:var(--text-muted)">#4f8ef7</span></div>
+      </div>
+      <div class="form-group"><label>Type</label>
+        <select id="ns-type"><option value="normal">Normal</option><option value="released">Released</option><option value="obsolete">Obsolete</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+      <button class="btn btn-ghost" onclick="closeAddStateModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="lcAddState()">Add State</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal" style="width:520px">
+    <h3>⬆ Import Lifecycle JSON</h3>
+    <div class="form-group"><label>Paste JSON</label><textarea id="import-json-txt" rows="10" style="font-family:monospace;font-size:.73rem" placeholder='Paste lifecycle JSON here...'></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="document.getElementById('import-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="doImportJSON()">Import</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif">✅ Done</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  SEED DATA
+// ═══════════════════════════════════════════════════════════════
+const PROPS = [{"Id":"1","DisplayName":"Classification","SystemName":"Classification","DataType":"String","IsSystem":true,"Active":true},{"Id":"2","DisplayName":"Version","SystemName":"VersionNumber","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"3","DisplayName":"Comment","SystemName":"Comment","DataType":"String","IsSystem":true,"Active":true},{"Id":"5","DisplayName":"Date Version Created","SystemName":"DateVersionCreated","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"6","DisplayName":"Created By","SystemName":"CreateUserName","DataType":"String","IsSystem":true,"Active":true},{"Id":"7","DisplayName":"Create Date","SystemName":"CreateDate","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"9","DisplayName":"File Name","SystemName":"ClientFileName","DataType":"String","IsSystem":true,"Active":true},{"Id":"12","DisplayName":"File Size","SystemName":"FileSize","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"13","DisplayName":"Linked to Item","SystemName":"ItemLinked","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"20","DisplayName":"Latest Version","SystemName":"LatestVersion","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"26","DisplayName":"Thumbnail","SystemName":"Thumbnail","DataType":"Image","IsSystem":true,"Active":true},{"Id":"30","DisplayName":"Name","SystemName":"Name","DataType":"String","IsSystem":true,"Active":true},{"Id":"48","DisplayName":"Category Name","SystemName":"CategoryName","DataType":"String","IsSystem":true,"Active":true},{"Id":"52","DisplayName":"Lifecycle Definition","SystemName":"LifeCycleDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"54","DisplayName":"State","SystemName":"State","DataType":"String","IsSystem":true,"Active":true},{"Id":"58","DisplayName":"Revision Scheme","SystemName":"RevisionDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"60","DisplayName":"Revision","SystemName":"Revision","DataType":"String","IsSystem":true,"Active":true},{"Id":"62","DisplayName":"Number","SystemName":"Number","DataType":"String","IsSystem":true,"Active":true},{"Id":"92","DisplayName":"Author","SystemName":"Author","DataType":"String","IsSystem":false,"Active":true},{"Id":"97","DisplayName":"Title","SystemName":"Title","DataType":"String","IsSystem":false,"Active":true},{"Id":"98","DisplayName":"Company","SystemName":"Company","DataType":"String","IsSystem":false,"Active":true},{"Id":"105","DisplayName":"Description","SystemName":"Description","DataType":"String","IsSystem":false,"Active":true},{"Id":"106","DisplayName":"Material","SystemName":"Material","DataType":"String","IsSystem":false,"Active":true},{"Id":"107","DisplayName":"Part Number","SystemName":"PartNumber","DataType":"String","IsSystem":false,"Active":true},{"Id":"111","DisplayName":"Designer","SystemName":"Designer","DataType":"String","IsSystem":false,"Active":true},{"Id":"112","DisplayName":"Engineer","SystemName":"Engineer","DataType":"String","IsSystem":false,"Active":true},{"Id":"116","DisplayName":"Project","SystemName":"Project","DataType":"String","IsSystem":false,"Active":true}];
+
+const FOLDERS = [{"id":"12","name":"Designs","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"11","name":"CAD Support","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"475","name":"Project Sync","createUserName":"Administrator","createDate":"2026-05-27"},{"id":"476","name":"Templates","createUserName":"KG","createDate":"2026-06-02"},{"id":"491","name":"Design Data","createUserName":"KG","createDate":"2026-06-02"},{"id":"494","name":"Configuration","createUserName":"KG","createDate":"2026-06-02"},{"id":"495","name":"Mold Design","createUserName":"KG","createDate":"2026-06-02"},{"id":"497","name":"Cable & Harness","createUserName":"KG","createDate":"2026-06-02"}];
+
+let ITEMS = [{id:"471",name:"Part1",entity:"ItemVersion",notes:""},{id:"450",name:"Part B",entity:"ItemVersion",notes:""},{id:"397",name:"Assembly 1",entity:"ItemVersion",notes:""},{id:"396",name:"Part A",entity:"ItemVersion",notes:""}];
+
+let CATEGORIES=[
+  {name:"Base",entity:"File",lifecycle:"",revision:"",notes:"Default file category"},
+  {name:"Engineering",entity:"File",lifecycle:"Flexible Release Process",revision:"Numeric",notes:""},
+  {name:"Folder",entity:"Folder",lifecycle:"",revision:"",notes:"Default folder category"},
+  {name:"Item",entity:"Item",lifecycle:"Item Release Process",revision:"Numeric",notes:""}
+];
+
+let REVISIONS=[
+  {name:"Numeric",format:"Sequential",primary:"1,2,3...",secondary:"",notes:"Default numeric scheme"},
+  {name:"Alphabetic",format:"Sequential",primary:"A,B,C...",secondary:"",notes:""},
+  {name:"Alpha-Numeric",format:"Combined",primary:"A,B,C...",secondary:"1,2,3...",notes:""}
+];
+
+let NUMBERING=[
+  {entity:"Item",scheme:"Sequential",prefix:"ITM-",start:"1000",inc:"1",notes:""},
+  {entity:"Change Order",scheme:"Sequential",prefix:"CO-",start:"1000",inc:"1",notes:""}
+];
+
+let CHANGELOG=[];
+
+// Lifecycle data
+let LIFECYCLES = [
+  {id:1,name:"Basic Release Process",description:"Basic manufacturing lifecycle process for release control",
+   states:[
+     {id:1,name:"Work in Progress",description:"State for free-form design creation and modifications",comments:["Available for editing","Change request"],isDefault:true,isReleasedState:false,isObsoleteState:false,color:"#f39c12",x:120,y:200},
+     {id:2,name:"For Review",description:"State for targeted design and change reviews",comments:["Under review","Submit for pre-release","Change request"],isDefault:false,isReleasedState:false,isObsoleteState:false,color:"#4f8ef7",x:380,y:120},
+     {id:3,name:"Released",description:"State for controlling access and modifications",comments:["Released to manufacturing"],isDefault:false,isReleasedState:true,isObsoleteState:false,color:"#2ecc71",x:620,y:200},
+     {id:4,name:"Obsolete",description:"State for retirement",comments:["No longer in production"],isDefault:false,isReleasedState:false,isObsoleteState:true,color:"#e74c3c",x:380,y:320}
+   ],
+   transitions:[
+     {id:1,from:1,to:2,waypoints:[]},{id:3,from:1,to:3,waypoints:[]},{id:2,from:1,to:4,waypoints:[]},
+     {id:4,from:2,to:1,waypoints:[]},{id:6,from:2,to:3,waypoints:[]},{id:5,from:2,to:4,waypoints:[]},
+     {id:7,from:3,to:1,waypoints:[]},{id:8,from:3,to:2,waypoints:[]},{id:9,from:3,to:4,waypoints:[]},
+     {id:10,from:4,to:1,waypoints:[]},{id:11,from:4,to:2,waypoints:[]},{id:12,from:4,to:3,waypoints:[]}
+   ]},
+  {id:2,name:"Flexible Release Process",description:"Flexible manufacturing lifecycle process for release control",
+   states:[
+     {id:5,name:"Work in Progress",description:"State for free-form design creation and modifications",comments:["Available for editing","Change request"],isDefault:true,isReleasedState:false,isObsoleteState:false,color:"#f39c12",x:120,y:200},
+     {id:6,name:"For Review",description:"State for targeted design reviews",comments:["Under review","Submit for pre-release","Change request"],isDefault:false,isReleasedState:false,isObsoleteState:false,color:"#4f8ef7",x:380,y:100},
+     {id:7,name:"Released",description:"State for controlling access and modifications",comments:["Released to manufacturing"],isDefault:false,isReleasedState:true,isObsoleteState:false,color:"#2ecc71",x:640,y:200},
+     {id:8,name:"Quick-Change",description:"State for controlling access and modifications",comments:["For Quick Change"],isDefault:false,isReleasedState:false,isObsoleteState:false,color:"#9b59b6",x:380,y:340},
+     {id:9,name:"Obsolete",description:"State for retirement",comments:["No longer in production"],isDefault:false,isReleasedState:false,isObsoleteState:true,color:"#e74c3c",x:640,y:420}
+   ],
+   transitions:[
+     {id:13,from:5,to:6,waypoints:[]},{id:15,from:5,to:7,waypoints:[]},{id:16,from:5,to:8,waypoints:[]},{id:14,from:5,to:9,waypoints:[]},
+     {id:17,from:6,to:5,waypoints:[]},{id:19,from:6,to:7,waypoints:[]},{id:20,from:6,to:8,waypoints:[]},{id:18,from:6,to:9,waypoints:[]},
+     {id:21,from:7,to:5,waypoints:[]},{id:22,from:7,to:6,waypoints:[]},{id:24,from:7,to:8,waypoints:[]},{id:23,from:7,to:9,waypoints:[]},
+     {id:29,from:8,to:5,waypoints:[]},{id:30,from:8,to:6,waypoints:[]},{id:31,from:8,to:7,waypoints:[]},{id:32,from:8,to:9,waypoints:[]},
+     {id:25,from:9,to:5,waypoints:[]},{id:26,from:9,to:6,waypoints:[]},{id:27,from:9,to:7,waypoints:[]},{id:28,from:9,to:8,waypoints:[]}
+   ]},
+  {id:3,name:"Simple Release Process",description:"Simple lifecycle process for document control",
+   states:[
+     {id:10,name:"Work in Progress",description:"State for free-form design creation and modifications",comments:["Available for editing","Change request"],isDefault:true,isReleasedState:false,isObsoleteState:false,color:"#f39c12",x:180,y:200},
+     {id:11,name:"Released",description:"State for controlling access and modifications",comments:["Released to manufacturing"],isDefault:false,isReleasedState:true,isObsoleteState:false,color:"#2ecc71",x:500,y:200}
+   ],
+   transitions:[{id:33,from:10,to:11,waypoints:[]},{id:34,from:11,to:10,waypoints:[]}]},
+  {id:7,name:"Item Release Process",description:"Item lifecycle process for release control",
+   states:[
+     {id:27,name:"Work in Progress",description:"Item is available for editing",comments:["Available for editing"],isDefault:true,isReleasedState:false,isObsoleteState:false,color:"#f39c12",x:120,y:200},
+     {id:28,name:"In Review",description:"Item is awaiting further action",comments:["In review"],isDefault:false,isReleasedState:false,isObsoleteState:false,color:"#4f8ef7",x:380,y:100},
+     {id:29,name:"Released",description:"Item is ready for production",comments:["Released to manufacturing"],isDefault:false,isReleasedState:true,isObsoleteState:false,color:"#2ecc71",x:620,y:200},
+     {id:30,name:"Quick-Change",description:"State for controlling Item access and modifications",comments:["For Quick Change"],isDefault:false,isReleasedState:false,isObsoleteState:false,color:"#9b59b6",x:380,y:340},
+     {id:31,name:"Obsolete",description:"Item is no longer used in active production",comments:["No longer in production"],isDefault:false,isReleasedState:false,isObsoleteState:true,color:"#e74c3c",x:620,y:380}
+   ],
+   transitions:[
+     {id:101,from:27,to:28,waypoints:[]},{id:103,from:27,to:29,waypoints:[]},{id:104,from:27,to:30,waypoints:[]},{id:102,from:27,to:31,waypoints:[]},
+     {id:105,from:28,to:27,waypoints:[]},{id:107,from:28,to:29,waypoints:[]},{id:108,from:28,to:30,waypoints:[]},{id:106,from:28,to:31,waypoints:[]},
+     {id:109,from:29,to:27,waypoints:[]},{id:110,from:29,to:28,waypoints:[]},{id:112,from:29,to:30,waypoints:[]},{id:111,from:29,to:31,waypoints:[]},
+     {id:117,from:30,to:27,waypoints:[]},{id:118,from:30,to:28,waypoints:[]},{id:120,from:30,to:29,waypoints:[]},{id:119,from:30,to:31,waypoints:[]},
+     {id:113,from:31,to:27,waypoints:[]},{id:114,from:31,to:28,waypoints:[]},{id:115,from:31,to:29,waypoints:[]},{id:116,from:31,to:30,waypoints:[]}
+   ]}
+];
+
+// Editor state
+let activeLCId=null, lcNextId=600, lcStateNextId=900;
+let lcSelectedStateId=null, lcSelectedTransId=null;
+let lcTool='select', lcConnectFrom=null;
+let lcDragging=null, lcDragOffX=0, lcDragOffY=0, lcDraggingWP=null;
+let lcPanning=false, lcPanStartX=0, lcPanStartY=0, lcPanCamX=0, lcPanCamY=0;
+let lcCamX=0, lcCamY=0, lcCamZ=1, lcTempLine=null;
+const NW=148, NH=46, NR=10;
+const SVGNS='http://www.w3.org/2000/svg';
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function activeLC(){return LIFECYCLES.find(x=>x.id===activeLCId);}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('last-updated').textContent=new Date().toLocaleDateString();
+  document.getElementById('cfg-date').value=new Date().toISOString().split('T')[0];
+  renderPropsTable('ov-prop-tbody',PROPS,true);
+  renderPropsTable('prop-tbody',PROPS,false);
+  renderLCList(); renderFolders(); renderCategories(); renderRevisions();
+  renderItems(); renderNumbering(); renderChangeLog();
+  updateMetrics();
+  document.getElementById('prop-count-badge').textContent=PROPS.length;
+  document.getElementById('folder-count-badge').textContent=FOLDERS.length;
+});
+window.addEventListener('resize',()=>{ if(activeLCId!==null){lcResizeCanvas();lcDraw();} });
+
+function updateMetrics(){
+  document.getElementById('ov-props').textContent=PROPS.length;
+  document.getElementById('ov-lc').textContent=LIFECYCLES.length;
+  document.getElementById('ov-cats').textContent=CATEGORIES.length;
+  document.getElementById('ov-folders').textContent=FOLDERS.length;
+}
+function updateBadge(){ document.getElementById('vault-name-badge').textContent=document.getElementById('cfg-vault-name').value||'Vault'; }
+
+// ═══════════════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════════════
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  if(id==='lifecycles'&&activeLCId!==null){ setTimeout(()=>{lcResizeCanvas();lcDraw();},50); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PROPERTIES
+// ═══════════════════════════════════════════════════════════════
+function renderPropsTable(tbodyId,data,compact){
+  const tb=document.getElementById(tbodyId); if(!tb)return; tb.innerHTML='';
+  data.forEach(p=>{
+    const tr=document.createElement('tr');
+    const dt=`<span class="tag tag-${p.DataType.toLowerCase()}">${esc(p.DataType)}</span>`;
+    const src=p.IsSystem?'<span class="tag tag-system">System</span>':'<span class="tag tag-custom">Custom</span>';
+    if(compact){
+      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>`;
+    }else{
+      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>
+        <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}">${p.Active?'Yes':'No'}</span></td>
+        <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}" onchange="p.notes=this.value"/></td>`;
+      // bind note back to object
+      const inp=tr.querySelector('input');
+      inp.onchange=()=>{p.notes=inp.value;};
+    }
+    tb.appendChild(tr);
+  });
+}
+function reFilterProps(){ filterProps(document.querySelector('#page-properties .search-bar input').value,'prop-tbl'); }
+function filterProps(val,tblId){
+  const typeF=document.getElementById('prop-filter-type')?.value||'';
+  const srcF=document.getElementById('prop-filter-src')?.value||'';
+  const v=(val||'').toLowerCase();
+  document.getElementById(tblId)?.querySelectorAll('tbody tr').forEach(r=>{
+    const txt=r.textContent.toLowerCase();
+    const tm=!typeF||txt.includes(typeF.toLowerCase());
+    const sm=!srcF||txt.includes(srcF.toLowerCase());
+    r.style.display=(txt.includes(v)&&tm&&sm)?'':'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FOLDERS / ITEMS
+// ═══════════════════════════════════════════════════════════════
+function renderFolders(){
+  const tb=document.getElementById('folder-tbody'); if(!tb)return; tb.innerHTML='';
+  FOLDERS.forEach(f=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--text-muted)">${esc(f.id)}</td>
+      <td><input class="inp" value="${esc(f.name)}" onchange="f.name=this.value"/></td>
+      <td>${esc(f.createUserName||'')}</td><td>${esc(f.createDate||'')}</td>
+      <td><input class="inp" placeholder="Notes..." value="${esc(f.notes||'')}"/></td>`;
+    tr.querySelector('input').onchange=e=>f.name=e.target.value;
+    tr.querySelectorAll('input')[1].onchange=e=>f.notes=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function filterFolders(v){ document.querySelectorAll('#folder-tbody tr').forEach(r=>{ r.style.display=r.textContent.toLowerCase().includes((v||'').toLowerCase())?'':'none'; }); }
+
+function renderItems(){
+  const tb=document.getElementById('item-tbody'); if(!tb)return; tb.innerHTML='';
+  ITEMS.forEach((it,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--text-muted)">${esc(it.id)}</td>
+      <td><input class="inp" value="${esc(it.name)}"/></td>
+      <td><input class="inp" value="${esc(it.entity)}"/></td>
+      <td><input class="inp" placeholder="Notes..." value="${esc(it.notes||'')}"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="ITEMS.splice(${i},1);renderItems()">✕</button></td>`;
+    const ins=tr.querySelectorAll('input');
+    ins[0].onchange=e=>it.name=e.target.value; ins[1].onchange=e=>it.entity=e.target.value; ins[2].onchange=e=>it.notes=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addItem(){ ITEMS.push({id:'—',name:'New Item',entity:'ItemVersion',notes:''}); renderItems(); }
+
+// ═══════════════════════════════════════════════════════════════
+//  CATEGORIES / REVISIONS / NUMBERING / CHANGELOG
+// ═══════════════════════════════════════════════════════════════
+function lcOptions(sel){ return '<option value="">— None —</option>'+LIFECYCLES.map(l=>`<option ${l.name===sel?'selected':''}>${esc(l.name)}</option>`).join(''); }
+function renderCategories(){
+  const tb=document.getElementById('cat-tbody'); if(!tb)return; tb.innerHTML='';
+  CATEGORIES.forEach((c,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(c.name)}"/></td>
+      <td><select class="inp">${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
+      <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
+      <td><input class="inp" value="${esc(c.revision)}" placeholder="e.g. Numeric"/></td>
+      <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..."/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.entity=e.target.value; el[2].onchange=e=>c.lifecycle=e.target.value; el[3].onchange=e=>c.revision=e.target.value; el[4].onchange=e=>c.notes=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:""}); renderCategories(); updateMetrics(); }
+
+function renderRevisions(){
+  const tb=document.getElementById('rev-tbody'); if(!tb)return; tb.innerHTML='';
+  REVISIONS.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}"/></td><td><input class="inp" value="${esc(r.format)}"/></td>
+      <td><input class="inp" value="${esc(r.primary)}"/></td><td><input class="inp" value="${esc(r.secondary)}"/></td>
+      <td><input class="inp" value="${esc(r.notes)}" placeholder="Notes..."/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="REVISIONS.splice(${i},1);renderRevisions()">✕</button></td>`;
+    const el=tr.querySelectorAll('input');
+    el[0].onchange=e=>r.name=e.target.value; el[1].onchange=e=>r.format=e.target.value; el[2].onchange=e=>r.primary=e.target.value; el[3].onchange=e=>r.secondary=e.target.value; el[4].onchange=e=>r.notes=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addRevision(){ REVISIONS.push({name:"New Scheme",format:"",primary:"",secondary:"",notes:""}); renderRevisions(); }
+
+function renderNumbering(){
+  const tb=document.getElementById('num-tbody'); if(!tb)return; tb.innerHTML='';
+  NUMBERING.forEach((n,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(n.entity)}"/></td><td><input class="inp" value="${esc(n.scheme)}"/></td>
+      <td><input class="inp" value="${esc(n.prefix)}"/></td><td><input class="inp" type="number" value="${esc(n.start)}"/></td>
+      <td><input class="inp" type="number" value="${esc(n.inc)}"/></td><td><input class="inp" value="${esc(n.notes)}" placeholder="Notes..."/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="NUMBERING.splice(${i},1);renderNumbering()">✕</button></td>`;
+    const el=tr.querySelectorAll('input');
+    el[0].onchange=e=>n.entity=e.target.value; el[1].onchange=e=>n.scheme=e.target.value; el[2].onchange=e=>n.prefix=e.target.value; el[3].onchange=e=>n.start=e.target.value; el[4].onchange=e=>n.inc=e.target.value; el[5].onchange=e=>n.notes=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addNumRow(){ NUMBERING.push({entity:"",scheme:"Sequential",prefix:"",start:"1000",inc:"1",notes:""}); renderNumbering(); }
+
+function renderChangeLog(){
+  const tb=document.getElementById('changelog-tbody'); if(!tb)return; tb.innerHTML='';
+  CHANGELOG.forEach((c,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" type="date" value="${esc(c.date)}"/></td><td><input class="inp" value="${esc(c.author)}"/></td>
+      <td><input class="inp" value="${esc(c.section)}"/></td><td><input class="inp" value="${esc(c.desc)}"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="CHANGELOG.splice(${i},1);renderChangeLog()">✕</button></td>`;
+    const el=tr.querySelectorAll('input');
+    el[0].onchange=e=>c.date=e.target.value; el[1].onchange=e=>c.author=e.target.value; el[2].onchange=e=>c.section=e.target.value; el[3].onchange=e=>c.desc=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addChangeLog(){ CHANGELOG.push({date:new Date().toISOString().split('T')[0],author:document.getElementById('cfg-consultant').value||'',section:'',desc:''}); renderChangeLog(); }
+
+// ═══════════════════════════════════════════════════════════════
+//  LIFECYCLE LIST
+// ═══════════════════════════════════════════════════════════════
+function renderLCList(){
+  const tb=document.getElementById('lc-list-tbody'); if(!tb)return; tb.innerHTML='';
+  LIFECYCLES.forEach(lc=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--text-muted)">${lc.id}</td>
+      <td style="font-weight:600">${esc(lc.name)}</td>
+      <td style="color:var(--text-muted);font-size:.76rem">${esc(lc.description)}</td>
+      <td><span class="badge">${lc.states.length}</span></td>
+      <td><span class="badge">${lc.transitions.length}</span></td>
+      <td><button class="btn btn-primary btn-sm" onclick="openLCEditor(${lc.id})">✏ Edit</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function addLifecycle(){
+  const id=lcNextId++;
+  LIFECYCLES.push({id,name:"New Lifecycle",description:"",states:[],transitions:[]});
+  renderLCList(); updateMetrics(); openLCEditor(id); notify('Lifecycle created');
+}
+function deleteLifecycle(){
+  if(activeLCId===null)return;
+  if(!confirm('Delete this entire lifecycle?'))return;
+  LIFECYCLES=LIFECYCLES.filter(l=>l.id!==activeLCId);
+  closeLCEditor(); renderLCList(); updateMetrics(); notify('Lifecycle deleted');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EDITOR OPEN/CLOSE
+// ═══════════════════════════════════════════════════════════════
+function openLCEditor(id){
+  activeLCId=id; lcSelectedStateId=null; lcSelectedTransId=null; lcTool='select'; lcConnectFrom=null;
+  lcCamX=0; lcCamY=0; lcCamZ=1;
+  const lc=activeLC();
+  document.getElementById('lc-editor-card').style.display='block';
+  document.getElementById('lc-editor-title').textContent='Lifecycle Editor — '+lc.name;
+  document.getElementById('lc-edit-name').value=lc.name;
+  document.getElementById('lc-edit-desc').value=lc.description;
+  lcSetTool('select'); lcRenderSidebar(); lcShowEmpty();
+  setTimeout(()=>{ lcInitCanvas(); lcZoomFit(); lcDraw(); },60);
+  document.getElementById('lc-editor-card').scrollIntoView({behavior:'smooth'});
+}
+function closeLCEditor(){ document.getElementById('lc-editor-card').style.display='none'; activeLCId=null; }
+function lcUpdateMeta(){
+  const lc=activeLC(); if(!lc)return;
+  lc.name=document.getElementById('lc-edit-name').value;
+  lc.description=document.getElementById('lc-edit-desc').value;
+  document.getElementById('lc-editor-title').textContent='Lifecycle Editor — '+lc.name;
+  renderLCList();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CANVAS
+// ═══════════════════════════════════════════════════════════════
+function lcInitCanvas(){
+  const svg=document.getElementById('lc-svg');
+  lcResizeCanvas();
+  while(svg.children.length>0) svg.removeChild(svg.lastChild);
+  const defs=document.createElementNS(SVGNS,'defs');
+  defs.innerHTML=`<marker id="lc-arr-tmp" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><polygon points="0 0, 7 3, 0 6" fill="#8892b0"/></marker>`;
+  svg.appendChild(defs);
+  svg.removeEventListener('mousedown',lcOnMouseDown); svg.removeEventListener('mousemove',lcOnMouseMove);
+  svg.removeEventListener('mouseup',lcOnMouseUp); svg.removeEventListener('wheel',lcOnWheel);
+  svg.addEventListener('mousedown',lcOnMouseDown); svg.addEventListener('mousemove',lcOnMouseMove);
+  svg.addEventListener('mouseup',lcOnMouseUp); svg.addEventListener('mouseleave',lcOnMouseUp);
+  svg.addEventListener('wheel',lcOnWheel,{passive:false});
+  svg.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function lcResizeCanvas(){
+  const wrap=document.getElementById('lc-canvas-wrap'), svg=document.getElementById('lc-svg'), bg=document.getElementById('lc-canvas-bg');
+  const w=wrap.clientWidth,h=wrap.clientHeight;
+  svg.setAttribute('width',w); svg.setAttribute('height',h); bg.width=w; bg.height=h; lcDrawGrid();
+}
+function lcDrawGrid(){
+  const bg=document.getElementById('lc-canvas-bg'); if(!bg)return;
+  const ctx=bg.getContext('2d'), w=bg.width, h=bg.height;
+  ctx.clearRect(0,0,w,h); ctx.strokeStyle='#1e2235'; ctx.lineWidth=1;
+  const gs=30*lcCamZ, ox=((lcCamX%gs)+gs)%gs, oy=((lcCamY%gs)+gs)%gs;
+  for(let x=ox;x<w;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=oy;y<h;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+}
+function lcSvgPt(e){const r=document.getElementById('lc-svg').getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function lcToWorld(sx,sy){return{x:(sx-lcCamX)/lcCamZ,y:(sy-lcCamY)/lcCamZ};}
+function lcToScreen(wx,wy){return{x:wx*lcCamZ+lcCamX,y:wy*lcCamZ+lcCamY};}
+function lcHitNode(wx,wy){const lc=activeLC();if(!lc)return null;for(let i=lc.states.length-1;i>=0;i--){const s=lc.states[i];if(wx>=s.x-NW/2&&wx<=s.x+NW/2&&wy>=s.y-NH/2&&wy<=s.y+NH/2)return s;}return null;}
+function lcHitWPHandle(wx,wy){const lc=activeLC();if(!lc)return null;const R=9/lcCamZ;for(const t of lc.transitions){if(!t.waypoints)continue;for(let i=0;i<t.waypoints.length;i++){const p=t.waypoints[i];if(Math.hypot(wx-p.x,wy-p.y)<R)return{trans:t,index:i};}}return null;}
+function borderPt(cx,cy,tx,ty){const dx=tx-cx,dy=ty-cy,d=Math.hypot(dx,dy)||1,ex=dx/d,ey=dy/d;const tw=Math.abs(ey)*NW/2<Math.abs(ex)*NH/2?(NW/2)/Math.abs(ex):(NH/2)/Math.abs(ey);return{x:cx+ex*tw,y:cy+ey*tw};}
+function fullPolyline(lc,t){const from=lc.states.find(s=>s.id===t.from),to=lc.states.find(s=>s.id===t.to);if(!from||!to)return null;const wps=t.waypoints||[];const ft=wps.length?wps[0]:to,ls=wps.length?wps[wps.length-1]:from;return[borderPt(from.x,from.y,ft.x,ft.y),...wps,borderPt(to.x,to.y,ls.x,ls.y)];}
+
+function lcDraw(){
+  if(activeLCId===null)return;
+  const svg=document.getElementById('lc-svg');
+  while(svg.children.length>1) svg.removeChild(svg.lastChild);
+  lcDrawGrid();
+  const lc=activeLC(); if(!lc)return;
+  const defs=svg.querySelector('defs'); if(!defs)return; // canvas not initialized yet
+  defs.querySelectorAll('[id^="lc-arr-c-"],[id="lc-arr-sel"]').forEach(m=>m.remove());
+  lc.states.forEach(s=>{
+    const m=document.createElementNS(SVGNS,'marker');
+    m.setAttribute('id',`lc-arr-c-${s.id}`);m.setAttribute('markerWidth','8');m.setAttribute('markerHeight','8');m.setAttribute('refX','7');m.setAttribute('refY','3');m.setAttribute('orient','auto');
+    const p=document.createElementNS(SVGNS,'polygon');p.setAttribute('points','0 0, 7 3, 0 6');p.setAttribute('fill',s.color);m.appendChild(p);defs.appendChild(m);
+  });
+  const ms=document.createElementNS(SVGNS,'marker');
+  ms.setAttribute('id','lc-arr-sel');ms.setAttribute('markerWidth','8');ms.setAttribute('markerHeight','8');ms.setAttribute('refX','7');ms.setAttribute('refY','3');ms.setAttribute('orient','auto');
+  const psp=document.createElementNS(SVGNS,'polygon');psp.setAttribute('points','0 0, 7 3, 0 6');psp.setAttribute('fill','#fff');ms.appendChild(psp);defs.appendChild(ms);
+  const g=document.createElementNS(SVGNS,'g');
+  g.setAttribute('transform',`translate(${lcCamX},${lcCamY}) scale(${lcCamZ})`);
+  svg.appendChild(g);
+  lc.transitions.forEach(t=>lcDrawEdge(g,t,lc));
+  lc.states.forEach(s=>lcDrawNode(g,s));
+}
+function lcDrawEdge(g,t,lc){
+  const pts=fullPolyline(lc,t); if(!pts||pts.length<2)return;
+  const fromS=lc.states.find(s=>s.id===t.from);
+  const isSel=t.id===lcSelectedTransId, isWP=lcTool==='waypoint', color=fromS?.color||'#8892b0';
+  const d='M'+pts.map(p=>`${p.x},${p.y}`).join(' L');
+  const path=document.createElementNS(SVGNS,'path');
+  path.setAttribute('d',d);path.setAttribute('fill','none');path.setAttribute('stroke',isSel?'#fff':color);
+  path.setAttribute('stroke-width',(isSel?2.5:1.8)/lcCamZ);path.setAttribute('opacity',isSel?'1':'0.6');
+  path.setAttribute('marker-end',isSel?'url(#lc-arr-sel)':`url(#lc-arr-c-${t.from})`);
+  if(lcTool==='delete-arrow')path.setAttribute('stroke-dasharray',`${5/lcCamZ},${4/lcCamZ}`);
+  g.appendChild(path);
+  const hit=document.createElementNS(SVGNS,'path');
+  hit.setAttribute('d',d);hit.setAttribute('fill','none');hit.setAttribute('stroke','transparent');hit.setAttribute('stroke-width',14/lcCamZ);
+  hit.style.cursor=lcTool==='delete-arrow'?'not-allowed':isWP?'cell':'pointer';
+  hit.addEventListener('click',e=>{e.stopPropagation();if(lcTool==='delete-arrow'){lcDeleteTransition(t.id);return;}if(lcTool==='waypoint')return;lcSelectedTransId=t.id;lcSelectedStateId=null;lcRenderSidebar();lcShowTransDetail(t);lcDraw();});
+  g.appendChild(hit);
+  if(isWP||isSel){
+    (t.waypoints||[]).forEach((wp,i)=>{
+      const c=document.createElementNS(SVGNS,'circle');
+      c.setAttribute('cx',wp.x);c.setAttribute('cy',wp.y);c.setAttribute('r',7/lcCamZ);
+      c.setAttribute('fill',isSel?'#fff':color);c.setAttribute('stroke','#0f1117');c.setAttribute('stroke-width',1.5/lcCamZ);c.style.cursor='move';
+      c.addEventListener('mousedown',e=>{e.stopPropagation();lcDraggingWP={trans:t,index:i};lcSelectedTransId=t.id;lcSelectedStateId=null;lcRenderSidebar();lcShowTransDetail(t);lcDraw();});
+      c.addEventListener('dblclick',e=>{e.stopPropagation();t.waypoints.splice(i,1);if(lcSelectedTransId===t.id)lcShowTransDetail(t);lcDraw();notify('Waypoint removed');});
+      g.appendChild(c);
+    });
+    if(isWP){
+      for(let i=0;i<pts.length-1;i++){
+        const mx=(pts[i].x+pts[i+1].x)/2,my=(pts[i].y+pts[i+1].y)/2;
+        const gh=document.createElementNS(SVGNS,'circle');
+        gh.setAttribute('cx',mx);gh.setAttribute('cy',my);gh.setAttribute('r',5/lcCamZ);
+        gh.setAttribute('fill','rgba(79,142,247,0.35)');gh.setAttribute('stroke','#4f8ef7');gh.setAttribute('stroke-width',1.2/lcCamZ);gh.style.cursor='cell';
+        const si=i;
+        gh.addEventListener('mousedown',e=>{e.stopPropagation();if(!t.waypoints)t.waypoints=[];t.waypoints.splice(si,0,{x:mx,y:my});lcSelectedTransId=t.id;lcDraggingWP={trans:t,index:si};lcRenderSidebar();lcShowTransDetail(t);lcDraw();notify('Waypoint added');});
+        g.appendChild(gh);
+      }
+    }
+  }
+}
+function lcDrawNode(g,s){
+  const isSel=s.id===lcSelectedStateId, isCS=lcConnectFrom&&lcConnectFrom.id===s.id;
+  const group=document.createElementNS(SVGNS,'g'); group.style.cursor=lcTool==='connect'?'crosshair':'grab';
+  const sh=document.createElementNS(SVGNS,'rect');
+  sh.setAttribute('x',s.x-NW/2+3);sh.setAttribute('y',s.y-NH/2+4);sh.setAttribute('width',NW);sh.setAttribute('height',NH);sh.setAttribute('rx',NR);sh.setAttribute('fill','rgba(0,0,0,0.35)');group.appendChild(sh);
+  const rect=document.createElementNS(SVGNS,'rect');
+  rect.setAttribute('x',s.x-NW/2);rect.setAttribute('y',s.y-NH/2);rect.setAttribute('width',NW);rect.setAttribute('height',NH);rect.setAttribute('rx',NR);
+  rect.setAttribute('fill',s.color+'33');rect.setAttribute('stroke',isSel||isCS?'#fff':s.color);rect.setAttribute('stroke-width',(isSel||isCS?2.5:1.8)/lcCamZ);group.appendChild(rect);
+  const bar=document.createElementNS(SVGNS,'rect');
+  bar.setAttribute('x',s.x-NW/2);bar.setAttribute('y',s.y-NH/2);bar.setAttribute('width',5);bar.setAttribute('height',NH);bar.setAttribute('rx',NR);bar.setAttribute('fill',s.color);group.appendChild(bar);
+  const txt=document.createElementNS(SVGNS,'text');
+  txt.setAttribute('x',s.x+3);txt.setAttribute('y',s.y+5);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill',isSel?'#fff':s.color);txt.setAttribute('font-size',13);txt.setAttribute('font-weight','700');txt.setAttribute('font-family','Segoe UI,sans-serif');txt.setAttribute('pointer-events','none');txt.textContent=s.name;group.appendChild(txt);
+  if(s.isDefault){const st=document.createElementNS(SVGNS,'text');st.setAttribute('x',s.x+NW/2-14);st.setAttribute('y',s.y-NH/2+14);st.setAttribute('fill','#f39c12');st.setAttribute('font-size','11');st.setAttribute('pointer-events','none');st.textContent='★';group.appendChild(st);}
+  if(lcTool==='connect'){const port=document.createElementNS(SVGNS,'circle');port.setAttribute('cx',s.x+NW/2);port.setAttribute('cy',s.y);port.setAttribute('r',7);port.setAttribute('fill',isCS?'#f39c12':s.color);port.setAttribute('stroke','#fff');port.setAttribute('stroke-width','1.5');port.style.cursor='crosshair';group.appendChild(port);}
+  group.addEventListener('mousedown',e=>lcOnNodeMouseDown(e,s));
+  g.appendChild(group);
+}
+
+// ── MOUSE ──
+function lcOnMouseDown(e){
+  if(e.button===1||(e.button===0&&e.altKey)||e.button===2){lcPanning=true;lcPanStartX=e.clientX;lcPanStartY=e.clientY;lcPanCamX=lcCamX;lcPanCamY=lcCamY;return;}
+  const sp=lcSvgPt(e),wp=lcToWorld(sp.x,sp.y);
+  if(lcTool==='select'){ if(!lcHitNode(wp.x,wp.y)){lcSelectedStateId=null;lcSelectedTransId=null;lcRenderSidebar();lcShowEmpty();lcDraw();lcPanning=true;lcPanStartX=e.clientX;lcPanStartY=e.clientY;lcPanCamX=lcCamX;lcPanCamY=lcCamY;} }
+  if(lcTool==='connect'){ const h=lcHitNode(wp.x,wp.y); if(h)lcStartConnect(h); }
+  if(lcTool==='waypoint'){ const wh=lcHitWPHandle(wp.x,wp.y); if(wh)lcDraggingWP=wh; }
+}
+function lcStartConnect(s){
+  lcConnectFrom=s;
+  lcTempLine=document.createElementNS(SVGNS,'line');
+  lcTempLine.setAttribute('stroke','#8892b0');lcTempLine.setAttribute('stroke-width',2);lcTempLine.setAttribute('stroke-dasharray','6,4');lcTempLine.setAttribute('marker-end','url(#lc-arr-tmp)');lcTempLine.setAttribute('pointer-events','none');
+  document.getElementById('lc-svg').appendChild(lcTempLine);
+  const ss=lcToScreen(s.x,s.y); lcUpdateTempLine(ss.x,ss.y);
+}
+function lcOnNodeMouseDown(e,s){
+  e.stopPropagation(); const sp=lcSvgPt(e),wp=lcToWorld(sp.x,sp.y);
+  if(lcTool==='select'){lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw();lcDragging=s;lcDragOffX=wp.x-s.x;lcDragOffY=wp.y-s.y;}
+  else if(lcTool==='connect'){lcStartConnect(s);}
+  else if(lcTool==='waypoint'){lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw();}
+}
+function lcOnMouseMove(e){
+  const sp=lcSvgPt(e);
+  if(lcPanning){lcCamX=lcPanCamX+(e.clientX-lcPanStartX);lcCamY=lcPanCamY+(e.clientY-lcPanStartY);lcDrawGrid();lcDraw();return;}
+  if(lcDragging){const wp=lcToWorld(sp.x,sp.y);lcDragging.x=wp.x-lcDragOffX;lcDragging.y=wp.y-lcDragOffY;lcDraw();return;}
+  if(lcDraggingWP){const wp=lcToWorld(sp.x,sp.y);lcDraggingWP.trans.waypoints[lcDraggingWP.index]={x:wp.x,y:wp.y};if(lcSelectedTransId===lcDraggingWP.trans.id)lcShowTransDetail(lcDraggingWP.trans);lcDraw();return;}
+  if(lcTempLine&&lcConnectFrom)lcUpdateTempLine(sp.x,sp.y);
+}
+function lcUpdateTempLine(sx,sy){if(!lcTempLine||!lcConnectFrom)return;const fs=lcToScreen(lcConnectFrom.x,lcConnectFrom.y);lcTempLine.setAttribute('x1',fs.x);lcTempLine.setAttribute('y1',fs.y);lcTempLine.setAttribute('x2',sx);lcTempLine.setAttribute('y2',sy);}
+function lcOnMouseUp(e){
+  if(lcPanning){lcPanning=false;return;}
+  if(lcDragging){lcDragging=null;lcDraw();return;}
+  if(lcDraggingWP){lcDraggingWP=null;lcDraw();return;}
+  if(lcConnectFrom&&lcTempLine){
+    const sp=lcSvgPt(e),wp=lcToWorld(sp.x,sp.y);const target=lcHitNode(wp.x,wp.y);
+    lcTempLine.remove();lcTempLine=null;
+    if(target&&target.id!==lcConnectFrom.id){
+      const lc=activeLC();
+      if(lc.transitions.some(t=>t.from===lcConnectFrom.id&&t.to===target.id)){notify('Transition already exists!');}
+      else{lc.transitions.push({id:lcNextId++,from:lcConnectFrom.id,to:target.id,waypoints:[]});notify(`Connected: ${lcConnectFrom.name} → ${target.name}`);renderLCList();}
+    }
+    lcConnectFrom=null;lcDraw();return;
+  }
+  lcConnectFrom=null;if(lcTempLine){lcTempLine.remove();lcTempLine=null;}
+}
+function lcOnWheel(e){e.preventDefault();const sp=lcSvgPt(e);const f=e.deltaY<0?1.1:0.9;const nz=Math.min(3,Math.max(0.15,lcCamZ*f));lcCamX=sp.x-(sp.x-lcCamX)*(nz/lcCamZ);lcCamY=sp.y-(sp.y-lcCamY)*(nz/lcCamZ);lcCamZ=nz;lcDrawGrid();lcDraw();}
+
+// ── TOOLS / LAYOUT ──
+const LC_HINTS={'select':'🖱 Drag states · Click arrows to inspect · Drag empty space to pan · Scroll to zoom','connect':'➡ Click a source state and drag to a target state to create a transition arrow','waypoint':'📍 Click ⊕ ghost dots to add a node · Drag ● to move · Double-click ● to remove','delete-arrow':'✂ Click any arrow to permanently remove that transition'};
+function lcSetTool(t){
+  lcTool=t;lcConnectFrom=null;if(lcTempLine){lcTempLine.remove();lcTempLine=null;}
+  ['select','connect','waypoint','delete-arrow'].forEach(id=>document.getElementById('lc-tool-'+id)?.classList.remove('active'));
+  document.getElementById('lc-tool-'+t)?.classList.add('active');
+  document.getElementById('lc-hint').textContent=LC_HINTS[t]||'';
+  lcDraw();
+}
+function lcAutoLayout(){
+  const lc=activeLC(); if(!lc)return; const n=lc.states.length; if(!n)return;
+  const wrap=document.getElementById('lc-canvas-wrap'),W=wrap.clientWidth,H=wrap.clientHeight,r=Math.min(W,H)*0.32;
+  lc.states.forEach((s,i)=>{const a=(2*Math.PI*i/n)-Math.PI/2;s.x=400+r/lcCamZ*Math.cos(a);s.y=270+r/lcCamZ*Math.sin(a);});
+  lc.transitions.forEach(t=>t.waypoints=[]); lcZoomFit(); lcDraw(); notify('Layout reset');
+}
+function lcZoomFit(){
+  const lc=activeLC(); if(!lc||!lc.states.length)return;
+  const wrap=document.getElementById('lc-canvas-wrap'),W=wrap.clientWidth,H=wrap.clientHeight,pad=70;
+  const xs=lc.states.map(s=>s.x),ys=lc.states.map(s=>s.y);
+  const minX=Math.min(...xs)-NW/2,maxX=Math.max(...xs)+NW/2,minY=Math.min(...ys)-NH/2,maxY=Math.max(...ys)+NH/2;
+  const bW=Math.max(1,maxX-minX),bH=Math.max(1,maxY-minY);
+  const z=Math.min((W-pad*2)/bW,(H-pad*2)/bH,2);
+  lcCamZ=z;lcCamX=(W-bW*z)/2-minX*z;lcCamY=(H-bH*z)/2-minY*z;lcDrawGrid();lcDraw();
+}
+
+// ── SIDEBAR ──
+function lcRenderSidebar(){
+  const list=document.getElementById('lc-states-list'); const lc=activeLC(); if(!lc){list.innerHTML='';return;}
+  list.innerHTML='';
+  lc.states.forEach(s=>{
+    const div=document.createElement('div');
+    div.className='state-card'+(s.id===lcSelectedStateId?' active':'');
+    div.onclick=()=>{lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw();};
+    let tags='';
+    if(s.isDefault)tags+='<span class="tag tag-default">Default</span>';
+    if(s.isReleasedState)tags+='<span class="tag tag-released">Released</span>';
+    if(s.isObsoleteState)tags+='<span class="tag tag-obsolete">Obsolete</span>';
+    if(!s.isDefault&&!s.isReleasedState&&!s.isObsoleteState)tags+='<span class="tag tag-normal">Normal</span>';
+    div.innerHTML=`<div class="sh"><div class="state-dot" style="background:${s.color}"></div><span class="state-name-t">${esc(s.name)}</span></div>
+      <div class="state-badges">${tags}</div>
+      <div class="sc-actions"><button class="btn btn-danger btn-sm btn-icon" onclick="event.stopPropagation();lcDeleteState(${s.id})">✕</button></div>`;
+    list.appendChild(div);
+  });
+  if(lc.states.length===0) list.innerHTML='<div style="color:var(--text-muted);font-size:.75rem">No states yet. Use <b>+ Add State</b>.</div>';
+}
+
+// ── RIGHT PANEL ──
+function lcShowEmpty(){document.getElementById('lc-right-empty').style.display='flex';document.getElementById('lc-right-detail').style.display='none';document.getElementById('lc-right-trans').style.display='none';}
+function lcShowStateDetail(s){
+  const lc=activeLC();
+  document.getElementById('lc-right-empty').style.display='none';document.getElementById('lc-right-trans').style.display='none';
+  const d=document.getElementById('lc-right-detail'); d.style.display='block';
+  const outgoing=lc.transitions.filter(t=>t.from===s.id), incoming=lc.transitions.filter(t=>t.to===s.id);
+  const row=(t,otherId)=>{const o=lc.states.find(x=>x.id===otherId);return `<div class="trans-row"><span style="color:${o?.color||'#888'};font-weight:600;flex:1">${esc(o?.name||'?')}</span><button class="btn btn-danger btn-icon" onclick="lcDeleteTransition(${t.id})">✕</button></div>`;};
+  const outRows=outgoing.map(t=>row(t,t.to)).join('')||'<div style="color:var(--text-muted);font-size:.74rem">None</div>';
+  const inRows=incoming.map(t=>row(t,t.from)).join('')||'<div style="color:var(--text-muted);font-size:.74rem">None</div>';
+  d.innerHTML=`
+    <div class="dp-title"><span class="state-dot" style="width:11px;height:11px;background:${s.color}"></span>${esc(s.name)}</div>
+    <div class="dp-sub">ID ${s.id} · ${outgoing.length} out · ${incoming.length} in</div>
+    <div class="section-card"><h5>Info</h5>
+      <div class="fg"><label>Name</label><input value="${esc(s.name)}" onchange="lcUpdateStateField(${s.id},'name',this.value)"/></div>
+      <div class="fg"><label>Description</label><textarea rows="2" onchange="lcUpdateStateField(${s.id},'description',this.value)">${esc(s.description)}</textarea></div>
+      <div class="fg"><label>Color</label><div class="color-row"><input type="color" value="${s.color}" oninput="lcUpdateStateField(${s.id},'color',this.value);lcDraw();lcRenderSidebar()"/><span style="font-size:.74rem;color:var(--text-muted)">${s.color}</span></div></div>
+    </div>
+    <div class="section-card"><h5>Flags</h5>
+      <div class="toggle-row"><div><div class="toggle-label">Default</div><div class="toggle-desc">Starting state</div></div><label class="toggle"><input type="checkbox" ${s.isDefault?'checked':''} onchange="lcSetDefault(${s.id},this.checked)"><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="toggle-label">Released</div><div class="toggle-desc">Consumable / controlled</div></div><label class="toggle"><input type="checkbox" ${s.isReleasedState?'checked':''} onchange="lcUpdateStateField(${s.id},'isReleasedState',this.checked);lcRenderSidebar()"><span class="slider"></span></label></div>
+      <div class="toggle-row"><div><div class="toggle-label">Obsolete</div><div class="toggle-desc">Retired state</div></div><label class="toggle"><input type="checkbox" ${s.isObsoleteState?'checked':''} onchange="lcUpdateStateField(${s.id},'isObsoleteState',this.checked);lcRenderSidebar()"><span class="slider"></span></label></div>
+    </div>
+    <div class="section-card"><h5>State Comments</h5>
+      <ul class="comments-list">${s.comments.map((c,i)=>`<li class="comment-item"><input value="${esc(c)}" onchange="lcUpdateComment(${s.id},${i},this.value)"/><button class="btn btn-danger btn-icon" onclick="lcDeleteComment(${s.id},${i})">✕</button></li>`).join('')}</ul>
+      <button class="btn btn-ghost btn-sm" onclick="lcAddComment(${s.id})">+ Add Comment</button>
+    </div>
+    <div class="section-card"><h5>Outgoing →</h5>${outRows}
+      <div style="margin-top:8px;display:flex;gap:5px;align-items:center">
+        <select id="lc-add-out" class="inp" style="background:var(--bg)">${lc.states.filter(x=>x.id!==s.id).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        <button class="btn btn-primary btn-sm" onclick="lcAddTransFromPanel(${s.id})">+ Add</button>
+      </div>
+    </div>
+    <div class="section-card"><h5>Incoming ←</h5>${inRows}</div>
+    <button class="btn btn-danger" style="width:100%" onclick="lcDeleteState(${s.id})">🗑 Delete State</button>`;
+}
+function lcShowTransDetail(t){
+  const lc=activeLC();
+  document.getElementById('lc-right-empty').style.display='none';document.getElementById('lc-right-detail').style.display='none';
+  const d=document.getElementById('lc-right-trans'); d.style.display='block';
+  const fromS=lc.states.find(s=>s.id===t.from), toS=lc.states.find(s=>s.id===t.to), wps=t.waypoints||[];
+  const wpRows=wps.length===0?'<div style="color:var(--text-muted);font-size:.74rem;padding:4px 0">No waypoints. Add one below or use the 📍 tool.</div>':
+    `<ul class="wp-list">${wps.map((wp,i)=>`<li class="wp-item"><span>P${i+1}</span><span>X:<input class="wp-num" type="number" value="${Math.round(wp.x)}" onchange="lcUpdateWP(${t.id},${i},'x',+this.value)"/></span><span>Y:<input class="wp-num" type="number" value="${Math.round(wp.y)}" onchange="lcUpdateWP(${t.id},${i},'y',+this.value)"/></span><button class="btn btn-danger btn-icon" onclick="lcRemoveWP(${t.id},${i})">✕</button></li>`).join('')}</ul>`;
+  d.innerHTML=`
+    <div class="dp-title">⇒ Transition</div>
+    <div class="dp-sub">ID ${t.id} · ${wps.length} waypoint${wps.length!==1?'s':''}</div>
+    <div class="section-card"><h5>Route</h5>
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+        <span style="color:${fromS?.color};font-weight:700">${esc(fromS?.name)}</span><span style="color:var(--accent);font-size:1.1rem">→</span><span style="color:${toS?.color};font-weight:700">${esc(toS?.name)}</span>
+      </div>
+      <div class="fg" style="margin-top:6px"><label>Change From</label><select onchange="lcUpdateTransFrom(${t.id},this.value)">${lc.states.map(s=>`<option value="${s.id}" ${s.id===t.from?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
+      <div class="fg"><label>Change To</label><select onchange="lcUpdateTransTo(${t.id},this.value)">${lc.states.map(s=>`<option value="${s.id}" ${s.id===t.to?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div>
+    </div>
+    <div class="section-card"><h5>📍 Waypoints (nodes on arrow)</h5>${wpRows}
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="lcAddWPMidpoint(${t.id})">+ Add Midpoint</button>
+        ${wps.length>0?`<button class="btn btn-ghost btn-sm" onclick="lcClearWP(${t.id})">🗑 Clear All</button>`:''}
+      </div>
+    </div>
+    <button class="btn btn-danger" style="width:100%" onclick="lcDeleteTransition(${t.id})">✕ Remove Transition</button>`;
+}
+
+// ── STATE CRUD ──
+function lcUpdateStateField(id,field,val){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s[field]=val;if(field==='name'){renderLCList();if(lcSelectedStateId===id)lcShowStateDetail(s);}}}
+function lcSetDefault(id,checked){const lc=activeLC();if(checked)lc.states.forEach(s=>s.isDefault=false);const s=lc.states.find(x=>x.id===id);if(s)s.isDefault=checked;lcRenderSidebar();lcDraw();}
+function lcDeleteState(id){
+  const lc=activeLC(); if(!confirm('Delete this state and all its transitions?'))return;
+  lc.states=lc.states.filter(s=>s.id!==id);
+  lc.transitions=lc.transitions.filter(t=>t.from!==id&&t.to!==id);
+  if(lcSelectedStateId===id){lcSelectedStateId=null;lcShowEmpty();}
+  lcRenderSidebar();lcDraw();renderLCList();notify('State deleted');
+}
+function lcAddComment(id){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s.comments.push('New comment');lcShowStateDetail(s);}}
+function lcUpdateComment(id,i,v){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s)s.comments[i]=v;}
+function lcDeleteComment(id,i){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s.comments.splice(i,1);lcShowStateDetail(s);}}
+
+function openAddStateModal(){ if(activeLCId===null){notify('Open a lifecycle first');return;} document.getElementById('add-state-modal').classList.add('open'); }
+function closeAddStateModal(){ document.getElementById('add-state-modal').classList.remove('open'); }
+function lcAddState(){
+  const lc=activeLC(); if(!lc)return;
+  const name=document.getElementById('ns-name').value.trim(); if(!name){alert('Enter a state name');return;}
+  const color=document.getElementById('ns-color').value, type=document.getElementById('ns-type').value, desc=document.getElementById('ns-desc').value.trim();
+  const cx=(document.getElementById('lc-canvas-wrap').clientWidth/2-lcCamX)/lcCamZ, cy=(document.getElementById('lc-canvas-wrap').clientHeight/2-lcCamY)/lcCamZ;
+  lc.states.push({id:lcStateNextId++,name,description:desc,comments:[],isDefault:lc.states.length===0,isReleasedState:type==='released',isObsoleteState:type==='obsolete',color,x:cx+(Math.random()-.5)*120,y:cy+(Math.random()-.5)*120});
+  document.getElementById('ns-name').value='';document.getElementById('ns-desc').value='';
+  closeAddStateModal();lcRenderSidebar();lcDraw();renderLCList();notify('State added: '+name);
+}
+
+// ── TRANSITION CRUD ──
+function lcDeleteTransition(id){
+  const lc=activeLC(); lc.transitions=lc.transitions.filter(t=>t.id!==id); lcSelectedTransId=null;
+  if(lcSelectedStateId){const s=lc.states.find(x=>x.id===lcSelectedStateId);if(s)lcShowStateDetail(s);}else lcShowEmpty();
+  lcRenderSidebar();lcDraw();renderLCList();notify('Transition removed');
+}
+function lcAddTransFromPanel(fromId){
+  const lc=activeLC(); const sel=document.getElementById('lc-add-out'); if(!sel)return;
+  const toId=parseInt(sel.value);
+  if(lc.transitions.some(t=>t.from===fromId&&t.to===toId)){notify('Already exists!');return;}
+  lc.transitions.push({id:lcNextId++,from:fromId,to:toId,waypoints:[]});
+  const s=lc.states.find(x=>x.id===fromId);if(s)lcShowStateDetail(s);
+  lcDraw();renderLCList();notify('Transition added');
+}
+function lcUpdateTransFrom(id,val){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.from=parseInt(val);lcDraw();lcShowTransDetail(t);}}
+function lcUpdateTransTo(id,val){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.to=parseInt(val);lcDraw();lcShowTransDetail(t);}}
+
+// ── WAYPOINT CRUD ──
+function lcUpdateWP(id,i,axis,v){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t&&t.waypoints[i]){t.waypoints[i][axis]=v;lcDraw();}}
+function lcRemoveWP(id,i){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.waypoints.splice(i,1);lcShowTransDetail(t);lcDraw();notify('Waypoint removed');}}
+function lcClearWP(id){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.waypoints=[];lcShowTransDetail(t);lcDraw();notify('Waypoints cleared');}}
+function lcAddWPMidpoint(id){
+  const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(!t)return;
+  const pts=fullPolyline(lc,t);if(!pts||pts.length<2)return;
+  let maxLen=0,best=0; for(let i=0;i<pts.length-1;i++){const dd=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);if(dd>maxLen){maxLen=dd;best=i;}}
+  if(!t.waypoints)t.waypoints=[];
+  t.waypoints.splice(best,0,{x:(pts[best].x+pts[best+1].x)/2,y:(pts[best].y+pts[best+1].y)/2});
+  lcShowTransDetail(t);lcDraw();notify('Waypoint added at midpoint');
+}
+
+// ── IMPORT / EXPORT ──
+function lcExportData(lc){
+  return {id:lc.id,displayName:lc.name,description:lc.description,
+    states:lc.states.map(s=>({id:s.id,displayName:s.name,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
+    transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)}))}))};
+}
+function download(name,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+function lcExportJSON(){const lc=activeLC();if(!lc)return;download((lc.name||'lifecycle').replace(/\s+/g,'-').toLowerCase()+'.json',lcExportData(lc));notify('Lifecycle exported');}
+function lcImportJSON(){document.getElementById('import-json-txt').value='';document.getElementById('import-modal').classList.add('open');}
+function doImportJSON(){
+  const lc=activeLC(); if(!lc)return;
+  try{
+    const o=JSON.parse(document.getElementById('import-json-txt').value);
+    lc.name=o.displayName||o.name||lc.name; lc.description=o.description||'';
+    lc.states=(o.states||[]).map(s=>({id:s.id,name:s.displayName||s.name,description:s.description||'',comments:s.comments||[],isDefault:!!s.isDefault,isReleasedState:!!s.isReleasedState,isObsoleteState:!!s.isObsoleteState,color:s.color||'#4f8ef7',x:(s.position?.x)??s.x??200,y:(s.position?.y)??s.y??200}));
+    lc.transitions=(o.transitions||[]).map(t=>({id:t.id,from:t.fromStateId??t.from,to:t.toStateId??t.to,waypoints:t.waypoints||[]}));
+    document.getElementById('import-modal').classList.remove('open');
+    document.getElementById('lc-edit-name').value=lc.name;document.getElementById('lc-edit-desc').value=lc.description;
+    lcRenderSidebar();lcShowEmpty();lcZoomFit();lcDraw();renderLCList();notify('Lifecycle imported');
+  }catch(err){alert('Invalid JSON: '+err.message);}
+}
+
+function exportAllJSON(){
+  const obj={
+    vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),documentRevision:val('cfg-docrev'),notes:val('cfg-notes')},
+    lifecycles:LIFECYCLES.map(lcExportData),
+    categories:CATEGORIES,revisionSchemes:REVISIONS,numberingSchemes:NUMBERING,
+    properties:PROPS,folders:FOLDERS,items:ITEMS,
+    generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes')
+  };
+  download('vault-configuration.json',obj); notify('Full configuration exported');
+}
+function val(id){const el=document.getElementById(id);return el?el.value:'';}
+function chk(id){const el=document.getElementById(id);return el?el.checked:false;}
+function collectGeneral(){return{workingFolder:val('gs-working'),workspace:val('gs-workspace'),maxFileSizeMB:val('gs-maxsize'),visualizationAttachment:val('gs-visatt'),autoCreateViz:chk('gs-autoviz'),enforceUniqueNames:chk('gs-unique'),enableChangeOrders:chk('gs-eco'),enableItemMaster:chk('gs-item'),authMode:val('gs-auth'),sessionTimeout:val('gs-timeout'),requireCheckout:chk('gs-checkout'),allowMultiCheckout:chk('gs-multi')};}
+
+// ═══════════════════════════════════════════════════════════════
+//  STATIC SVG DIAGRAM FOR PRINT
+// ═══════════════════════════════════════════════════════════════
+function staticBorderPt(cx,cy,tx,ty){const dx=tx-cx,dy=ty-cy,d=Math.hypot(dx,dy)||1,ex=dx/d,ey=dy/d;const tw=Math.abs(ey)*NW/2<Math.abs(ex)*NH/2?(NW/2)/Math.abs(ex):(NH/2)/Math.abs(ey);return{x:cx+ex*tw,y:cy+ey*tw};}
+function renderLifecycleSVG(lc){
+  if(!lc.states.length) return '<div class="pr-lc-desc">No states defined.</div>';
+  // normalize positions; if all identical, lay out in a circle
+  let states=lc.states.map(s=>({...s}));
+  const xs=states.map(s=>s.x),ys=states.map(s=>s.y);
+  let spread=(Math.max(...xs)-Math.min(...xs))+(Math.max(...ys)-Math.min(...ys));
+  if(spread<10){const n=states.length,r=200;states.forEach((s,i)=>{const a=(2*Math.PI*i/n)-Math.PI/2;s.x=300+r*Math.cos(a);s.y=250+r*Math.sin(a);});}
+  const pad=40;
+  const minX=Math.min(...states.map(s=>s.x))-NW/2-pad, maxX=Math.max(...states.map(s=>s.x))+NW/2+pad;
+  const minY=Math.min(...states.map(s=>s.y))-NH/2-pad, maxY=Math.max(...states.map(s=>s.y))+NH/2+pad;
+  const W=maxX-minX, H=maxY-minY;
+  const find=id=>states.find(s=>s.id===id);
+  let edges='', markers='';
+  const colors=[...new Set(states.map(s=>s.color))];
+  colors.forEach((c,i)=>{markers+=`<marker id="pm-${i}" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><polygon points="0 0, 7 3, 0 6" fill="${c}"/></marker>`;});
+  const mIdx=c=>colors.indexOf(c);
+  lc.transitions.forEach(t=>{
+    const from=find(t.from),to=find(t.to); if(!from||!to)return;
+    const wps=(t.waypoints||[]);
+    const ft=wps.length?wps[0]:to, ls=wps.length?wps[wps.length-1]:from;
+    const start=staticBorderPt(from.x,from.y,ft.x,ft.y), end=staticBorderPt(to.x,to.y,ls.x,ls.y);
+    const pts=[start,...wps,end];
+    const d='M'+pts.map(p=>`${p.x},${p.y}`).join(' L');
+    edges+=`<path d="${d}" fill="none" stroke="${from.color}" stroke-width="1.6" opacity="0.7" marker-end="url(#pm-${mIdx(from.color)})"/>`;
+  });
+  let nodes='';
+  states.forEach(s=>{
+    const x=s.x-NW/2,y=s.y-NH/2;
+    nodes+=`<g>
+      <rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="${NR}" fill="${s.color}22" stroke="${s.color}" stroke-width="1.6"/>
+      <rect x="${x}" y="${y}" width="5" height="${NH}" rx="2" fill="${s.color}"/>
+      <text x="${s.x+3}" y="${s.y+5}" text-anchor="middle" fill="#1f2733" font-size="13" font-weight="700" font-family="Segoe UI,sans-serif">${esc(s.name)}</text>
+      ${s.isDefault?`<text x="${x+NW-13}" y="${y+14}" fill="#d98c00" font-size="11">★</text>`:''}
+    </g>`;
+  });
+  return `<svg class="pr-diagram" viewBox="${minX} ${minY} ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="max-height:330px"><defs>${markers}</defs>${edges}${nodes}</svg>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PRINT / MULTIPAGE PDF
+// ═══════════════════════════════════════════════════════════════
+function pill(text,color){return `<span class="pr-pill" style="border-color:${color};color:${color}">${esc(text)}</span>`;}
+function buildPrintDoc(){
+  const root=document.getElementById('print-root');
+  const vname=val('cfg-vault-name')||'Vault';
+  const today=new Date().toLocaleDateString();
+  let html='';
+
+  // COVER
+  html+=`<div class="pr-cover">
+    <h1>${esc(vname)} — Vault Pro Configuration</h1>
+    <div class="sub">Autodesk Vault Configuration Reference Document</div>
+    <table>
+      <tr><td>Organization</td><td>${esc(val('cfg-org')||'—')}</td></tr>
+      <tr><td>Vault Name</td><td>${esc(vname)}</td></tr>
+      <tr><td>Server</td><td>${esc(val('cfg-server')||'—')}</td></tr>
+      <tr><td>Vault Version</td><td>${esc(val('cfg-version')||'—')}</td></tr>
+      <tr><td>Administrator</td><td>${esc(val('cfg-admin')||'—')}</td></tr>
+      <tr><td>Prepared By</td><td>${esc(val('cfg-consultant')||'—')}</td></tr>
+      <tr><td>Document Revision</td><td>${esc(val('cfg-docrev')||'—')}</td></tr>
+      <tr><td>Document Date</td><td>${esc(val('cfg-date')||today)}</td></tr>
+      <tr><td>Generated</td><td>${today}</td></tr>
+    </table>
+    ${val('cfg-notes')?`<div style="margin-top:24px"><div class="pr-h3">Summary Notes</div><div class="pr-note">${esc(val('cfg-notes'))}</div></div>`:''}
+  </div>`;
+
+  // CONTENTS
+  html+=`<div class="pr-section"><div class="pr-h2">1 · Configuration Summary</div><div class="pr-h2-sub">High-level metrics for this Vault instance.</div>
+    <table class="pr-kv">
+      <tr><td>Property Definitions</td><td>${PROPS.length}</td></tr>
+      <tr><td>Lifecycle Definitions</td><td>${LIFECYCLES.length}</td></tr>
+      <tr><td>Categories</td><td>${CATEGORIES.length}</td></tr>
+      <tr><td>Revision Schemes</td><td>${REVISIONS.length}</td></tr>
+      <tr><td>Folders Documented</td><td>${FOLDERS.length}</td></tr>
+      <tr><td>Items Documented</td><td>${ITEMS.length}</td></tr>
+    </table>
+    <div class="pr-foot">${esc(vname)} configuration · page generated ${today}</div>
+  </div>`;
+
+  // LIFECYCLES — diagram + tables each
+  html+=`<div class="pr-section"><div class="pr-h2">2 · Lifecycle Definitions</div><div class="pr-h2-sub">${LIFECYCLES.length} workflow(s). Each includes a state diagram, state detail table, and a transition matrix.</div></div>`;
+  LIFECYCLES.forEach((lc,idx)=>{
+    html+=`<div class="pr-lc">
+      <div class="pr-lc-head">2.${idx+1} · ${esc(lc.name)}</div>
+      <div class="pr-lc-desc">${esc(lc.description||'')} &nbsp;·&nbsp; ${lc.states.length} states · ${lc.transitions.length} transitions</div>
+      ${renderLifecycleSVG(lc)}
+      <div class="pr-h3">States</div>
+      <table class="pr-tbl"><thead><tr><th style="width:18%">Name</th><th style="width:10%">Type</th><th style="width:34%">Description</th><th style="width:38%">Comments / Permitted Actions</th></tr></thead><tbody>
+        ${lc.states.map(s=>{const types=[];if(s.isDefault)types.push('Default');if(s.isReleasedState)types.push('Released');if(s.isObsoleteState)types.push('Obsolete');if(!types.length)types.push('Normal');
+          return `<tr><td><span class="pr-swatch" style="background:${s.color}"></span>${esc(s.name)}</td><td>${types.join(', ')}</td><td>${esc(s.description||'')}</td><td>${(s.comments||[]).map(esc).join('<br>')||'—'}</td></tr>`;}).join('')}
+      </tbody></table>
+      <div class="pr-h3">Transition Matrix <span style="font-weight:400;color:#777">(row = from, column = to)</span></div>
+      ${transitionMatrix(lc)}
+    </div>`;
+  });
+
+  // PROPERTIES
+  html+=`<div class="pr-section"><div class="pr-h2">3 · Property Definitions</div><div class="pr-h2-sub">${PROPS.length} properties (system &amp; custom).</div>
+    <table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Type</th><th>Source</th><th>Active</th></tr></thead><tbody>
+    ${PROPS.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace">${esc(p.SystemName)}</td><td>${esc(p.DataType)}</td><td>${p.IsSystem?'System':'Custom'}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // CATEGORIES
+  html+=`<div class="pr-section"><div class="pr-h2">4 · Categories</div><div class="pr-h2-sub">${CATEGORIES.length} category assignment(s).</div>
+    <table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
+    ${CATEGORIES.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // REVISIONS
+  html+=`<div class="pr-section"><div class="pr-h2">5 · Revision Schemes</div>
+    <table class="pr-tbl"><thead><tr><th>Name</th><th>Format</th><th>Primary</th><th>Secondary</th><th>Notes</th></tr></thead><tbody>
+    ${REVISIONS.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.format)}</td><td>${esc(r.primary)}</td><td>${esc(r.secondary||'—')}</td><td>${esc(r.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // FOLDERS
+  html+=`<div class="pr-section"><div class="pr-h2">6 · Folder Structure</div><div class="pr-h2-sub">${FOLDERS.length} folder(s).</div>
+    <table class="pr-tbl"><thead><tr><th>ID</th><th>Name</th><th>Created By</th><th>Created Date</th><th>Notes</th></tr></thead><tbody>
+    ${FOLDERS.map(f=>`<tr><td>${esc(f.id)}</td><td>${esc(f.name)}</td><td>${esc(f.createUserName||'')}</td><td>${esc(f.createDate||'')}</td><td>${esc(f.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // ITEMS
+  html+=`<div class="pr-section"><div class="pr-h2">7 · Items</div>
+    <table class="pr-tbl"><thead><tr><th>ID</th><th>Name</th><th>Entity Type</th><th>Notes</th></tr></thead><tbody>
+    ${ITEMS.map(it=>`<tr><td>${esc(it.id)}</td><td>${esc(it.name)}</td><td>${esc(it.entity)}</td><td>${esc(it.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // GENERAL SETTINGS
+  const g=collectGeneral();
+  html+=`<div class="pr-section"><div class="pr-h2">8 · General Settings</div>
+    <div class="pr-h3">File Handling</div>
+    <table class="pr-kv">
+      <tr><td>Working Folder</td><td>${esc(g.workingFolder||'—')}</td></tr>
+      <tr><td>Workspace</td><td>${esc(g.workspace||'—')}</td></tr>
+      <tr><td>Max File Size (MB)</td><td>${esc(g.maxFileSizeMB||'—')}</td></tr>
+      <tr><td>Visualization Attachment</td><td>${esc(g.visualizationAttachment)}</td></tr>
+      <tr><td>Auto-create Visualization Attachments</td><td>${g.autoCreateViz?'Yes':'No'}</td></tr>
+      <tr><td>Enforce Unique File Names</td><td>${g.enforceUniqueNames?'Yes':'No'}</td></tr>
+      <tr><td>Enable Change Orders</td><td>${g.enableChangeOrders?'Yes':'No'}</td></tr>
+      <tr><td>Enable Item Master</td><td>${g.enableItemMaster?'Yes':'No'}</td></tr>
+    </table>
+    <div class="pr-h3">Security &amp; Access</div>
+    <table class="pr-kv">
+      <tr><td>Authentication Mode</td><td>${esc(g.authMode)}</td></tr>
+      <tr><td>Session Timeout (min)</td><td>${esc(g.sessionTimeout||'—')}</td></tr>
+      <tr><td>Require Check-out to Edit</td><td>${g.requireCheckout?'Yes':'No'}</td></tr>
+      <tr><td>Allow Multiple Check-outs</td><td>${g.allowMultiCheckout?'Yes':'No'}</td></tr>
+    </table>
+    <div class="pr-h3">Numbering Schemes</div>
+    <table class="pr-tbl"><thead><tr><th>Entity</th><th>Scheme</th><th>Prefix</th><th>Start</th><th>Increment</th><th>Notes</th></tr></thead><tbody>
+    ${NUMBERING.map(n=>`<tr><td>${esc(n.entity)}</td><td>${esc(n.scheme)}</td><td>${esc(n.prefix||'—')}</td><td>${esc(n.start)}</td><td>${esc(n.inc)}</td><td>${esc(n.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // NOTES & CHANGE LOG
+  html+=`<div class="pr-section"><div class="pr-h2">9 · Notes &amp; Change Log</div>
+    <div class="pr-h3">Change Log</div>
+    ${CHANGELOG.length?`<table class="pr-tbl"><thead><tr><th>Date</th><th>Author</th><th>Section</th><th>Description</th></tr></thead><tbody>
+      ${CHANGELOG.map(c=>`<tr><td>${esc(c.date)}</td><td>${esc(c.author)}</td><td>${esc(c.section)}</td><td>${esc(c.desc)}</td></tr>`).join('')}</tbody></table>`:'<div class="pr-note">No change log entries.</div>'}
+    <div class="pr-h3">General Notes</div>
+    <div class="pr-note">${esc(val('general-notes')||'—')}</div>
+    <div class="pr-foot">End of document · ${esc(vname)} · ${today}</div>
+  </div>`;
+
+  root.innerHTML=html;
+}
+function transitionMatrix(lc){
+  if(!lc.states.length) return '<div class="pr-note">No states.</div>';
+  const ids=lc.states.map(s=>s.id);
+  const has=(f,t)=>lc.transitions.some(x=>x.from===f&&x.to===t);
+  let head='<tr><th class="colhdr">From \\ To</th>'+lc.states.map(s=>`<th class="colhdr">${esc(s.name)}</th>`).join('')+'</tr>';
+  let body=lc.states.map(fs=>{
+    return `<tr><td class="rowhdr">${esc(fs.name)}</td>`+lc.states.map(ts=>{
+      if(fs.id===ts.id) return '<td style="background:#f0f0f0">·</td>';
+      return `<td>${has(fs.id,ts.id)?'<span class="pr-yes">✓</span>':''}</td>`;
+    }).join('')+'</tr>';
+  }).join('');
+  return `<table class="pr-tbl pr-matrix"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+function printDoc(){
+  buildPrintDoc();
+  notify('Opening print dialog — choose “Save as PDF”');
+  setTimeout(()=>window.print(),300);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NOTIFY
+// ═══════════════════════════════════════════════════════════════
+function notify(msg){const n=document.getElementById('notif');n.textContent='✅ '+msg;n.classList.add('show');setTimeout(()=>n.classList.remove('show'),2500);}
+</script>
+</body>
+</html>
