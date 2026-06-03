@@ -1872,6 +1872,21 @@ function xmlDoc(text){ return new DOMParser().parseFromString(text,'application/
 function xAttr(el,n){ return el?el.getAttribute(n):null; }
 function parseResx(text){ const m=new Map(); try{ const doc=xmlDoc(text); doc.querySelectorAll('data').forEach(d=>{ const n=d.getAttribute('name'); if(!n)return; const v=d.querySelector('value'); m.set(n, v?v.textContent:''); }); }catch(e){} return m; }
 function entryText(entries,name){ const e=entries.find(x=>x.name===name); return e?new TextDecoder().decode(e.data):null; }
+// Re-serialize a patched XML doc while reproducing the original file's exact
+// prolog (single XML declaration, original encoding, optional UTF-8 BOM) —
+// browsers/DOM serializers can emit their own declaration, which would create
+// a duplicate that Vault's strict XML reader rejects ("Unexpected XML declaration").
+function reserializeXml(doc, origBytes){
+  let s=new XMLSerializer().serializeToString(doc);
+  s=s.replace(/^﻿/,'').replace(/^\s+/,'').replace(/^<\?xml[^>]*\?>\s*/i,'');
+  const hasBOM=origBytes[0]===0xEF&&origBytes[1]===0xBB&&origBytes[2]===0xBF;
+  const head=new TextDecoder().decode(origBytes.subarray(0,120)).replace(/^﻿/,'');
+  const m=head.match(/^\s*(<\?xml[^>]*\?>)/i);
+  const decl=m?m[1]:'<?xml version="1.0"?>';
+  const body=new TextEncoder().encode(decl+'\r\n'+s);
+  if(hasBOM){ const out=new Uint8Array(body.length+3); out[0]=0xEF;out[1]=0xBB;out[2]=0xBF; out.set(body,3); return out; }
+  return body;
+}
 
 // ---- Section parsers → dashboard config shape ----
 function cfgParseLifecycles(text,RES){
@@ -2003,10 +2018,8 @@ function patchLifecyclePackage(){
     });
     def.appendChild(tw); def.appendChild(sw); root.appendChild(def);
   });
-  const ser=new XMLSerializer();
-  const decl='<?xml version="1.0"?>\n';
-  lcEntry.data=enc.encode(decl+ser.serializeToString(doc));
-  if(resxDoc&&rxEntry) rxEntry.data=enc.encode(decl+ser.serializeToString(resxDoc));
+  lcEntry.data=reserializeXml(doc, lcEntry.data);
+  if(resxDoc&&rxEntry) rxEntry.data=reserializeXml(resxDoc, rxEntry.data);
 }
 function buildCfgBytes(){ patchLifecyclePackage(); return zipStore(loadedCfg.entries); }
 function exportCfg(){
