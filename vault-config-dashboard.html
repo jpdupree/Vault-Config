@@ -198,12 +198,12 @@ input:checked+.slider:before{transform:translateX(18px);}
   .pr-cover table{font-size:13px;border-collapse:collapse;}
   .pr-cover table td{padding:5px 14px 5px 0;vertical-align:top;}
   .pr-cover table td:first-child{color:#666;font-weight:600;white-space:nowrap;}
-  .pr-section{page-break-before:always;}
-  .pr-section:first-of-type{page-break-before:avoid;}
-  .pr-h2{font-size:18px;color:#1a4f9c;border-bottom:2px solid #1a4f9c;padding-bottom:5px;margin:0 0 4px;}
+  .pr-section{margin-top:20px;}
+  .pr-section:first-of-type{margin-top:0;}
+  .pr-h2{font-size:18px;color:#1a4f9c;border-bottom:2px solid #1a4f9c;padding-bottom:5px;margin:0 0 4px;page-break-after:avoid;break-after:avoid;}
   .pr-h2-sub{font-size:11px;color:#666;margin-bottom:14px;}
-  .pr-h3{font-size:13px;color:#222;margin:18px 0 7px;font-weight:700;}
-  .pr-lc{page-break-before:always;}
+  .pr-h3{font-size:13px;color:#222;margin:14px 0 7px;font-weight:700;page-break-after:avoid;break-after:avoid;}
+  .pr-lc{margin-top:14px;}
   .pr-lc-head{font-size:15px;color:#1a4f9c;font-weight:700;margin-bottom:2px;}
   .pr-lc-desc{font-size:11px;color:#555;margin-bottom:10px;}
   .pr-diagram{border:1px solid #ccc;border-radius:6px;margin-bottom:14px;background:#fff;page-break-inside:avoid;}
@@ -3153,6 +3153,10 @@ function buildPrintDoc(){
   const vname=val('cfg-vault-name')||'Vault';
   const today=new Date().toLocaleDateString();
   let _S=0; const S=()=>++_S;
+  // Exclude system-controlled (locked default) objects — show only custom config.
+  const pLCs=LIFECYCLES.filter(l=>!l.system), pRevs=REVISIONS.filter(r=>!r.system), pSeqs=(typeof REVSEQS!=='undefined'?REVSEQS:[]).filter(s=>!s.system);
+  const pCats=CATEGORIES.filter(c=>!c.system), pRoles=ROLES.filter(r=>!r.system), pProps=PROPS.filter(p=>!p.IsSystem);
+  const OMIT='<div class="pr-note" style="color:#999">Only custom objects shown; system defaults omitted.</div>';
   let html='';
 
   // COVER
@@ -3174,14 +3178,14 @@ function buildPrintDoc(){
   </div>`;
 
   // SUMMARY
-  html+=prSection(S(),'Configuration Summary','High-level metrics for this Vault instance.')+`
+  html+=prSection(S(),'Configuration Summary','Custom configuration (system-default objects are omitted).')+`
     <table class="pr-kv">
-      <tr><td>Property Definitions</td><td>${PROPS.length}</td></tr>
-      <tr><td>Lifecycle Definitions</td><td>${LIFECYCLES.length}</td></tr>
-      <tr><td>Categories</td><td>${CATEGORIES.length}</td></tr>
-      <tr><td>Revision Schemes</td><td>${REVISIONS.length}</td></tr>
-      <tr><td>Users / Roles</td><td>${USERS.length} users · ${ROLES.length} roles</td></tr>
-      <tr><td>Folders Documented</td><td>${FOLDERS.length}</td></tr>
+      <tr><td>Custom Property Definitions</td><td>${pProps.length} <span style="color:#999">of ${PROPS.length}</span></td></tr>
+      <tr><td>Custom Lifecycles</td><td>${pLCs.length} <span style="color:#999">of ${LIFECYCLES.length}</span></td></tr>
+      <tr><td>Custom Categories</td><td>${pCats.length} <span style="color:#999">of ${CATEGORIES.length}</span></td></tr>
+      <tr><td>Custom Revision Schemes</td><td>${pRevs.length} <span style="color:#999">of ${REVISIONS.length}</span></td></tr>
+      <tr><td>Users / Custom Roles</td><td>${USERS.length} users · ${pRoles.length} roles</td></tr>
+      <tr><td>Folders Documented</td><td>${countFolders(FOLDERS)}</td></tr>
     </table>
     <div class="pr-foot">${esc(vname)} configuration · page generated ${today}</div></div>`;
 
@@ -3223,22 +3227,22 @@ function buildPrintDoc(){
     ${GROUPS.map(gr=>`<tr><td>${esc(gr.name)}</td><td>${esc(gr.description)}</td><td>${esc(gr.members)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
-  // ROLES
-  html+=prSection(S(),'Roles & Permissions',`${ROLES.length} role(s).`)+`
-    <table class="pr-tbl"><thead><tr><th style="width:24%">Role</th><th>Description</th><th style="width:22%">Notes</th></tr></thead><tbody>
-    ${ROLES.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.description)}</td><td>${esc(r.notes||'')}</td></tr>`).join('')}
-    </tbody></table></div>`;
+  // ROLES (custom only)
+  html+=prSection(S(),'Roles & Permissions',`${pRoles.length} custom role(s).`)+
+    (pRoles.length?`<table class="pr-tbl"><thead><tr><th style="width:24%">Role</th><th>Description</th><th style="width:22%">Notes</th></tr></thead><tbody>
+    ${pRoles.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.description)}</td><td>${esc(r.notes||'')}</td></tr>`).join('')}
+    </tbody></table>`:OMIT)+`</div>`;
 
   // SECURITY POLICIES
   html+=prSection(S(),'Security Policies')+`
     <div class="pr-h3">Password Policy</div>${prKV(PRINT_FIELDS['Password Policy'])}
     <div class="pr-h3">AD / LDAP</div>${prKV(PRINT_FIELDS['AD / LDAP'])}</div>`;
 
-  // CATEGORIES
-  html+=prSection(S(),'Categories',`${CATEGORIES.length} category assignment(s).`)+`
-    <table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
-    ${CATEGORIES.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
-    </tbody></table></div>`;
+  // CATEGORIES (custom only)
+  html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+
+    (pCats.length?`<table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
+    ${pCats.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
+    </tbody></table>`:OMIT)+`</div>`;
 
   // CATEGORY RULES
   if(RULES.length) html+=prSection(S(),'Category Rules',`${RULES.length} rule(s).`)+`
@@ -3252,16 +3256,16 @@ function buildPrintDoc(){
     ${CSMAPS.map(m=>`<tr><td>${esc(m.propDef)}</td><td>${esc(m.entityClass)}</td><td>${esc(m.contentSource)}</td><td>${esc(m.direction)}</td><td style="font-family:monospace;font-size:8px">${esc(m.moniker)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
-  // PROPERTIES
-  html+=prSection(S(),'Property Definitions',`${PROPS.length} properties (system & custom).`)+`
-    <table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Type</th><th>Source</th><th>Active</th></tr></thead><tbody>
-    ${PROPS.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace">${esc(p.SystemName)}</td><td>${esc(p.DataType)}</td><td>${p.IsSystem?'System':'Custom'}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
-    </tbody></table></div>`;
+  // PROPERTIES (custom only)
+  html+=prSection(S(),'Property Definitions',`${pProps.length} custom property definition(s).`)+
+    (pProps.length?`<table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Type</th><th>Active</th></tr></thead><tbody>
+    ${pProps.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace">${esc(p.SystemName)}</td><td>${esc(p.DataType)}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
+    </tbody></table>`:OMIT)+`</div>`;
 
-  // LIFECYCLES
+  // LIFECYCLES (custom only)
   const lcSec=S();
-  html+=prSection(lcSec,'Lifecycle Definitions',`${LIFECYCLES.length} workflow(s). Each includes a state diagram, state detail table, and a transition matrix.`)+`</div>`;
-  LIFECYCLES.forEach((lc,idx)=>{
+  html+=prSection(lcSec,'Lifecycle Definitions',`${pLCs.length} custom workflow(s). Each includes a state diagram, state detail table, and a transition matrix.`)+(pLCs.length?'':OMIT)+`</div>`;
+  pLCs.forEach((lc,idx)=>{
     html+=`<div class="pr-lc">
       <div class="pr-lc-head">${lcSec}.${idx+1} · ${esc(lc.name)}</div>
       <div class="pr-lc-desc">${esc(lc.description||'')} &nbsp;·&nbsp; ${lc.states.length} states · ${lc.transitions.length} transitions</div>
@@ -3276,16 +3280,17 @@ function buildPrintDoc(){
     </div>`;
   });
 
-  // REVISIONS
-  html+=prSection(S(),'Revision Schemes')+`
+  // REVISIONS (custom only)
+  html+=prSection(S(),'Revision Schemes')+(
+    (pRevs.length||pSeqs.length)?`
     <div class="pr-h3">Schemes</div>
-    <table class="pr-tbl"><thead><tr><th>Name</th><th>Delimiter</th><th>Primary</th><th>Secondary</th><th>Tertiary</th><th>Description</th></tr></thead><tbody>
-    ${REVISIONS.map(r=>`<tr><td>${esc(r.name)}${r.system?' (system)':''}</td><td style="text-align:center">${esc(r.separator||'.')}</td><td>${esc(r.primary||'—')}</td><td>${esc(r.secondary||'—')}</td><td>${esc(r.tertiary||'—')}</td><td>${esc(r.description||'')}</td></tr>`).join('')}
-    </tbody></table>
+    ${pRevs.length?`<table class="pr-tbl"><thead><tr><th>Name</th><th>Delimiter</th><th>Primary</th><th>Secondary</th><th>Tertiary</th><th>Description</th></tr></thead><tbody>
+    ${pRevs.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${esc(r.separator||'.')}</td><td>${esc(r.primary||'—')}</td><td>${esc(r.secondary||'—')}</td><td>${esc(r.tertiary||'—')}</td><td>${esc(r.description||'')}</td></tr>`).join('')}
+    </tbody></table>`:OMIT}
     <div class="pr-h3">Sequences (value lists)</div>
-    <table class="pr-tbl"><thead><tr><th>Name</th><th>Default</th><th>Count</th><th>Values</th></tr></thead><tbody>
-    ${REVSEQS.map(s=>`<tr><td>${esc(s.name)}${s.system?' (system)':''}</td><td style="text-align:center">${esc((s.labels&&s.labels[0])||'')}</td><td style="text-align:center">${(s.labels||[]).length}</td><td style="font-family:monospace;font-size:9px">${esc((s.labels||[]).join(' '))}</td></tr>`).join('')}
-    </tbody></table></div>`;
+    ${pSeqs.length?`<table class="pr-tbl"><thead><tr><th>Name</th><th>Default</th><th>Count</th><th>Values</th></tr></thead><tbody>
+    ${pSeqs.map(s=>`<tr><td>${esc(s.name)}</td><td style="text-align:center">${esc((s.labels&&s.labels[0])||'')}</td><td style="text-align:center">${(s.labels||[]).length}</td><td style="font-family:monospace;font-size:9px">${esc((s.labels||[]).join(' '))}</td></tr>`).join('')}
+    </tbody></table>`:OMIT}`:OMIT)+`</div>`;
 
   // FOLDERS
   const folderRows=[]; (function walk(arr,depth){(arr||[]).forEach(f=>{folderRows.push({depth,name:f.name});walk(f.children,depth+1);});})(FOLDERS,0);
