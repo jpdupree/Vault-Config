@@ -897,6 +897,51 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
   </div>
 </div>
 
+<!-- EXPORT .cfg REMINDER -->
+<div class="modal-overlay" id="cfg-export-modal">
+  <div class="modal" style="width:640px;max-width:96vw">
+    <h3>⬇ Export Vault .cfg — what this updates</h3>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">Your edits are patched into the loaded Vault Global-Settings package. Everything not listed under "written" is preserved exactly as imported. Review before exporting:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div>
+        <div style="font-weight:700;color:var(--green);margin-bottom:6px;font-size:.82rem">✅ Written back to the .cfg</div>
+        <ul style="font-size:.76rem;line-height:1.7;padding-left:18px;color:var(--text)">
+          <li>Lifecycles — states, colors, default, comments, transitions</li>
+          <li>Transition <b>Actions / Criteria / Security</b></li>
+          <li>Revision schemes &amp; sequences</li>
+          <li>Categories — lifecycle/revision assignment</li>
+          <li>Properties (UDP) — Active flag, new custom props</li>
+          <li>File Numbering scheme</li>
+          <li>Category Rules</li>
+          <li>Content-source Property Mappings</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-weight:700;color:var(--orange);margin-bottom:6px;font-size:.82rem">📄 NOT written (documentation only)</div>
+        <ul style="font-size:.76rem;line-height:1.7;padding-left:18px;color:var(--text)">
+          <li>Users, Groups, Roles</li>
+          <li>Server/DB, Job Processor, Thin Client</li>
+          <li>Security policy (password, AD/LDAP)</li>
+          <li>CAD Integration page, Email, API, Backup, Audit</li>
+          <li>Fusion Manage connector (tenant, mappings, states)</li>
+          <li>Folder structure, General Settings, Notes</li>
+        </ul>
+      </div>
+    </div>
+    <div style="background:rgba(243,156,18,.1);border:1px solid var(--orange);border-radius:6px;padding:8px 12px;margin-top:12px;font-size:.74rem;color:var(--text)">
+      <b style="color:var(--orange)">Less-obvious limits:</b>
+      Transition <b>Custom Job Types</b> &amp; <b>Peer Review</b> are not written (no element in the export).
+      Only <b>File</b> numbering is included (Item/Change-Order numbering live in Vault's base data); number <b>prefixes/free-text fields</b> aren't generated.
+      Property mappings keep the exact <b>moniker</b> but not the friendly file-property name / classification.
+      Roles &amp; user accounts are server-level, never part of this .cfg.
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-ghost" onclick="document.getElementById('cfg-export-modal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-success" onclick="doExportCfg()">⬇ Export .cfg</button>
+    </div>
+  </div>
+</div>
+
 <div class="notif" id="notif">✅ Done</div>
 
 <script>
@@ -3034,15 +3079,19 @@ function patchCsMapPackage(){
   ent.data=reserializeXml(doc, ent.data);
 }
 function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); patchCategoryPackage(); patchPropertyPackage(); patchNumberingPackage(); patchRulesPackage(); patchCsMapPackage(); return zipStore(loadedCfg.entries); }
-async function exportCfg(){
-  if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your lifecycle edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
+function exportCfg(){
+  if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
+  document.getElementById('cfg-export-modal').classList.add('open');
+}
+async function doExportCfg(){
+  document.getElementById('cfg-export-modal').classList.remove('open');
   try{
     await ensureCfgEntries();
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=(val('cfg-vault-name')||'vault')+'-config.cfg'; a.click();
-    notify('Exported .cfg (lifecycle edits patched into original package)');
+    notify('Exported .cfg (edits patched into the original package)');
   }catch(e){ alert('Could not export .cfg:\n'+e.message); console.error(e); }
 }
 
