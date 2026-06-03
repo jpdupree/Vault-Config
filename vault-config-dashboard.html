@@ -192,12 +192,27 @@ input:checked+.slider:before{transform:translateX(18px);}
   html,body{background:#fff!important;color:#111!important;overflow:visible!important;height:auto!important;}
   .shell,.modal-overlay,.notif{display:none!important;}
   #print-root{display:block!important;}
-  .pr-cover{display:flex;flex-direction:column;justify-content:center;min-height:88vh;page-break-after:always;}
-  .pr-cover h1{font-size:30px;color:#1a4f9c;margin-bottom:6px;}
-  .pr-cover .sub{font-size:13px;color:#555;margin-bottom:30px;}
-  .pr-cover table{font-size:13px;border-collapse:collapse;}
-  .pr-cover table td{padding:5px 14px 5px 0;vertical-align:top;}
-  .pr-cover table td:first-child{color:#666;font-weight:600;white-space:nowrap;}
+  .pr-cover{display:flex;flex-direction:column;min-height:96vh;page-break-after:always;margin:-14mm -12mm 0;}
+  .pr-cover-top{background:linear-gradient(125deg,#0e3a73 0%,#1a4f9c 55%,#0696d7 100%);color:#fff;
+    padding:40px 44px 34px;display:flex;align-items:center;gap:18px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .pr-cover-badge{font-size:46px;line-height:1;}
+  .pr-cover-kicker{font-size:13px;letter-spacing:5px;font-weight:700;opacity:.92;}
+  .pr-cover-kicker .doc{display:block;font-size:10px;letter-spacing:3px;opacity:.8;margin-top:4px;font-weight:600;}
+  .pr-cover-mid{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 44px;}
+  .pr-cover h1{font-size:44px;color:#10233f;margin:0 0 8px;line-height:1.08;letter-spacing:-.5px;}
+  .pr-cover .sub{font-size:16px;color:#5a6b85;margin:0 0 20px;}
+  .pr-cover-rule{height:5px;width:96px;background:#0696d7;border-radius:3px;margin-bottom:30px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .pr-cover-meta{font-size:12.5px;border-collapse:collapse;max-width:560px;}
+  .pr-cover-meta td{padding:9px 22px 9px 0;vertical-align:top;border-bottom:1px solid #e7ecf4;}
+  .pr-cover-meta tr:last-child td{border-bottom:none;}
+  .pr-cover-meta td:first-child{color:#90a0b8;font-weight:700;text-transform:uppercase;letter-spacing:.6px;font-size:9.5px;white-space:nowrap;width:1%;padding-top:11px;}
+  .pr-cover-meta td:last-child{color:#10233f;font-weight:600;}
+  .pr-cover-summary{margin-top:26px;max-width:620px;}
+  .pr-cover-summary .lbl{font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:#90a0b8;font-weight:700;margin-bottom:5px;}
+  .pr-cover-summary .txt{font-size:12px;color:#34465f;line-height:1.55;border-left:3px solid #0696d7;padding-left:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .pr-cover-foot{border-top:3px solid #1a4f9c;margin:0 44px;padding:14px 0 30px;color:#5a6b85;font-size:10.5px;
+    display:flex;justify-content:space-between;align-items:flex-end;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .pr-cover-foot .org{font-size:13px;color:#10233f;font-weight:700;}
   .pr-section{margin-top:20px;}
   .pr-section:first-of-type{margin-top:0;}
   .pr-h2{font-size:18px;color:#1a4f9c;border-bottom:2px solid #1a4f9c;padding-bottom:5px;margin:0 0 4px;page-break-after:avoid;break-after:avoid;}
@@ -3161,20 +3176,30 @@ function buildPrintDoc(){
 
   // COVER
   html+=`<div class="pr-cover">
-    <h1>${esc(vname)} — Vault Pro Configuration</h1>
-    <div class="sub">Autodesk Vault Configuration Reference Document</div>
-    <table>
-      <tr><td>Organization</td><td>${esc(val('cfg-org')||'—')}</td></tr>
-      <tr><td>Vault Name</td><td>${esc(vname)}</td></tr>
-      <tr><td>Server</td><td>${esc(val('cfg-server')||'—')}</td></tr>
-      <tr><td>Vault Version</td><td>${esc(val('cfg-version')||'—')}</td></tr>
-      <tr><td>Administrator</td><td>${esc(val('cfg-admin')||'—')}</td></tr>
-      <tr><td>Prepared By</td><td>${esc(val('cfg-consultant')||'—')}</td></tr>
-      <tr><td>Document Revision</td><td>${esc(val('cfg-docrev')||'—')}</td></tr>
-      <tr><td>Document Date</td><td>${esc(val('cfg-date')||today)}</td></tr>
-      <tr><td>Generated</td><td>${today}</td></tr>
-    </table>
-    ${val('cfg-notes')?`<div style="margin-top:24px"><div class="pr-h3">Summary Notes</div><div class="pr-note">${esc(val('cfg-notes'))}</div></div>`:''}
+    <div class="pr-cover-top">
+      <div class="pr-cover-badge">⚙️</div>
+      <div class="pr-cover-kicker">AUTODESK&nbsp;VAULT&nbsp;PRO<span class="doc">CONFIGURATION REFERENCE</span></div>
+    </div>
+    <div class="pr-cover-mid">
+      <h1>${esc(vname)}</h1>
+      <div class="sub">Vault Pro Configuration Documentation</div>
+      <div class="pr-cover-rule"></div>
+      <table class="pr-cover-meta">
+        <tr><td>Organization</td><td>${esc(val('cfg-org')||'—')}</td></tr>
+        <tr><td>Vault Name</td><td>${esc(vname)}</td></tr>
+        <tr><td>Server</td><td>${esc(val('cfg-server')||'—')}</td></tr>
+        <tr><td>Vault Version</td><td>${esc(val('cfg-version')||'—')}</td></tr>
+        <tr><td>Administrator</td><td>${esc(val('cfg-admin')||'—')}</td></tr>
+        <tr><td>Prepared By</td><td>${esc(val('cfg-consultant')||'—')}</td></tr>
+        <tr><td>Document Revision</td><td>${esc(val('cfg-docrev')||'—')}</td></tr>
+        <tr><td>Document Date</td><td>${esc(val('cfg-date')||today)}</td></tr>
+      </table>
+      ${val('cfg-notes')?`<div class="pr-cover-summary"><div class="lbl">Summary</div><div class="txt">${esc(val('cfg-notes'))}</div></div>`:''}
+    </div>
+    <div class="pr-cover-foot">
+      <div><div class="org">${esc(val('cfg-org')||'Autodesk Vault')}</div>${esc(val('cfg-consultant')?'Prepared by '+val('cfg-consultant'):'')}</div>
+      <div>Generated ${today}</div>
+    </div>
   </div>`;
 
   // SUMMARY
