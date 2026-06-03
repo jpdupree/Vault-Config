@@ -232,7 +232,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="topbar-left">
     <div>
       <h1>⚙️ Vault Pro Configuration Dashboard</h1>
-      <p>Autodesk Vault · Configuration Reference · Last updated: <span id="last-updated"></span></p>
+      <p>Autodesk Vault · Configuration Reference · Last updated: <span id="last-updated"></span><span id="loaded-src" style="display:none;color:var(--green)"></span></p>
     </div>
   </div>
   <div class="topbar-right">
@@ -982,7 +982,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions();
   renderItems(); renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
-  updateMetrics(); updateBadge(); renderCompletionBars();
+  updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
 }
 
 function updateMetrics(){
@@ -1721,7 +1721,11 @@ function collectConfig(){
     api:collectFields(SETTING_FIELDS.api),
     backup:collectFields(SETTING_FIELDS.backup),
     audit:{settings:collectFields(SETTING_FIELDS.audit),entries:AUDITLOG},
-    generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes')
+    generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),
+    // Embed the original Vault .cfg package so a single JSON is a complete,
+    // reload-proof snapshot and re-arms Export .cfg when loaded.
+    cfgPackageB64: loadedCfg?loadedCfg.rawB64:undefined,
+    cfgSourceName: loadedCfg?loadedCfg.sourceName:undefined
   };
 }
 function exportAllJSON(){ download('vault-configuration.json',collectConfig()); notify('Full configuration exported'); }
@@ -1826,6 +1830,8 @@ function normalizeConfig(raw){
   if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); }
   const pm=firstArr(raw,'propMappings','propmaps','PropMaps'); if(pm&&!out.propmaps) out.propmaps=pm.map(normMap);
   if(raw.audit){ if(!Array.isArray(raw.audit)) out.auditFields=raw.audit.settings; const ae=Array.isArray(raw.audit)?raw.audit:firstArr(raw.audit,'entries','Entries'); if(ae) out.auditlog=ae.map(normAudit); }
+  const pkg=pick(raw,'cfgPackageB64','CfgPackageB64'); if(pkg) out.cfgPackageB64=pkg;
+  const psn=pick(raw,'cfgSourceName'); if(psn) out.cfgSourceName=psn;
   return out;
 }
 
@@ -1854,6 +1860,9 @@ function applyConfig(raw,replace){
   if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setVal('gs-workspace',g.workspace);setVal('gs-maxsize',g.maxFileSizeMB);setVal('gs-visatt',g.visualizationAttachment);setVal('gs-auth',g.authMode);setVal('gs-timeout',g.sessionTimeout);setChk('gs-autoviz',g.autoCreateViz);setChk('gs-unique',g.enforceUniqueNames);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);setChk('gs-checkout',g.requireCheckout);setChk('gs-multi',g.allowMultiCheckout);}
   else if(replace){ clearFields(GENERAL_FIELDS); }
   if(c.generalNotes!==undefined) setVal('general-notes',c.generalNotes); else if(replace) setVal('general-notes','');
+  // restore embedded Vault .cfg package (lazy-inflated on first export)
+  if(c.cfgPackageB64){ loadedCfg={entries:null,rawB64:c.cfgPackageB64,sourceName:c.cfgSourceName||'restored .cfg'}; }
+  else if(replace){ loadedCfg=null; }
   // bump id counters past anything imported
   let maxLc=0,maxSt=0,maxTr=0;
   LIFECYCLES.forEach(l=>{maxLc=Math.max(maxLc,l.id||0);l.states.forEach(s=>maxSt=Math.max(maxSt,s.id||0));l.transitions.forEach(t=>maxTr=Math.max(maxTr,t.id||0));});
@@ -1869,7 +1878,7 @@ function loadConfigFromFile(input){
     try{
       const bytes=new Uint8Array(r.result);
       if(bytes[0]===0x50&&bytes[1]===0x4B){ // 'PK' → Vault .cfg ZIP package
-        await applyCfgPackage(r.result,replace);
+        await applyCfgPackage(r.result,replace,f.name);
         saveLocal(false); notify('Imported '+f.name+(replace?' (replaced)':' (merged)')); showPage('overview');
       } else {
         applyConfig(JSON.parse(new TextDecoder().decode(bytes)),replace);
@@ -1895,7 +1904,19 @@ function collectGeneral(){return{workingFolder:val('gs-working'),workspace:val('
 //  Export preserves the original package and patches Lifecycle.xml
 //  (+ its .resx) from the current editor state, so it re-imports.
 // ═══════════════════════════════════════════════════════════════
-let loadedCfg=null; // {entries:[{name,data:Uint8Array}]}
+let loadedCfg=null; // {entries:[{name,data:Uint8Array}]|null, rawB64:string, sourceName:string}
+
+// base64 <-> bytes (chunked to avoid call-stack limits on large arrays)
+function bytesToB64(u8){ let s='',CH=0x8000; for(let i=0;i<u8.length;i+=CH){ s+=String.fromCharCode.apply(null,u8.subarray(i,i+CH)); } return btoa(s); }
+function b64ToBytes(b64){ const s=atob(b64); const u8=new Uint8Array(s.length); for(let i=0;i<s.length;i++)u8[i]=s.charCodeAt(i); return u8; }
+// Ensure loadedCfg.entries are inflated (they may be lazy after restoring from JSON)
+async function ensureCfgEntries(){ if(loadedCfg&&!loadedCfg.entries&&loadedCfg.rawB64){ const ref=loadedCfg; const bytes=b64ToBytes(ref.rawB64); ref.entries=await unzip(bytes.buffer); } }
+function updateCfgIndicator(){
+  const b=document.getElementById('btn-export-cfg'); if(!b)return;
+  const src=document.getElementById('loaded-src');
+  if(loadedCfg){ b.style.opacity=''; b.title='Export Vault .cfg — patches your lifecycle edits into the loaded package ('+(loadedCfg.sourceName||'loaded .cfg')+')'; if(src){src.textContent=' · 📦 '+(loadedCfg.sourceName||'.cfg package loaded'); src.style.display='';} }
+  else { b.style.opacity='.5'; b.title='Load a Vault .cfg first (then this patches your edits back into it)'; if(src){src.style.display='none';} }
+}
 
 // ---- ZIP read (deflate via native streams) ----
 async function inflateRaw(bytes){
@@ -2027,9 +2048,9 @@ function cfgParseCategories(text,RES){
   return out;
 }
 
-async function applyCfgPackage(ab, replace){
+async function applyCfgPackage(ab, replace, sourceName){
   const entries=await unzip(ab);
-  loadedCfg={entries};
+  const rawB64=bytesToB64(new Uint8Array(ab));
   // merge all .resx into one lookup
   const RES=new Map();
   entries.forEach(e=>{ if(/\.resx$/i.test(e.name)){ const t=new TextDecoder().decode(e.data); parseResx(t).forEach((v,k)=>{ if(!RES.has(k))RES.set(k,v); }); } });
@@ -2040,7 +2061,9 @@ async function applyCfgPackage(ab, replace){
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
   const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES);
   applyConfig(cfg, replace);
-  const btn=document.getElementById('btn-export-cfg'); if(btn) btn.style.display='';
+  // stash the original package AFTER applyConfig (which may reset loadedCfg)
+  loadedCfg={entries,rawB64,sourceName:sourceName||'loaded .cfg'};
+  updateCfgIndicator();
 }
 
 // ---- Export: patch Lifecycle.xml (+resx) into the original package ----
@@ -2103,9 +2126,10 @@ function patchLifecyclePackage(){
   if(resxDoc&&rxEntry) rxEntry.data=reserializeXml(resxDoc, rxEntry.data);
 }
 function buildCfgBytes(){ patchLifecyclePackage(); return zipStore(loadedCfg.entries); }
-function exportCfg(){
-  if(!loadedCfg){ alert('Load a Vault .cfg first. Export preserves that original package and patches your lifecycle edits back into it.'); return; }
+async function exportCfg(){
+  if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your lifecycle edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
   try{
+    await ensureCfgEntries();
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
