@@ -273,7 +273,6 @@ input:checked+.slider:before{transform:translateX(18px);}
 
   <div class="nav-section">Structure</div>
   <div class="nav-item" onclick="showPage('folders')" id="nav-folders"><span class="ni">📁</span> Folder Structure</div>
-  <div class="nav-item" onclick="showPage('items')" id="nav-items"><span class="ni">📦</span> Items</div>
 
   <div class="nav-section">Integrations</div>
   <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
@@ -518,19 +517,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
 </div>
 
-<!-- ITEMS -->
-<div class="page" id="page-items">
-  <div class="page-title">Items</div>
-  <div class="page-sub">Items tracked in Vault.</div>
-  <div class="card">
-    <h3>Item List</h3>
-    <table class="tbl" id="item-tbl">
-      <thead><tr><th>ID</th><th>Name</th><th>Entity Type</th><th>Notes</th><th></th></tr></thead>
-      <tbody id="item-tbody"></tbody>
-    </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addItem()">+ Add Item</button></div>
-  </div>
-</div>
+<!-- ITEMS removed -->
 
 <!-- SERVER & DATABASE -->
 <div class="page" id="page-server">
@@ -712,6 +699,11 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="bk-notify"><span class="slider"></span></label><span>Email notification on backup completion</span></div>
     </div>
   </div>
+  <div class="card">
+    <h3>Backup Script</h3>
+    <p style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 10px">Paste the backup/restore script (e.g. a PowerShell or batch routine that runs the ADMS backup).</p>
+    <textarea id="bk-script" rows="14" spellcheck="false" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-family:monospace;font-size:.78rem;resize:vertical;white-space:pre" placeholder="# e.g.\n&amp; 'C:\Program Files\Autodesk\Vault Server 2026\ADMS Console\Connectivity.ADMSConsole.exe' -Obackup -VFull -B\\backup-server\vault ..."></textarea>
+  </div>
 </div>
 
 <!-- AUDIT LOG -->
@@ -857,8 +849,6 @@ let FOLDERS = [
   {name:"Designs", children:[]}
 ];
 
-let ITEMS = [{id:"471",name:"Part1",entity:"ItemVersion",notes:""},{id:"450",name:"Part B",entity:"ItemVersion",notes:""},{id:"397",name:"Assembly 1",entity:"ItemVersion",notes:""},{id:"396",name:"Part A",entity:"ItemVersion",notes:""}];
-
 let CATEGORIES=[
   {name:"Base",entity:"File",lifecycle:"",revision:"",notes:"Default file category"},
   {name:"Engineering",entity:"File",lifecycle:"Flexible Release Process",revision:"Numeric",notes:""},
@@ -940,7 +930,7 @@ const SETTING_FIELDS={
   cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
   api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
-  backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify'],
+  backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify','bk-script'],
   audit:['audit-retain','audit-level','audit-fmt','audit-login','audit-file','audit-admin','audit-lc']
 };
 // [label, id] descriptors for the printed PDF
@@ -1054,7 +1044,7 @@ function renderAll(){
   document.getElementById('prop-count-badge').textContent=PROPS.length;
   document.getElementById('folder-count-badge').textContent=countFolders(FOLDERS);
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
-  renderItems(); renderNumbering(); renderChangeLog();
+  renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
   renderRules(); renderCsMaps();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
@@ -1149,22 +1139,6 @@ function renderFolders(){
   const badge=document.getElementById('folder-count-badge'); if(badge)badge.textContent=countFolders(FOLDERS);
 }
 function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolders(); }
-
-function renderItems(){
-  const tb=document.getElementById('item-tbody'); if(!tb)return; tb.innerHTML='';
-  ITEMS.forEach((it,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--text-muted)">${esc(it.id)}</td>
-      <td><input class="inp" value="${esc(it.name)}"/></td>
-      <td><input class="inp" value="${esc(it.entity)}"/></td>
-      <td><input class="inp" placeholder="Notes..." value="${esc(it.notes||'')}"/></td>
-      <td><button class="btn btn-danger btn-icon" onclick="ITEMS.splice(${i},1);renderItems()">✕</button></td>`;
-    const ins=tr.querySelectorAll('input');
-    ins[0].onchange=e=>it.name=e.target.value; ins[1].onchange=e=>it.entity=e.target.value; ins[2].onchange=e=>it.notes=e.target.value;
-    tb.appendChild(tr);
-  });
-}
-function addItem(){ ITEMS.push({id:'—',name:'New Item',entity:'ItemVersion',notes:''}); renderItems(); }
 
 // ═══════════════════════════════════════════════════════════════
 //  CATEGORIES / REVISIONS / NUMBERING / CHANGELOG
@@ -1888,7 +1862,7 @@ function collectConfig(){
     vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),documentRevision:val('cfg-docrev'),notes:val('cfg-notes')},
     lifecycles:LIFECYCLES.map(lcExportData),
     categories:CATEGORIES,revisionSchemes:REVISIONS,revisionSequences:REVSEQS,numberingSchemes:NUMBERING,
-    properties:PROPS,folders:FOLDERS,items:ITEMS,
+    properties:PROPS,folders:FOLDERS,
     users:USERS,groups:GROUPS,roles:ROLES,
     server:collectFields(SETTING_FIELDS.server),
     security:collectFields(SETTING_FIELDS.security),
@@ -1930,7 +1904,6 @@ function colorForState(s,i){
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
-function normItem(it){return{id:String(pick(it,'id','Id','ItemNum','Number')??'—'),name:pick(it,'name','Name','Title')||'(unnamed)',entity:pick(it,'entity','Entity','EntityType','entityType')||'ItemVersion',notes:pick(it,'notes','Notes')||''};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
@@ -1988,7 +1961,6 @@ function normalizeConfig(raw){
   const out={}; let idc=1; const nid=()=>idc++;
   const props=firstArr(raw,'properties','Properties','propertyDefinitions','PropertyDefinitions');           if(props) out.properties=props.map(normProp);
   const folders=firstArr(raw,'folders','Folders');                                                          if(folders) out.folders=folders.map(normFolder);
-  const items=firstArr(raw,'items','Items');                                                                if(items) out.items=items.map(normItem);
   const cats=firstArr(raw,'categories','Categories');                                                       if(cats) out.categories=cats.map(normCat);
   const revs=firstArr(raw,'revisionSchemes','revisions','RevisionSchemes','Revisions');                     if(revs) out.revisions=revs.map(normRev);
   const seqs=firstArr(raw,'revisionSequences','RevisionSequences');                                         if(seqs) out.revseqs=seqs.map(normRevSeq);
@@ -2026,7 +1998,7 @@ function applyConfig(raw,replace){
   const c=normalizeConfig(raw);
   // Arrays: present → replace; absent → keep (merge) unless replace mode → empty
   const arr=(key,set)=>{ if(c[key]!==undefined) set(c[key]); else if(replace) set([]); };
-  arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v); arr('items',v=>ITEMS=v);
+  arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v);
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   arr('changelog',v=>CHANGELOG=v); arr('users',v=>USERS=v); arr('groups',v=>GROUPS=v);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
@@ -2643,7 +2615,6 @@ function buildPrintDoc(){
       <tr><td>Revision Schemes</td><td>${REVISIONS.length}</td></tr>
       <tr><td>Users / Roles</td><td>${USERS.length} users · ${ROLES.length} roles</td></tr>
       <tr><td>Folders Documented</td><td>${FOLDERS.length}</td></tr>
-      <tr><td>Items Documented</td><td>${ITEMS.length}</td></tr>
     </table>
     <div class="pr-foot">${esc(vname)} configuration · page generated ${today}</div></div>`;
 
@@ -2760,12 +2731,6 @@ function buildPrintDoc(){
     ${folderRows.map(r=>`<tr><td style="padding-left:${8+r.depth*18}px">${r.depth?'└ ':'📁 '}${esc(r.name)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
-  // ITEMS
-  html+=prSection(S(),'Items')+`
-    <table class="pr-tbl"><thead><tr><th>ID</th><th>Name</th><th>Entity Type</th><th>Notes</th></tr></thead><tbody>
-    ${ITEMS.map(it=>`<tr><td>${esc(it.id)}</td><td>${esc(it.name)}</td><td>${esc(it.entity)}</td><td>${esc(it.notes||'')}</td></tr>`).join('')}
-    </tbody></table></div>`;
-
   // CAD INTEGRATION
   html+=prSection(S(),'CAD Integration')+`
     <div class="pr-h3">CAD Application</div>${prKV(PRINT_FIELDS['CAD Application'])}
@@ -2781,7 +2746,8 @@ function buildPrintDoc(){
   html+=prSection(S(),'API & Connections')+prKV(PRINT_FIELDS['API & Connections'])+`</div>`;
 
   // BACKUP
-  html+=prSection(S(),'Backup & Restore')+prKV(PRINT_FIELDS['Backup Configuration'])+`</div>`;
+  html+=prSection(S(),'Backup & Restore')+prKV(PRINT_FIELDS['Backup Configuration'])
+    +(val('bk-script')?`<div class="pr-h3">Backup Script</div><div class="pr-note">${esc(val('bk-script'))}</div>`:'')+`</div>`;
 
   // AUDIT
   html+=prSection(S(),'Audit Log')+`
