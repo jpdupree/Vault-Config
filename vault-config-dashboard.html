@@ -605,22 +605,18 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="page-sub">Password policy, authentication, and directory integration.</div>
   <div class="card">
     <h3>Password Policy</h3>
-    <div class="form-grid">
-      <div class="form-group"><label>Minimum Length</label><input id="sec-minlen" type="number" placeholder="e.g. 8"></div>
-      <div class="form-group"><label>Max Age (days)</label><input id="sec-maxage" type="number" placeholder="e.g. 90"></div>
-      <div class="form-group"><label>Lockout Attempts</label><input id="sec-lockout" type="number" placeholder="e.g. 5"></div>
-      <div class="form-group"><label>Session Timeout (min)</label><input id="sec-session" type="number" placeholder="e.g. 60"></div>
-    </div>
     <div class="toggle-stack">
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-upper"><span class="slider"></span></label><span>Require uppercase letters</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-num"><span class="slider"></span></label><span>Require numbers</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-special"><span class="slider"></span></label><span>Require special characters</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-2fa"><span class="slider"></span></label><span>Enable Two-Factor Authentication</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-ad"><span class="slider"></span></label><span>Active Directory Integration</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-minlen-en" checked><span class="slider"></span></label><span>Minimum password length</span>
+        <input id="sec-minlen" type="number" value="8" style="width:70px;margin-left:auto;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:.8rem"></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-lower" checked><span class="slider"></span></label><span>Lowercase characters</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-upper" checked><span class="slider"></span></label><span>Uppercase characters</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-num" checked><span class="slider"></span></label><span>Numbers</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-special" checked><span class="slider"></span></label><span>Special characters</span></div>
     </div>
   </div>
   <div class="card">
     <h3>AD / LDAP Settings</h3>
+    <div class="toggle-wrap" style="margin-bottom:14px"><label class="toggle"><input type="checkbox" id="sec-ad"><span class="slider"></span></label><span>Active Directory Integration</span></div>
     <div class="form-grid">
       <div class="form-group"><label>LDAP Server</label><input id="sec-ldap" placeholder="ldap://dc.company.com"></div>
       <div class="form-group"><label>Base DN</label><input id="sec-basedn" placeholder="DC=company,DC=com"></div>
@@ -931,7 +927,7 @@ let CSMAPS=[];
 // Settings groups captured directly from form fields (key = element id)
 const SETTING_FIELDS={
   server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','srv-tmp','db-host','db-name','db-auth','db-user','db-pool','db-timeout'],
-  security:['sec-minlen','sec-maxage','sec-lockout','sec-session','sec-upper','sec-num','sec-special','sec-2fa','sec-ad','sec-ldap','sec-basedn','sec-binduser','sec-adgroup'],
+  security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special','sec-ad','sec-ldap','sec-basedn','sec-binduser','sec-adgroup'],
   cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
   api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
@@ -942,8 +938,8 @@ const SETTING_FIELDS={
 const PRINT_FIELDS={
   'Server Configuration':[['Server Hostname / IP','srv-host'],['Port','srv-port'],['Protocol','srv-proto'],['SSL Certificate Path','srv-ssl'],['File Store Path','srv-fstore'],['Temp Directory','srv-tmp']],
   'Database Configuration':[['DB Server','db-host'],['DB Name','db-name'],['Authentication','db-auth'],['DB Username','db-user'],['Connection Pool Size','db-pool'],['Query Timeout (sec)','db-timeout']],
-  'Password Policy':[['Minimum Length','sec-minlen'],['Max Age (days)','sec-maxage'],['Lockout Attempts','sec-lockout'],['Session Timeout (min)','sec-session'],['Require uppercase','sec-upper'],['Require numbers','sec-num'],['Require special chars','sec-special'],['Two-Factor Authentication','sec-2fa'],['Active Directory Integration','sec-ad']],
-  'AD / LDAP':[['LDAP Server','sec-ldap'],['Base DN','sec-basedn'],['Bind User','sec-binduser'],['AD Group Filter','sec-adgroup']],
+  'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
+  'AD / LDAP':[['Active Directory Integration','sec-ad'],['LDAP Server','sec-ldap'],['Base DN','sec-basedn'],['Bind User','sec-binduser'],['AD Group Filter','sec-adgroup']],
   'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
   'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
   'API & Connections':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
@@ -1409,7 +1405,7 @@ function renderCompletionBars(){
     {label:'Lifecycles',count:()=>LIFECYCLES.length,max:2},
     {label:'Categories',count:()=>CATEGORIES.length,max:3},
     {label:'Properties',count:()=>PROPS.length,max:8},
-    {label:'Security Policy',fields:['sec-minlen','sec-session']},
+    {label:'Security Policy',fields:['sec-minlen','sec-special']},
     {label:'CAD Integration',fields:['cad-app','cad-wf']},
     {label:'Email / SMTP',fields:['email-smtp','email-from']},
     {label:'Backup',fields:['bk-path','bk-sched']}
