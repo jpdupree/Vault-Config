@@ -1662,7 +1662,22 @@ function lcToScreen(wx,wy){return{x:wx*lcCamZ+lcCamX,y:wy*lcCamZ+lcCamY};}
 function lcHitNode(wx,wy){const lc=activeLC();if(!lc)return null;for(let i=lc.states.length-1;i>=0;i--){const s=lc.states[i];if(wx>=s.x-NW/2&&wx<=s.x+NW/2&&wy>=s.y-NH/2&&wy<=s.y+NH/2)return s;}return null;}
 function lcHitWPHandle(wx,wy){const lc=activeLC();if(!lc)return null;const R=9/lcCamZ;for(const t of lc.transitions){if(!t.waypoints)continue;for(let i=0;i<t.waypoints.length;i++){const p=t.waypoints[i];if(Math.hypot(wx-p.x,wy-p.y)<R)return{trans:t,index:i};}}return null;}
 function borderPt(cx,cy,tx,ty){const dx=tx-cx,dy=ty-cy,d=Math.hypot(dx,dy)||1,ex=dx/d,ey=dy/d;const tw=Math.abs(ey)*NW/2<Math.abs(ex)*NH/2?(NW/2)/Math.abs(ex):(NH/2)/Math.abs(ey);return{x:cx+ex*tw,y:cy+ey*tw};}
-function fullPolyline(lc,t){const from=lc.states.find(s=>s.id===t.from),to=lc.states.find(s=>s.id===t.to);if(!from||!to)return null;const wps=t.waypoints||[];const ft=wps.length?wps[0]:to,ls=wps.length?wps[wps.length-1]:from;return[borderPt(from.x,from.y,ft.x,ft.y),...wps,borderPt(to.x,to.y,ls.x,ls.y)];}
+function fullPolyline(lc,t){
+  const from=lc.states.find(s=>s.id===t.from),to=lc.states.find(s=>s.id===t.to);if(!from||!to)return null;
+  const wps=t.waypoints||[];
+  const ft=wps.length?wps[0]:to,ls=wps.length?wps[wps.length-1]:from;
+  const start=borderPt(from.x,from.y,ft.x,ft.y), end=borderPt(to.x,to.y,ls.x,ls.y);
+  // Offset reciprocal pairs (A→B and B→A) to opposite sides of a canonical line so they don't overlap.
+  if(!wps.length && lc.transitions.some(x=>x.from===t.to&&x.to===t.from)){
+    const aId=Math.min(t.from,t.to), bId=Math.max(t.from,t.to);
+    const sa=lc.states.find(s=>s.id===aId), sb=lc.states.find(s=>s.id===bId);
+    if(sa&&sb){ const dx=sb.x-sa.x, dy=sb.y-sa.y, d=Math.hypot(dx,dy)||1, px=-dy/d, py=dx/d, sign=(t.from===aId)?1:-1, off=13;
+      start.x+=px*off*sign; start.y+=py*off*sign; end.x+=px*off*sign; end.y+=py*off*sign; }
+  }
+  return [start,...wps,end];
+}
+function lcDistToSeg(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;if(l2===0)return Math.hypot(px-ax,py-ay);let tt=((px-ax)*dx+(py-ay)*dy)/l2;tt=Math.max(0,Math.min(1,tt));return Math.hypot(px-(ax+tt*dx),py-(ay+tt*dy));}
+function lcHitEdge(wx,wy){const lc=activeLC();if(!lc)return null;const R=10/lcCamZ;for(const t of lc.transitions){const pts=fullPolyline(lc,t);if(!pts)continue;for(let i=0;i<pts.length-1;i++){if(lcDistToSeg(wx,wy,pts[i].x,pts[i].y,pts[i+1].x,pts[i+1].y)<R)return t;}}return null;}
 
 function lcDraw(){
   if(activeLCId===null)return;
@@ -1746,7 +1761,10 @@ function lcDrawNode(g,s){
 function lcOnMouseDown(e){
   if(e.button===1||(e.button===0&&e.altKey)||e.button===2){lcPanning=true;lcPanStartX=e.clientX;lcPanStartY=e.clientY;lcPanCamX=lcCamX;lcPanCamY=lcCamY;return;}
   const sp=lcSvgPt(e),wp=lcToWorld(sp.x,sp.y);
-  if(lcTool==='select'){ if(!lcHitNode(wp.x,wp.y)){lcSelectedStateId=null;lcSelectedTransId=null;lcRenderSidebar();lcShowEmpty();lcDraw();lcPanning=true;lcPanStartX=e.clientX;lcPanStartY=e.clientY;lcPanCamX=lcCamX;lcPanCamY=lcCamY;} }
+  if(lcTool==='select'){ if(!lcHitNode(wp.x,wp.y)){
+    const te=lcHitEdge(wp.x,wp.y);
+    if(te){ lcSelectedTransId=te.id; lcSelectedStateId=null; lcRenderSidebar(); lcShowTransDetail(te); lcDraw(); return; }
+    lcSelectedStateId=null;lcSelectedTransId=null;lcRenderSidebar();lcShowEmpty();lcDraw();lcPanning=true;lcPanStartX=e.clientX;lcPanStartY=e.clientY;lcPanCamX=lcCamX;lcPanCamY=lcCamY;} }
   if(lcTool==='connect'){ const h=lcHitNode(wp.x,wp.y); if(h)lcStartConnect(h); }
   if(lcTool==='waypoint'){ const wh=lcHitWPHandle(wp.x,wp.y); if(wh)lcDraggingWP=wh; }
 }
@@ -2919,6 +2937,11 @@ function renderLifecycleSVG(lc){
     const wps=(t.waypoints||[]);
     const ft=wps.length?wps[0]:to, ls=wps.length?wps[wps.length-1]:from;
     const start=staticBorderPt(from.x,from.y,ft.x,ft.y), end=staticBorderPt(to.x,to.y,ls.x,ls.y);
+    if(!wps.length && lc.transitions.some(x=>x.from===t.to&&x.to===t.from)){
+      const aId=Math.min(t.from,t.to), bId=Math.max(t.from,t.to), sa=find(aId), sb=find(bId);
+      if(sa&&sb){ const dx=sb.x-sa.x, dy=sb.y-sa.y, dd=Math.hypot(dx,dy)||1, px=-dy/dd, py=dx/dd, sign=(t.from===aId)?1:-1, off=13;
+        start.x+=px*off*sign; start.y+=py*off*sign; end.x+=px*off*sign; end.y+=py*off*sign; }
+    }
     const pts=[start,...wps,end];
     const d='M'+pts.map(p=>`${p.x},${p.y}`).join(' L');
     edges+=`<path d="${d}" fill="none" stroke="${from.color}" stroke-width="1.6" opacity="0.7" marker-end="url(#pm-${mIdx(from.color)})"/>`;
