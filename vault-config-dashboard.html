@@ -1308,7 +1308,7 @@ function renderRoles(){
     const actions=r.system
       ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRole(${i})">⎘</button>`
       :`<button class="btn btn-danger btn-icon" onclick="ROLES.splice(${i},1);renderRoles()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRole(${i})">⎘</button>`;
-    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}" ${ro}/>${lock}</td>
+    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px"><input class="inp" style="flex:1;min-width:0" value="${esc(r.name)}" ${ro}/>${lock?'<span style="flex:none">🔒</span>':''}</div></td>
       <td><input class="inp" value="${esc(r.description)}" ${ro}/></td>
       <td><input class="inp" value="${esc(r.notes||'')}" placeholder="Notes..."/></td>
       <td style="white-space:nowrap">${actions}</td>`;
