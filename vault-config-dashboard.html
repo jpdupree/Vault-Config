@@ -411,6 +411,22 @@ input:checked+.slider:before{transform:translateX(18px);}
       </div>
     </div>
 
+    <!-- Transition settings (shown when an arrow is selected) -->
+    <div id="lc-tx-panel" style="display:none;margin-top:14px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div id="lc-tx-title" style="font-weight:700;font-size:.9rem"></div>
+        <button class="btn btn-ghost btn-sm" onclick="lcCloseTxPanel()">✕ Close</button>
+      </div>
+      <div class="lc-toolbar" id="lc-tx-tabs" style="margin-bottom:8px">
+        <button class="tool-btn active" id="lc-txtab-criteria" onclick="lcTxTab('criteria')">Criteria</button>
+        <button class="tool-btn" id="lc-txtab-actions" onclick="lcTxTab('actions')">Actions</button>
+        <button class="tool-btn" id="lc-txtab-jobs" onclick="lcTxTab('jobs')">Custom Job Types</button>
+        <button class="tool-btn" id="lc-txtab-security" onclick="lcTxTab('security')">Security</button>
+        <button class="tool-btn" id="lc-txtab-peer" onclick="lcTxTab('peer')">Peer Review</button>
+      </div>
+      <div id="lc-tx-body" style="padding:4px 2px;font-size:.8rem"></div>
+    </div>
+
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="lcExportJSON()">⬇ Export This Lifecycle</button>
       <button class="btn btn-ghost"   onclick="lcImportJSON()">⬆ Import JSON</button>
@@ -1566,7 +1582,7 @@ function duplicateLifecycle(id){
   const src=LIFECYCLES.find(l=>l.id===id); if(!src)return;
   const idMap=new Map();
   const states=src.states.map(s=>{ const nid=lcStateNextId++; idMap.set(s.id,nid); return {...s,id:nid,comments:[...(s.comments||[])]}; });
-  const transitions=src.transitions.map(t=>({id:lcNextId++,from:idMap.get(t.from),to:idMap.get(t.to),waypoints:(t.waypoints||[]).map(w=>({...w}))}));
+  const transitions=src.transitions.map(t=>{ const cp=JSON.parse(JSON.stringify(t)); cp.id=lcNextId++; cp.from=idMap.get(t.from); cp.to=idMap.get(t.to); if(cp.criteria)cp.criteria.ruleSetName=null; return cp; });
   const copy={id:lcNextId++,name:'Copy of '+src.name,description:src.description,states,transitions,system:false};
   LIFECYCLES.push(copy);
   renderLCList(); updateMetrics(); openLCEditor(copy.id);
@@ -1833,9 +1849,9 @@ function lcLockPanel(el){
   note.innerHTML='🔒 Read-only (system default). Duplicate the lifecycle to edit.';
   el.appendChild(note);
 }
-function lcShowEmpty(){document.getElementById('lc-right-empty').style.display='flex';document.getElementById('lc-right-detail').style.display='none';document.getElementById('lc-right-trans').style.display='none';}
+function lcShowEmpty(){document.getElementById('lc-right-empty').style.display='flex';document.getElementById('lc-right-detail').style.display='none';document.getElementById('lc-right-trans').style.display='none';lcCloseTxPanel();}
 function lcShowStateDetail(s){
-  const lc=activeLC();
+  const lc=activeLC(); lcCloseTxPanel();
   document.getElementById('lc-right-empty').style.display='none';document.getElementById('lc-right-trans').style.display='none';
   const d=document.getElementById('lc-right-detail'); d.style.display='block';
   const outgoing=lc.transitions.filter(t=>t.from===s.id), incoming=lc.transitions.filter(t=>t.to===s.id);
@@ -1894,7 +1910,138 @@ function lcShowTransDetail(t){
     </div>
     <button class="btn btn-danger" style="width:100%" onclick="lcDeleteTransition(${t.id})">✕ Remove Transition</button>`;
   lcLockPanel(d);
+  lcOpenTxPanel(t);
 }
+
+// ════════════════ TRANSITION SETTINGS PANEL (below the flowchart) ════════════════
+const TX_BUMP=['None','Primary','Secondary','Tertiary'];
+const TX_CONDITIONS=['EqualTo','NotEqualTo','GreaterThan','LessThan','Contains','DoesNotContain','IsEmpty','IsNotEmpty'];
+const TX_FILETYPES=['DWF','DXF','Flat Pattern DXF','PDF','STP'];
+// check key → StateTransition attribute. enum:true uses Released/None, else true/false.
+const TX_CHECKS=[
+  {key:'childFiles',attr:'EnforceChildFileState',label:'Check that dependent child files are "Released"'},
+  {key:'childFolders',attr:'EnforceChildFolderState',label:'Check that dependent child folders are "Released"'},
+  {key:'containedFiles',attr:'EnforceFileContentState',label:'Check that contained files are "Released"'},
+  {key:'linkedFiles',attr:'EnforceLinkFileContentState',label:'Check that linked files are "Released"'},
+  {key:'linkedFolders',attr:'EnforceLinkFolderContentState',label:'Check that linked folders are "Released"'},
+  {key:'linkedCustObj',attr:'EnforceLinkCustEntContentState',label:'Check that linked custom objects are "Released"'},
+  {key:'linkedItems',attr:'EnforceLinkItemContentState',label:'Check that linked items are "Released"'},
+  {key:'childrenNotObsolete',attr:'EnforceChildNotObsoleteState',label:'Check that children are not "Obsolete"'},
+  {key:'childItems',attr:'EnforceChildItemState',label:'Check that child items are "Released"'},
+  {key:'childItemsReleased',attr:'EnforceChildItemHasBeenReleased',label:'Check that child items have been "Released"'},
+  {key:'itemLinksUptodate',attr:'EnforceFileLinkUptodate',enum:true,label:'Check that associated item file links are up to date'},
+  {key:'itemLinksReleased',attr:'EnforceFileLinkConsumable',enum:true,label:'Check that associated item file links are "Released"'}
+];
+let lcTxCurTab='actions';
+function lcTxEnsure(t){
+  if(!t.actions){ const ck={}; TX_CHECKS.forEach(c=>ck[c.key]=false); t.actions={bumpRevision:'None',syncProps:false,syncFileTypes:[],updateItems:false,purge:false,extSync:false,syncPropOption:'None',checks:ck}; }
+  if(!t.actions.checks){ t.actions.checks={}; TX_CHECKS.forEach(c=>{if(t.actions.checks[c.key]===undefined)t.actions.checks[c.key]=false;}); }
+  if(!t.criteria) t.criteria={ruleSetName:null,displayName:'',description:'',rules:[]};
+  if(!t.security) t.security={restrict:false,entries:[]};
+  if(!t.customJobTypes) t.customJobTypes=[];
+  if(!t.peerReview) t.peerReview={rules:[]};
+}
+function lcCurTx(){ const lc=activeLC(); if(!lc)return null; return lc.transitions.find(x=>x.id===lcSelectedTransId)||null; }
+function lcCloseTxPanel(){ const p=document.getElementById('lc-tx-panel'); if(p)p.style.display='none'; }
+function lcOpenTxPanel(t){
+  const p=document.getElementById('lc-tx-panel'); if(!p)return;
+  const lc=activeLC(); const fromS=lc.states.find(s=>s.id===t.from), toS=lc.states.find(s=>s.id===t.to);
+  lcTxEnsure(t);
+  document.getElementById('lc-tx-title').innerHTML=`⇒ Transition Settings — <span style="color:${fromS?.color}">${esc(fromS?.name)}</span> → <span style="color:${toS?.color}">${esc(toS?.name)}</span>`;
+  p.style.display='block';
+  lcTxTab(lcTxCurTab);
+}
+function lcTxTab(name){
+  lcTxCurTab=name;
+  ['criteria','actions','jobs','security','peer'].forEach(k=>document.getElementById('lc-txtab-'+k)?.classList.toggle('active',k===name));
+  lcTxRender();
+}
+function lcTxRender(){
+  const t=lcCurTx(); const body=document.getElementById('lc-tx-body'); if(!t||!body)return; lcTxEnsure(t);
+  const b={criteria:lcTxCriteria,actions:lcTxActions,jobs:lcTxJobs,security:lcTxSecurity,peer:lcTxPeer}[lcTxCurTab];
+  body.innerHTML=b(t);
+  if(lcReadOnly){ body.querySelectorAll('input,select,textarea').forEach(x=>x.disabled=true); body.querySelectorAll('button').forEach(x=>x.style.display='none'); }
+}
+const TX_NOTE=(txt)=>`<div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">${txt}</div>`;
+function lcTxCriteria(t){
+  const c=t.criteria;
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <div class="fg" style="flex:1;min-width:160px;margin:0"><label>Rule Set Display Name</label><input class="inp" value="${esc(c.displayName)}" onchange="lcTxCritMeta('displayName',this.value)"></div>
+      <div class="fg" style="flex:2;min-width:200px;margin:0"><label>Description</label><input class="inp" value="${esc(c.description)}" onchange="lcTxCritMeta('description',this.value)"></div>
+    </div>
+    <table class="tbl"><thead><tr><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead><tbody>
+    ${c.rules.map((r,i)=>`<tr>
+      <td><select class="inp" onchange="lcTxCrit(${i},'property',this.value)">${propOptions(r.property)}</select></td>
+      <td><select class="inp" onchange="lcTxCrit(${i},'condition',this.value)">${TX_CONDITIONS.map(x=>`<option ${x===r.condition?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td><input class="inp" value="${esc(r.value)}" onchange="lcTxCrit(${i},'value',this.value)"></td>
+      <td><button class="btn btn-danger btn-icon" onclick="lcTxDelCrit(${i})">✕</button></td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--text-muted)">No criteria — transition always allowed.</td></tr>'}
+    </tbody></table>
+    <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcTxAddCrit()">+ Add Criteria</button></div>
+    ${TX_NOTE('Criteria are written to the transition RuleSet in the .cfg lifecycle.')}`;
+}
+function lcTxActions(t){
+  const a=t.actions;
+  const ft=TX_FILETYPES.map(x=>`<label class="toggle-wrap" style="gap:6px"><input type="checkbox" ${a.syncFileTypes.includes(x)?'checked':''} onchange="lcTxFileType('${x}',this.checked)"><span>${x}</span></label>`).join('');
+  return `<div class="fg" style="max-width:240px"><label>Bump revision</label><select class="inp" onchange="lcTxAct('bumpRevision',this.value)">${TX_BUMP.map(x=>`<option ${x===a.bumpRevision?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="toggle-stack" style="margin-top:8px">
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.syncProps?'checked':''} onchange="lcTxAct('syncProps',this.checked)"><span>Synchronize properties and update the selected file types using Job Server</span></label>
+      ${a.syncProps?`<div style="display:flex;gap:14px;flex-wrap:wrap;padding-left:26px">${ft}</div>`:''}
+      ${TX_CHECKS.map(c=>`<label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.checks[c.key]?'checked':''} onchange="lcTxCheck('${c.key}',this.checked)"><span>${c.label}</span></label>`).join('')}
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.updateItems?'checked':''} onchange="lcTxAct('updateItems',this.checked)"><span>Update items</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.purge?'checked':''} onchange="lcTxAct('purge',this.checked)"><span>Purge</span></label>
+    </div>
+    ${TX_NOTE('Bump revision, the checks, Update items and Purge are written to the StateTransition attributes in the .cfg. (File-type sync list is documented but preserved as-is on export.)')}`;
+}
+function lcTxJobs(t){
+  return `<div style="font-size:.74rem;color:var(--text-muted);margin-bottom:6px">Available Custom Job Types</div>
+    ${t.customJobTypes.map((j,i)=>`<div style="display:flex;gap:6px;margin-bottom:4px"><input class="inp" style="max-width:340px" value="${esc(j)}" onchange="lcTxJob(${i},this.value)"><button class="btn btn-danger btn-icon" onclick="lcTxDelJob(${i})">✕</button></div>`).join('')||'<div style="color:var(--text-muted)">None.</div>'}
+    <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcTxAddJob()">+ Add Custom Job Type</button></div>
+    ${TX_NOTE('Documented in the dashboard/JSON. No element exists in the default .cfg export, so this is not written back.')}`;
+}
+function lcTxSecurity(t){
+  const s=t.security;
+  return `<label class="toggle-wrap" style="gap:8px;margin-bottom:8px"><input type="checkbox" ${!s.restrict?'checked':''} onchange="lcTxSecRestrict(!this.checked)"><span>No restrictions on this transition</span></label>
+    ${s.restrict?`<table class="tbl"><thead><tr><th>User / Group</th><th>Is Group</th><th>Allowed</th><th></th></tr></thead><tbody>
+      ${s.entries.map((e,i)=>`<tr><td><input class="inp" value="${esc(e.name)}" onchange="lcTxSec(${i},'name',this.value)"></td>
+        <td style="text-align:center"><input type="checkbox" ${e.isGroup?'checked':''} onchange="lcTxSec(${i},'isGroup',this.checked)"></td>
+        <td style="text-align:center"><input type="checkbox" ${e.allowed?'checked':''} onchange="lcTxSec(${i},'allowed',this.checked)"></td>
+        <td><button class="btn btn-danger btn-icon" onclick="lcTxDelSec(${i})">✕</button></td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--text-muted)">No entries.</td></tr>'}
+      </tbody></table><div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcTxAddSec()">+ Add User/Group</button></div>`
+      :'<div style="color:var(--text-muted);font-size:.78rem">User must have Modify permission at the object-based security level to perform this transition.</div>'}
+    ${TX_NOTE('Written to the .cfg: UseTransitionBasedSecurity + the TransitionACL on the transition.')}`;
+}
+function lcTxPeer(t){
+  const rs=t.peerReview.rules;
+  return `<div style="font-size:.74rem;color:var(--accent);margin-bottom:6px">Add condition to perform checks before allowing state change.</div>
+    <table class="tbl"><thead><tr><th>Rule Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead><tbody>
+    ${rs.map((r,i)=>`<tr><td><input class="inp" value="${esc(r.name)}" onchange="lcTxPeerSet(${i},'name',this.value)"></td>
+      <td><select class="inp" onchange="lcTxPeerSet(${i},'property',this.value)">${propOptions(r.property)}</select></td>
+      <td><select class="inp" onchange="lcTxPeerSet(${i},'condition',this.value)">${TX_CONDITIONS.map(x=>`<option ${x===r.condition?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td><input class="inp" value="${esc(r.value)}" onchange="lcTxPeerSet(${i},'value',this.value)"></td>
+      <td><button class="btn btn-danger btn-icon" onclick="lcTxDelPeer(${i})">✕</button></td></tr>`).join('')||'<tr><td colspan="5" style="color:var(--text-muted)">No peer review rules.</td></tr>'}
+    </tbody></table>
+    <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcTxAddPeer()">+ Add Rule</button></div>
+    ${TX_NOTE('Documented in the dashboard/JSON; not present in the default .cfg export, so not written back.')}`;
+}
+// ── tx mutators (all guard read-only; re-render after change) ──
+function lcTxMut(fn){ if(lcReadOnly)return; const t=lcCurTx(); if(!t)return; lcTxEnsure(t); fn(t); lcTxRender(); }
+function lcTxAct(k,v){ lcTxMut(t=>t.actions[k]=v); }
+function lcTxCheck(k,v){ lcTxMut(t=>t.actions.checks[k]=v); }
+function lcTxFileType(ft,on){ lcTxMut(t=>{ const a=t.actions; if(on){ if(!a.syncFileTypes.includes(ft))a.syncFileTypes.push(ft);} else a.syncFileTypes=a.syncFileTypes.filter(x=>x!==ft); }); }
+function lcTxCritMeta(k,v){ lcTxMut(t=>t.criteria[k]=v); }
+function lcTxCrit(i,k,v){ lcTxMut(t=>{ if(t.criteria.rules[i])t.criteria.rules[i][k]=v; }); }
+function lcTxAddCrit(){ lcTxMut(t=>t.criteria.rules.push({property:(PROPS[0]&&PROPS[0].SystemName)||'',condition:'EqualTo',value:''})); }
+function lcTxDelCrit(i){ lcTxMut(t=>t.criteria.rules.splice(i,1)); }
+function lcTxJob(i,v){ lcTxMut(t=>t.customJobTypes[i]=v); }
+function lcTxAddJob(){ lcTxMut(t=>t.customJobTypes.push('New Job Type')); }
+function lcTxDelJob(i){ lcTxMut(t=>t.customJobTypes.splice(i,1)); }
+function lcTxSecRestrict(v){ lcTxMut(t=>t.security.restrict=v); }
+function lcTxSec(i,k,v){ lcTxMut(t=>{ if(t.security.entries[i])t.security.entries[i][k]=v; }); }
+function lcTxAddSec(){ lcTxMut(t=>t.security.entries.push({name:'Everyone',isGroup:true,allowed:true})); }
+function lcTxDelSec(i){ lcTxMut(t=>t.security.entries.splice(i,1)); }
+function lcTxPeerSet(i,k,v){ lcTxMut(t=>{ if(t.peerReview.rules[i])t.peerReview.rules[i][k]=v; }); }
+function lcTxAddPeer(){ lcTxMut(t=>t.peerReview.rules.push({name:'',property:(PROPS[0]&&PROPS[0].SystemName)||'',condition:'EqualTo',value:''})); }
+function lcTxDelPeer(i){ lcTxMut(t=>t.peerReview.rules.splice(i,1)); }
 
 // ── STATE CRUD ──
 function lcUpdateStateField(id,field,val){if(lcReadOnly)return;const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s[field]=val;if(field==='name'){renderLCList();if(lcSelectedStateId===id)lcShowStateDetail(s);}}}
@@ -1961,7 +2108,7 @@ function lcAddWPMidpoint(id){
 function lcExportData(lc){
   return {id:lc.id,displayName:lc.name,description:lc.description,system:!!lc.system,
     states:lc.states.map(s=>({id:s.id,displayName:s.name,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
-    transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)}))}))};
+    transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)})),actions:t.actions,criteria:t.criteria,security:t.security,customJobTypes:t.customJobTypes,peerReview:t.peerReview}))};
 }
 function download(name,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
 function lcExportJSON(){const lc=activeLC();if(!lc)return;download((lc.name||'lifecycle').replace(/\s+/g,'-').toLowerCase()+'.json',lcExportData(lc));notify('Lifecycle exported');}
@@ -2073,7 +2220,8 @@ function normLifecycle(lc,idx,nid){
   const transitions=rawTrans.map(t=>{
     const from=idMap.get(String(pick(t,'from','fromStateId','FromId','From','fromId','FromStateId')));
     const to=idMap.get(String(pick(t,'to','toStateId','ToId','To','toId','ToStateId')));
-    return {id:nid(),from,to,waypoints:(firstArr(t,'waypoints','Waypoints')||[]).map(p=>({x:asNum(pick(p,'x','X'))||0,y:asNum(pick(p,'y','Y'))||0}))};
+    return {id:nid(),from,to,waypoints:(firstArr(t,'waypoints','Waypoints')||[]).map(p=>({x:asNum(pick(p,'x','X'))||0,y:asNum(pick(p,'y','Y'))||0})),
+      actions:t.actions,criteria:t.criteria,security:t.security,customJobTypes:t.customJobTypes,peerReview:t.peerReview};
   }).filter(t=>t.from!=null&&t.to!=null);
   const nm=pick(lc,'name','displayName','DispName','DisplayName','Name')||('Lifecycle '+(idx+1));
   const sysv=pick(lc,'system','isSystem');
@@ -2276,6 +2424,14 @@ function reserializeXml(doc, origBytes){
 // ---- Section parsers → dashboard config shape ----
 function cfgParseLifecycles(text,RES){
   const doc=xmlDoc(text), out=[];
+  // Criteria RuleSets (referenced by transitions via RuleSet="...")
+  const ruleSets={};
+  [...doc.querySelectorAll('RuleSets > RuleSet')].forEach(rs=>{
+    ruleSets[xAttr(rs,'Name')]={displayName:xAttr(rs,'DisplayName')||'',description:xAttr(rs,'Description')||'',
+      rules:[...rs.querySelectorAll('Rule')].map(r=>({property:xAttr(r,'PropertyName')||'',condition:xAttr(r,'Condition')||'EqualTo',value:xAttr(r,'Value')||''}))};
+  });
+  const txActions=t=>{ const ck={}; TX_CHECKS.forEach(c=>{ const v=xAttr(t,c.attr); ck[c.key]= c.enum?(v&&v!=='None'):(v==='true'); });
+    return {bumpRevision:xAttr(t,'BumpRevision')||'None',syncPropOption:xAttr(t,'SyncPropOption')||'None',syncProps:(xAttr(t,'SyncPropOption')||'None')!=='None',syncFileTypes:[],updateItems:xAttr(t,'UpdateItems')==='true',purge:xAttr(t,'ExecutePurge')==='true',extSync:xAttr(t,'ExtSyncToFM')==='true',checks:ck}; };
   doc.querySelectorAll('LifecycleDefinition').forEach((def,di)=>{
     const name=xAttr(def,'Name')||('Lifecycle '+(di+1));
     const init=xAttr(def,'InitialState');
@@ -2288,7 +2444,15 @@ function cfgParseLifecycles(text,RES){
         color:xAttr(s,'Color')||'#4f8ef7',_ord:+(xAttr(s,'DisplayOrder')||si+1)});
     });
     const n=states.length||1; states.forEach((s,i)=>{const a=(2*Math.PI*((s._ord||i+1)-1)/n)-Math.PI/2;s.x=Math.round(420+280*Math.cos(a));s.y=Math.round(300+230*Math.sin(a));delete s._ord;});
-    const transitions=[...def.querySelectorAll('StateTransitions > StateTransition')].map(t=>({from:idByName.get(xAttr(t,'FromState')),to:idByName.get(xAttr(t,'ToState')),waypoints:[]})).filter(t=>t.from!=null&&t.to!=null);
+    const transitions=[...def.querySelectorAll('StateTransitions > StateTransition')].map(t=>{
+      const rsName=xAttr(t,'RuleSet'); const rs=rsName?ruleSets[rsName]:null;
+      const acl=[...t.querySelectorAll('TransitionACL > TransitionACE')].map(a=>({name:xAttr(a,'UserOrGroupName')||'',allowed:xAttr(a,'IsAllowed')==='true',isGroup:xAttr(a,'IsGroup')==='true'}));
+      return {from:idByName.get(xAttr(t,'FromState')),to:idByName.get(xAttr(t,'ToState')),waypoints:[],
+        actions:txActions(t),
+        criteria:{ruleSetName:rsName||null,displayName:rs?rs.displayName:'',description:rs?rs.description:'',rules:rs?rs.rules.map(r=>({...r})):[]},
+        security:{restrict:xAttr(t,'UseTransitionBasedSecurity')==='true',entries:acl},
+        customJobTypes:[],peerReview:{rules:[]}};
+    }).filter(t=>t.from!=null&&t.to!=null);
     out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:true});
   });
   return out;
@@ -2413,6 +2577,7 @@ function patchLifecyclePackage(){
   const mk=tag=>doc.createElementNS(NS,tag);
   [...root.querySelectorAll('LifecycleDefinition')].forEach(d=>d.remove());
   const U=s=>(s||'').toUpperCase();
+  const ruleSetDefs=[]; // collected transition criteria → rebuilt into <RuleSets>
   LIFECYCLES.forEach(lc=>{
     const orig=origDefs[lc.name];
     let def=orig?orig.cloneNode(true):mk('LifecycleDefinition');
@@ -2431,7 +2596,35 @@ function patchLifecyclePackage(){
     lc.transitions.forEach(t=>{
       const fs=lc.states.find(s=>s.id===t.from), ts=lc.states.find(s=>s.id===t.to); if(!fs||!ts)return;
       let el=oTrans[fs.name+'→'+ts.name]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
-      el.setAttribute('FromState',fs.name); el.setAttribute('ToState',ts.name); tw.appendChild(el);
+      el.setAttribute('FromState',fs.name); el.setAttribute('ToState',ts.name);
+      // Actions
+      const a=t.actions;
+      if(a){
+        el.setAttribute('BumpRevision',a.bumpRevision||'None');
+        TX_CHECKS.forEach(c=>{ const on=!!(a.checks&&a.checks[c.key]); el.setAttribute(c.attr, c.enum?(on?'Released':'None'):(on?'true':'false')); });
+        el.setAttribute('UpdateItems',a.updateItems?'true':'false');
+        el.setAttribute('ExecutePurge',a.purge?'true':'false');
+        el.setAttribute('ExtSyncToFM',a.extSync?'true':'false');
+      }
+      // Security (UseTransitionBasedSecurity + TransitionACL)
+      const sec=t.security;
+      if(sec){
+        el.setAttribute('UseTransitionBasedSecurity',sec.restrict?'true':'false');
+        [...el.querySelectorAll('TransitionACL')].forEach(e=>e.remove());
+        if(sec.restrict && sec.entries && sec.entries.length){
+          const aclEl=mk('TransitionACL');
+          sec.entries.forEach(en=>{ const ace=mk('TransitionACE'); ace.setAttribute('UserOrGroupName',en.name||''); ace.setAttribute('IsAllowed',en.allowed?'true':'false'); ace.setAttribute('IsGroup',en.isGroup?'true':'false'); aclEl.appendChild(ace); });
+          el.appendChild(aclEl);
+        }
+      }
+      // Criteria → RuleSet reference + collect for the <RuleSets> block
+      const cr=t.criteria;
+      if(cr && cr.rules && cr.rules.length){
+        let rsName=cr.ruleSetName || ('Ruleset_'+(lc.name+'_'+fs.name+'_'+ts.name).replace(/[^A-Za-z0-9]+/g,'_'));
+        el.setAttribute('RuleSet',rsName);
+        ruleSetDefs.push({name:rsName,displayName:cr.displayName||'',description:cr.description||'',rules:cr.rules});
+      } else { el.removeAttribute('RuleSet'); }
+      tw.appendChild(el);
     });
     lc.states.forEach((s,i)=>{
       let el=oStates[s.name]; el=el?el.cloneNode(true):(tmplState?tmplState.cloneNode(true):mk('LifecycleState'));
@@ -2448,6 +2641,18 @@ function patchLifecyclePackage(){
     });
     def.appendChild(tw); def.appendChild(sw); root.appendChild(def);
   });
+  // Rebuild the <RuleSets> block (criteria definitions referenced by transitions)
+  let rsWrap=doc.querySelector('RuleSets');
+  if(ruleSetDefs.length){
+    if(!rsWrap){ rsWrap=mk('RuleSets'); doc.documentElement.appendChild(rsWrap); }
+    else { while(rsWrap.firstChild) rsWrap.removeChild(rsWrap.firstChild); }
+    const seen=new Set();
+    ruleSetDefs.forEach(rd=>{ if(seen.has(rd.name))return; seen.add(rd.name);
+      const rs=mk('RuleSet'); rs.setAttribute('Name',rd.name); rs.setAttribute('DisplayName',rd.displayName||rd.name); rs.setAttribute('Description',rd.description||'');
+      rd.rules.forEach(r=>{ const rule=mk('Rule'); rule.setAttribute('PropertyName',r.property||''); rule.setAttribute('Condition',r.condition||'EqualTo'); rule.setAttribute('Value',r.value||''); rs.appendChild(rule); });
+      rsWrap.appendChild(rs);
+    });
+  } else if(rsWrap){ while(rsWrap.firstChild) rsWrap.removeChild(rsWrap.firstChild); }
   lcEntry.data=reserializeXml(doc, lcEntry.data);
   if(resxDoc&&rxEntry) rxEntry.data=reserializeXml(resxDoc, rxEntry.data);
 }
