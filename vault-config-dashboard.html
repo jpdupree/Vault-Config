@@ -1725,18 +1725,18 @@ function addFmState(){ FMSTATEMAPS.push({name:"New Mapping",description:"",works
 function fieldsFilledPct(ids){ const f=ids.filter(id=>{const el=document.getElementById(id);return el&&String(el.value||'').trim();}).length; return Math.round((f/ids.length)*100); }
 function renderCompletionBars(){
   const host=document.getElementById('completion-bars'); if(!host)return;
+  // All sections track consultant-entered fields that are blank by default,
+  // so every bar starts at 0% and fills in as the configuration is documented.
   const sections=[
-    {label:'Vault Details',fields:['cfg-vault-name','cfg-org','cfg-version','cfg-server','cfg-admin']},
-    {label:'Server & Database',fields:['srv-host','srv-port','db-host','db-name']},
-    {label:'Users & Groups',count:()=>USERS.length,max:3},
-    {label:'Roles',count:()=>ROLES.length,max:3},
-    {label:'Lifecycles',count:()=>LIFECYCLES.length,max:2},
-    {label:'Categories',count:()=>CATEGORIES.length,max:3},
-    {label:'Properties',count:()=>PROPS.length,max:8},
-    {label:'Security Policy',fields:['sec-minlen','sec-special']},
-    {label:'CAD Integration',fields:['cad-app','cad-wf']},
-    {label:'Email / SMTP',fields:['email-smtp','email-from']},
-    {label:'Backup',fields:['bk-path','bk-sched']}
+    {label:'Vault Details',fields:['cfg-org','cfg-version','cfg-consultant']},
+    {label:'Server & Database',fields:['srv-host','srv-port','srv-fstore','db-host','db-name']},
+    {label:'Job Processor & Clients',fields:['jp-account','jp-machine','thin-client-url']},
+    {label:'Security & AD',fields:['sec-ldap','sec-basedn','sec-binduser','sec-adgroup']},
+    {label:'CAD Integration',fields:['cad-ver','cad-wf','cad-ws']},
+    {label:'Email / SMTP',fields:['email-smtp','email-from','email-user']},
+    {label:'API & Connections',fields:['api-url','api-key']},
+    {label:'Backup',fields:['bk-path','bk-retain']},
+    {label:'Fusion Connector',fields:['fm-tenant']}
   ];
   host.innerHTML=sections.map(s=>{
     let pct = s.fields ? fieldsFilledPct(s.fields) : Math.min(100,Math.round((s.count()/s.max)*100));
