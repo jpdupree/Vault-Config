@@ -1126,8 +1126,10 @@ function filterProps(val,tblId){
 //  FOLDERS / ITEMS
 // ═══════════════════════════════════════════════════════════════
 function countFolders(arr){ let n=0; (arr||[]).forEach(f=>{ n++; n+=countFolders(f.children); }); return n; }
+function sortFolders(arr){ if(!Array.isArray(arr))return; arr.sort((a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{sensitivity:'base'})); arr.forEach(f=>sortFolders(f.children)); }
 function renderFolders(){
   const host=document.getElementById('folder-tree'); if(!host)return; host.innerHTML='';
+  sortFolders(FOLDERS);
   const node=(folder,parentArr,idx,depth)=>{
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:6px;margin:3px 0;padding-left:'+(depth*22)+'px';
@@ -1135,7 +1137,7 @@ function renderFolders(){
       <input class="inp" style="max-width:300px" value="${esc(folder.name)}"/>
       <button class="btn btn-ghost btn-sm" title="Add subfolder">+ Sub</button>
       <button class="btn btn-danger btn-icon" title="Delete folder and its subfolders">✕</button>`;
-    row.querySelector('input').onchange=e=>folder.name=e.target.value;
+    row.querySelector('input').onchange=e=>{ folder.name=e.target.value; renderFolders(); };
     const btns=row.querySelectorAll('button');
     btns[0].onclick=()=>{ if(!folder.children)folder.children=[]; folder.children.push({name:'New Subfolder',children:[]}); renderFolders(); };
     btns[1].onclick=()=>{ parentArr.splice(idx,1); renderFolders(); };
