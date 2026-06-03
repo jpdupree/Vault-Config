@@ -510,14 +510,11 @@ input:checked+.slider:before{transform:translateX(18px);}
 <!-- FOLDERS -->
 <div class="page" id="page-folders">
   <div class="page-title">Folder Structure</div>
-  <div class="page-sub">Top-level and key folders in the Vault. Edit names and add notes inline.</div>
+  <div class="page-sub">Define the planned Vault folder tree. Use <b>+ Sub</b> to nest subfolders.</div>
   <div class="card">
-    <h3>Folder List <span class="badge" id="folder-count-badge">0</span></h3>
-    <div class="search-bar"><input placeholder="🔍 Filter folders..." oninput="filterFolders(this.value)"/></div>
-    <table class="tbl" id="folder-tbl">
-      <thead><tr><th>ID</th><th>Name</th><th>Created By</th><th>Created Date</th><th>Notes</th></tr></thead>
-      <tbody id="folder-tbody"></tbody>
-    </table>
+    <h3>Folder Tree <span class="badge" id="folder-count-badge">0</span></h3>
+    <div id="folder-tree"></div>
+    <div style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="addFolder()">+ Add Top-Level Folder</button></div>
   </div>
 </div>
 
@@ -846,7 +843,19 @@ input:checked+.slider:before{transform:translateX(18px);}
 // ═══════════════════════════════════════════════════════════════
 let PROPS = [{"Id":"1","DisplayName":"Classification","SystemName":"Classification","DataType":"String","IsSystem":true,"Active":true},{"Id":"2","DisplayName":"Version","SystemName":"VersionNumber","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"3","DisplayName":"Comment","SystemName":"Comment","DataType":"String","IsSystem":true,"Active":true},{"Id":"5","DisplayName":"Date Version Created","SystemName":"DateVersionCreated","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"6","DisplayName":"Created By","SystemName":"CreateUserName","DataType":"String","IsSystem":true,"Active":true},{"Id":"7","DisplayName":"Create Date","SystemName":"CreateDate","DataType":"DateTime","IsSystem":true,"Active":true},{"Id":"9","DisplayName":"File Name","SystemName":"ClientFileName","DataType":"String","IsSystem":true,"Active":true},{"Id":"12","DisplayName":"File Size","SystemName":"FileSize","DataType":"Numeric","IsSystem":true,"Active":true},{"Id":"13","DisplayName":"Linked to Item","SystemName":"ItemLinked","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"20","DisplayName":"Latest Version","SystemName":"LatestVersion","DataType":"Bool","IsSystem":true,"Active":true},{"Id":"26","DisplayName":"Thumbnail","SystemName":"Thumbnail","DataType":"Image","IsSystem":true,"Active":true},{"Id":"30","DisplayName":"Name","SystemName":"Name","DataType":"String","IsSystem":true,"Active":true},{"Id":"48","DisplayName":"Category Name","SystemName":"CategoryName","DataType":"String","IsSystem":true,"Active":true},{"Id":"52","DisplayName":"Lifecycle Definition","SystemName":"LifeCycleDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"54","DisplayName":"State","SystemName":"State","DataType":"String","IsSystem":true,"Active":true},{"Id":"58","DisplayName":"Revision Scheme","SystemName":"RevisionDefinition","DataType":"String","IsSystem":true,"Active":true},{"Id":"60","DisplayName":"Revision","SystemName":"Revision","DataType":"String","IsSystem":true,"Active":true},{"Id":"62","DisplayName":"Number","SystemName":"Number","DataType":"String","IsSystem":true,"Active":true},{"Id":"92","DisplayName":"Author","SystemName":"Author","DataType":"String","IsSystem":false,"Active":true},{"Id":"97","DisplayName":"Title","SystemName":"Title","DataType":"String","IsSystem":false,"Active":true},{"Id":"98","DisplayName":"Company","SystemName":"Company","DataType":"String","IsSystem":false,"Active":true},{"Id":"105","DisplayName":"Description","SystemName":"Description","DataType":"String","IsSystem":false,"Active":true},{"Id":"106","DisplayName":"Material","SystemName":"Material","DataType":"String","IsSystem":false,"Active":true},{"Id":"107","DisplayName":"Part Number","SystemName":"PartNumber","DataType":"String","IsSystem":false,"Active":true},{"Id":"111","DisplayName":"Designer","SystemName":"Designer","DataType":"String","IsSystem":false,"Active":true},{"Id":"112","DisplayName":"Engineer","SystemName":"Engineer","DataType":"String","IsSystem":false,"Active":true},{"Id":"116","DisplayName":"Project","SystemName":"Project","DataType":"String","IsSystem":false,"Active":true}];
 
-let FOLDERS = [{"id":"12","name":"Designs","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"11","name":"CAD Support","createUserName":"Job Processor","createDate":"2025-12-01"},{"id":"475","name":"Project Sync","createUserName":"Administrator","createDate":"2026-05-27"},{"id":"476","name":"Templates","createUserName":"KG","createDate":"2026-06-02"},{"id":"491","name":"Design Data","createUserName":"KG","createDate":"2026-06-02"},{"id":"494","name":"Configuration","createUserName":"KG","createDate":"2026-06-02"},{"id":"495","name":"Mold Design","createUserName":"KG","createDate":"2026-06-02"},{"id":"497","name":"Cable & Harness","createUserName":"KG","createDate":"2026-06-02"}];
+// Planned folder tree (nested). Names only; subfolders via children.
+let FOLDERS = [
+  {name:"Designs", children:[
+    {name:"Project Sync", children:[]},
+    {name:"Templates", children:[]}
+  ]},
+  {name:"CAD Support", children:[
+    {name:"Design Data", children:[]},
+    {name:"Configuration", children:[]},
+    {name:"Mold Design", children:[]},
+    {name:"Cable & Harness", children:[]}
+  ]}
+];
 
 let ITEMS = [{id:"471",name:"Part1",entity:"ItemVersion",notes:""},{id:"450",name:"Part B",entity:"ItemVersion",notes:""},{id:"397",name:"Assembly 1",entity:"ItemVersion",notes:""},{id:"396",name:"Part A",entity:"ItemVersion",notes:""}];
 
@@ -1043,7 +1052,7 @@ function renderAll(){
   markSystemDefaults();
   renderPropsTable('prop-tbody',PROPS,false);
   document.getElementById('prop-count-badge').textContent=PROPS.length;
-  document.getElementById('folder-count-badge').textContent=FOLDERS.length;
+  document.getElementById('folder-count-badge').textContent=countFolders(FOLDERS);
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderItems(); renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
@@ -1055,7 +1064,7 @@ function updateMetrics(){
   document.getElementById('ov-props').textContent=PROPS.length;
   document.getElementById('ov-lc').textContent=LIFECYCLES.length;
   document.getElementById('ov-cats').textContent=CATEGORIES.length;
-  document.getElementById('ov-folders').textContent=FOLDERS.length;
+  document.getElementById('ov-folders').textContent=countFolders(FOLDERS);
   renderCompletionBars();
 }
 function updateBadge(){ document.getElementById('vault-name-badge').textContent=document.getElementById('cfg-vault-name').value||'Vault'; }
@@ -1116,20 +1125,28 @@ function filterProps(val,tblId){
 // ═══════════════════════════════════════════════════════════════
 //  FOLDERS / ITEMS
 // ═══════════════════════════════════════════════════════════════
+function countFolders(arr){ let n=0; (arr||[]).forEach(f=>{ n++; n+=countFolders(f.children); }); return n; }
 function renderFolders(){
-  const tb=document.getElementById('folder-tbody'); if(!tb)return; tb.innerHTML='';
-  FOLDERS.forEach(f=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--text-muted)">${esc(f.id)}</td>
-      <td><input class="inp" value="${esc(f.name)}" onchange="f.name=this.value"/></td>
-      <td>${esc(f.createUserName||'')}</td><td>${esc(f.createDate||'')}</td>
-      <td><input class="inp" placeholder="Notes..." value="${esc(f.notes||'')}"/></td>`;
-    tr.querySelector('input').onchange=e=>f.name=e.target.value;
-    tr.querySelectorAll('input')[1].onchange=e=>f.notes=e.target.value;
-    tb.appendChild(tr);
-  });
+  const host=document.getElementById('folder-tree'); if(!host)return; host.innerHTML='';
+  const node=(folder,parentArr,idx,depth)=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:6px;margin:3px 0;padding-left:'+(depth*22)+'px';
+    row.innerHTML=`<span style="color:var(--text-muted)">📁</span>
+      <input class="inp" style="max-width:300px" value="${esc(folder.name)}"/>
+      <button class="btn btn-ghost btn-sm" title="Add subfolder">+ Sub</button>
+      <button class="btn btn-danger btn-icon" title="Delete folder and its subfolders">✕</button>`;
+    row.querySelector('input').onchange=e=>folder.name=e.target.value;
+    const btns=row.querySelectorAll('button');
+    btns[0].onclick=()=>{ if(!folder.children)folder.children=[]; folder.children.push({name:'New Subfolder',children:[]}); renderFolders(); };
+    btns[1].onclick=()=>{ parentArr.splice(idx,1); renderFolders(); };
+    host.appendChild(row);
+    (folder.children||[]).forEach((ch,i)=>node(ch,folder.children,i,depth+1));
+  };
+  FOLDERS.forEach((f,i)=>node(f,FOLDERS,i,0));
+  if(!FOLDERS.length) host.innerHTML='<div style="color:var(--text-muted);font-size:.8rem">No folders yet. Use <b>+ Add Top-Level Folder</b>.</div>';
+  const badge=document.getElementById('folder-count-badge'); if(badge)badge.textContent=countFolders(FOLDERS);
 }
-function filterFolders(v){ document.querySelectorAll('#folder-tbody tr').forEach(r=>{ r.style.display=r.textContent.toLowerCase().includes((v||'').toLowerCase())?'':'none'; }); }
+function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolders(); }
 
 function renderItems(){
   const tb=document.getElementById('item-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1910,7 +1927,7 @@ function colorForState(s,i){
   return ['#f39c12','#4f8ef7','#9b59b6','#1abc9c','#7c5ff5','#2ecc71'][i%6];
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
-function normFolder(f){return{id:String(pick(f,'id','Id','ObjectId','FldId')??'—'),name:pick(f,'name','Name','Label','FullName')||'(unnamed)',createUserName:pick(f,'createUserName','CreateUserName','createdBy','CreatedBy')||'',createDate:String(pick(f,'createDate','CreateDate','created','Created')||'').split('T')[0],notes:pick(f,'notes','Notes')||''};}
+function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
 function normItem(it){return{id:String(pick(it,'id','Id','ItemNum','Number')??'—'),name:pick(it,'name','Name','Title')||'(unnamed)',entity:pick(it,'entity','Entity','EntityType','entityType')||'ItemVersion',notes:pick(it,'notes','Notes')||''};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
@@ -2735,9 +2752,10 @@ function buildPrintDoc(){
     </tbody></table></div>`;
 
   // FOLDERS
-  html+=prSection(S(),'Folder Structure',`${FOLDERS.length} folder(s).`)+`
-    <table class="pr-tbl"><thead><tr><th>ID</th><th>Name</th><th>Created By</th><th>Created Date</th><th>Notes</th></tr></thead><tbody>
-    ${FOLDERS.map(f=>`<tr><td>${esc(f.id)}</td><td>${esc(f.name)}</td><td>${esc(f.createUserName||'')}</td><td>${esc(f.createDate||'')}</td><td>${esc(f.notes||'')}</td></tr>`).join('')}
+  const folderRows=[]; (function walk(arr,depth){(arr||[]).forEach(f=>{folderRows.push({depth,name:f.name});walk(f.children,depth+1);});})(FOLDERS,0);
+  html+=prSection(S(),'Folder Structure',`${countFolders(FOLDERS)} folder(s).`)+`
+    <table class="pr-tbl"><thead><tr><th>Folder</th></tr></thead><tbody>
+    ${folderRows.map(r=>`<tr><td style="padding-left:${8+r.depth*18}px">${r.depth?'└ ':'📁 '}${esc(r.name)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // ITEMS
