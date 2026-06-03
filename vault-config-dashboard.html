@@ -238,6 +238,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="topbar-right">
     <span class="badge" id="vault-name-badge">Vault</span>
     <input type="file" id="cfg-file" accept="application/json,.json" style="display:none" onchange="loadConfigFromFile(this)"/>
+    <label title="When on, sections missing from the loaded file are cleared (full replace). When off, they keep current data (merge)." style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted);cursor:pointer;margin-right:2px"><input type="checkbox" id="imp-replace" style="cursor:pointer">Replace</label>
     <button class="btn btn-primary" onclick="document.getElementById('cfg-file').click()">📂 Load Data</button>
     <button class="btn btn-ghost" onclick="exportAllJSON()">⬇ Export JSON</button>
     <button class="btn btn-warn" onclick="printDoc()">🖨 Print / PDF</button>
@@ -302,6 +303,12 @@ input:checked+.slider:before{transform:translateX(18px);}
       <code style="background:var(--surface2);padding:1px 6px;border-radius:4px">Export-VaultConfig.ps1</code>
       PowerShell script against your ADMS/Vault server, then load the resulting file here.
       Your data is kept only in this browser (💾 Save / ↺ Reset) — nothing is uploaded.
+    </p>
+    <p style="font-size:.78rem;color:var(--text-muted);line-height:1.6;margin-top:8px">
+      Tip: the <b>Replace</b> toggle (next to Load Data) controls how a file is applied — when
+      <b>on</b>, any section missing from the file is cleared so only the file's data remains
+      (a clean full replace); when <b>off</b> it merges, keeping current data for sections the
+      file doesn't contain.
     </p>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="document.getElementById('cfg-file').click()">📂 Load Configuration File…</button>
@@ -1739,26 +1746,31 @@ function normalizeConfig(raw){
   return out;
 }
 
-function applyConfig(raw){
+const VAULT_FIELDS=['cfg-vault-name','cfg-server','cfg-version','cfg-admin','cfg-org','cfg-consultant','cfg-docrev','cfg-notes'];
+const GENERAL_FIELDS=['gs-working','gs-workspace','gs-maxsize','gs-visatt','gs-auth','gs-timeout','gs-autoviz','gs-unique','gs-eco','gs-item','gs-checkout','gs-multi'];
+function clearFields(ids){ if(!ids)return; ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=false;else if(el.tagName==='SELECT')el.selectedIndex=0;else el.value='';}); }
+
+function applyConfig(raw,replace){
   const c=normalizeConfig(raw);
-  if(c.properties) PROPS=c.properties;
-  if(c.folders) FOLDERS=c.folders;
-  if(c.items) ITEMS=c.items;
-  if(c.categories) CATEGORIES=c.categories;
-  if(c.revisions) REVISIONS=c.revisions;
-  if(c.numbering) NUMBERING=c.numbering;
-  if(c.changelog) CHANGELOG=c.changelog;
-  if(c.users) USERS=c.users;
-  if(c.groups) GROUPS=c.groups;
-  if(c.roles) ROLES=c.roles;
-  if(c.propmaps) PROPMAPS=c.propmaps;
-  if(c.auditlog) AUDITLOG=c.auditlog;
-  restoreFields(c.serverFields); restoreFields(c.securityFields); restoreFields(c.cadFields);
-  restoreFields(c.emailFields); restoreFields(c.apiFields); restoreFields(c.backupFields); restoreFields(c.auditFields);
+  // Arrays: present → replace; absent → keep (merge) unless replace mode → empty
+  const arr=(key,set)=>{ if(c[key]!==undefined) set(c[key]); else if(replace) set([]); };
+  arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v); arr('items',v=>ITEMS=v);
+  arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('numbering',v=>NUMBERING=v);
+  arr('changelog',v=>CHANGELOG=v); arr('users',v=>USERS=v); arr('groups',v=>GROUPS=v);
+  arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
+  // Settings field-groups: present → restore; absent + replace → clear
+  const grp=(fields,obj)=>{ if(obj) restoreFields(obj); else if(replace) clearFields(fields); };
+  grp(SETTING_FIELDS.server,c.serverFields); grp(SETTING_FIELDS.security,c.securityFields);
+  grp(SETTING_FIELDS.cad,c.cadFields); grp(SETTING_FIELDS.email,c.emailFields);
+  grp(SETTING_FIELDS.api,c.apiFields); grp(SETTING_FIELDS.backup,c.backupFields);
+  grp(SETTING_FIELDS.audit,c.auditFields);
   if(c.lifecycles){ LIFECYCLES=c.lifecycles; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
+  else if(replace){ LIFECYCLES=[]; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
   if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-docrev',v.documentRevision);setVal('cfg-notes',v.notes);}
+  else if(replace){ clearFields(VAULT_FIELDS); }
   if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setVal('gs-workspace',g.workspace);setVal('gs-maxsize',g.maxFileSizeMB);setVal('gs-visatt',g.visualizationAttachment);setVal('gs-auth',g.authMode);setVal('gs-timeout',g.sessionTimeout);setChk('gs-autoviz',g.autoCreateViz);setChk('gs-unique',g.enforceUniqueNames);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);setChk('gs-checkout',g.requireCheckout);setChk('gs-multi',g.allowMultiCheckout);}
-  if(c.generalNotes!==undefined) setVal('general-notes',c.generalNotes);
+  else if(replace){ clearFields(GENERAL_FIELDS); }
+  if(c.generalNotes!==undefined) setVal('general-notes',c.generalNotes); else if(replace) setVal('general-notes','');
   // bump id counters past anything imported
   let maxLc=0,maxSt=0,maxTr=0;
   LIFECYCLES.forEach(l=>{maxLc=Math.max(maxLc,l.id||0);l.states.forEach(s=>maxSt=Math.max(maxSt,s.id||0));l.transitions.forEach(t=>maxTr=Math.max(maxTr,t.id||0));});
@@ -1768,8 +1780,9 @@ function applyConfig(raw){
 
 function loadConfigFromFile(input){
   const f=input.files&&input.files[0]; if(!f) return;
+  const replace=!!document.getElementById('imp-replace')?.checked;
   const r=new FileReader();
-  r.onload=()=>{ try{ applyConfig(JSON.parse(r.result)); saveLocal(false); notify('Loaded '+f.name); showPage('overview'); }catch(e){ alert('Could not load "'+f.name+'":\n'+e.message); } input.value=''; };
+  r.onload=()=>{ try{ applyConfig(JSON.parse(r.result),replace); saveLocal(false); notify('Loaded '+f.name+(replace?' (replaced)':' (merged)')); showPage('overview'); }catch(e){ alert('Could not load "'+f.name+'":\n'+e.message); } input.value=''; };
   r.onerror=()=>{ alert('Could not read file.'); input.value=''; };
   r.readAsText(f);
 }
