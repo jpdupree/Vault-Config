@@ -1461,7 +1461,7 @@ function renderCategories(){
     const actions=c.system
       ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateCategory(${i})">⎘</button>`
       :`<button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
-    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px"><input class="inp" style="flex:1;min-width:0" value="${esc(c.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
+    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px;width:100%"><input class="inp" style="flex:1;min-width:0" value="${esc(c.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
       <td><select class="inp" ${ro}>${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
       <td><select class="inp" ${ro}>${lcOptions(c.lifecycle)}</select></td>
       <td><select class="inp" ${ro}>${revOptions(c.revision)}</select></td>
@@ -1487,7 +1487,7 @@ function renderRevisions(){
     const actions=r.system
       ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRevision(${i})">⎘</button>`
       :`<button class="btn btn-danger btn-icon" onclick="REVISIONS.splice(${i},1);renderRevisions()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRevision(${i})">⎘</button>`;
-    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px"><input class="inp" style="flex:1;min-width:0" value="${esc(r.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
+    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px;width:100%"><input class="inp" style="flex:1;min-width:0" value="${esc(r.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
       <td><input class="inp" style="width:54px;text-align:center" value="${esc(r.separator||'.')}" ${ro}/></td>
       <td><select class="inp" ${ro}>${seqOptions(r.primary)}</select></td>
       <td><select class="inp" ${ro}>${seqOptions(r.secondary)}</select></td>
@@ -1512,7 +1512,7 @@ function renderRevSeqs(){
     const actions=s.system
       ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRevSeq(${i})">⎘</button>`
       :`<button class="btn btn-danger btn-icon" onclick="deleteRevSeq(${i})">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRevSeq(${i})">⎘</button>`;
-    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px"><input class="inp" style="flex:1;min-width:0" value="${esc(s.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
+    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px;width:100%"><input class="inp" style="flex:1;min-width:0" value="${esc(s.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
       <td style="text-align:center;font-weight:600">${esc((s.labels&&s.labels[0])||'')}</td>
       <td style="text-align:center;color:var(--text-muted)">${(s.labels||[]).length}</td>
       <td><input class="inp" style="font-family:monospace;font-size:.74rem" value="${esc((s.labels||[]).join(' '))}" placeholder="A B C …" ${ro}/></td>
@@ -1610,7 +1610,7 @@ function renderRoles(){
     const actions=r.system
       ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRole(${i})">⎘</button>`
       :`<button class="btn btn-danger btn-icon" onclick="ROLES.splice(${i},1);renderRoles()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRole(${i})">⎘</button>`;
-    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px"><input class="inp" style="flex:1;min-width:0" value="${esc(r.name)}" ${ro}/>${lock?'<span style="flex:none">🔒</span>':''}</div></td>
+    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px;width:100%"><input class="inp" style="flex:1;min-width:0" value="${esc(r.name)}" ${ro}/>${lock?'<span style="flex:none">🔒</span>':''}</div></td>
       <td><input class="inp" value="${esc(r.description)}" ${ro}/></td>
       <td><input class="inp" value="${esc(r.notes||'')}" placeholder="Notes..."/></td>
       <td style="white-space:nowrap">${actions}</td>`;
