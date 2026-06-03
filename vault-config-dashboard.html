@@ -237,10 +237,11 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
   <div class="topbar-right">
     <span class="badge" id="vault-name-badge">Vault</span>
-    <input type="file" id="cfg-file" accept="application/json,.json" style="display:none" onchange="loadConfigFromFile(this)"/>
+    <input type="file" id="cfg-file" accept="application/json,.json,.cfg" style="display:none" onchange="loadConfigFromFile(this)"/>
     <label title="When on, sections missing from the loaded file are cleared (full replace). When off, they keep current data (merge)." style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted);cursor:pointer;margin-right:2px"><input type="checkbox" id="imp-replace" style="cursor:pointer">Replace</label>
     <button class="btn btn-primary" onclick="document.getElementById('cfg-file').click()">📂 Load Data</button>
     <button class="btn btn-ghost" onclick="exportAllJSON()">⬇ Export JSON</button>
+    <button class="btn btn-ghost" id="btn-export-cfg" style="display:none" onclick="exportCfg()" title="Patch your lifecycle edits back into the imported Vault .cfg package">⬇ Export .cfg</button>
     <button class="btn btn-warn" onclick="printDoc()">🖨 Print / PDF</button>
     <button class="btn btn-success" onclick="saveLocal(true)">💾 Save</button>
     <button class="btn btn-ghost" onclick="resetSample()" title="Discard data and reload the built-in sample">↺ Reset</button>
@@ -298,8 +299,11 @@ input:checked+.slider:before{transform:translateX(18px);}
     <h3>📂 Load Real Vault Data</h3>
     <p style="font-size:.8rem;color:var(--text-muted);line-height:1.6">
       This dashboard ships with sample data. To document a real environment, load a configuration JSON file
-      with <b>📂 Load Data</b> (top right). It accepts this dashboard's own exported JSON <i>and</i> raw Vault
-      API output. Generate that JSON from your Vault by running the included
+      with <b>📂 Load Data</b> (top right). It accepts <b>three formats</b>: a Vault
+      <b>.cfg</b> Global Settings export (File ▸ Export in the Vault client), this dashboard's own
+      exported JSON, and raw Vault API output. When you load a <b>.cfg</b>, an <b>⬇ Export .cfg</b>
+      button appears — it preserves that original package and patches your lifecycle edits back in so
+      it re-imports into Vault. You can also generate JSON by running the included
       <code style="background:var(--surface2);padding:1px 6px;border-radius:4px">Export-VaultConfig.ps1</code>
       PowerShell script against your ADMS/Vault server, then load the resulting file here.
       Your data is kept only in this browser (💾 Save / ↺ Reset) — nothing is uploaded.
@@ -1782,9 +1786,21 @@ function loadConfigFromFile(input){
   const f=input.files&&input.files[0]; if(!f) return;
   const replace=!!document.getElementById('imp-replace')?.checked;
   const r=new FileReader();
-  r.onload=()=>{ try{ applyConfig(JSON.parse(r.result),replace); saveLocal(false); notify('Loaded '+f.name+(replace?' (replaced)':' (merged)')); showPage('overview'); }catch(e){ alert('Could not load "'+f.name+'":\n'+e.message); } input.value=''; };
+  r.onload=async()=>{
+    try{
+      const bytes=new Uint8Array(r.result);
+      if(bytes[0]===0x50&&bytes[1]===0x4B){ // 'PK' → Vault .cfg ZIP package
+        await applyCfgPackage(r.result,replace);
+        saveLocal(false); notify('Imported '+f.name+(replace?' (replaced)':' (merged)')); showPage('overview');
+      } else {
+        applyConfig(JSON.parse(new TextDecoder().decode(bytes)),replace);
+        saveLocal(false); notify('Loaded '+f.name+(replace?' (replaced)':' (merged)')); showPage('overview');
+      }
+    }catch(e){ alert('Could not load "'+f.name+'":\n'+e.message); console.error(e); }
+    input.value='';
+  };
   r.onerror=()=>{ alert('Could not read file.'); input.value=''; };
-  r.readAsText(f);
+  r.readAsArrayBuffer(f);
 }
 const LS_KEY='vaultConfigDashboard.v1';
 function saveLocal(announce){ try{ localStorage.setItem(LS_KEY,JSON.stringify(collectConfig())); if(announce)notify('Saved to this browser'); }catch(e){ if(announce)notify('Save failed: '+e.message); } }
@@ -1793,6 +1809,216 @@ function resetSample(){ if(!confirm('Discard all current data and reload the bui
 function val(id){const el=document.getElementById(id);return el?el.value:'';}
 function chk(id){const el=document.getElementById(id);return el?el.checked:false;}
 function collectGeneral(){return{workingFolder:val('gs-working'),workspace:val('gs-workspace'),maxFileSizeMB:val('gs-maxsize'),visualizationAttachment:val('gs-visatt'),autoCreateViz:chk('gs-autoviz'),enforceUniqueNames:chk('gs-unique'),enableChangeOrders:chk('gs-eco'),enableItemMaster:chk('gs-item'),authMode:val('gs-auth'),sessionTimeout:val('gs-timeout'),requireCheckout:chk('gs-checkout'),allowMultiCheckout:chk('gs-multi')};}
+
+// ═══════════════════════════════════════════════════════════════
+//  VAULT .cfg  (Global Settings export)  — ZIP of XML sections
+//  Import parses Lifecycle / UDP / Revision / Numbering / Category.
+//  Export preserves the original package and patches Lifecycle.xml
+//  (+ its .resx) from the current editor state, so it re-imports.
+// ═══════════════════════════════════════════════════════════════
+let loadedCfg=null; // {entries:[{name,data:Uint8Array}]}
+
+// ---- ZIP read (deflate via native streams) ----
+async function inflateRaw(bytes){
+  const ds=new DecompressionStream('deflate-raw');
+  const wr=ds.writable.getWriter(); wr.write(bytes); wr.close();
+  const rd=ds.readable.getReader(); const chunks=[]; let total=0;
+  while(true){ const {done,value}=await rd.read(); if(done)break; chunks.push(value); total+=value.length; }
+  const out=new Uint8Array(total); let o=0; for(const c of chunks){out.set(c,o);o+=c.length;} return out;
+}
+async function unzip(ab){
+  const dv=new DataView(ab), u8=new Uint8Array(ab), dec=new TextDecoder();
+  let eo=-1; for(let i=ab.byteLength-22;i>=0;i--){ if(dv.getUint32(i,true)===0x06054b50){eo=i;break;} }
+  if(eo<0) throw new Error('Not a valid ZIP / .cfg (no end-of-central-directory).');
+  const count=dv.getUint16(eo+10,true), cdOff=dv.getUint32(eo+16,true);
+  const meta=[]; let p=cdOff;
+  for(let i=0;i<count;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), compSize=dv.getUint32(p+20,true);
+    const nameLen=dv.getUint16(p+28,true), extraLen=dv.getUint16(p+30,true), commLen=dv.getUint16(p+32,true);
+    const lho=dv.getUint32(p+42,true);
+    const name=dec.decode(u8.subarray(p+46,p+46+nameLen));
+    meta.push({name,method,compSize,lho}); p+=46+nameLen+extraLen+commLen;
+  }
+  const out=[];
+  for(const e of meta){
+    const ln=dv.getUint16(e.lho+26,true), le=dv.getUint16(e.lho+28,true);
+    const start=e.lho+30+ln+le, comp=u8.subarray(start,start+e.compSize);
+    out.push({name:e.name, data: e.method===0?comp.slice():await inflateRaw(comp)});
+  }
+  return out;
+}
+// ---- ZIP write (STORED + CRC32) ----
+const _CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=_CRCT[(c^u8[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function _u16(v){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,v,true);return b;}
+function _u32(v){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,v>>>0,true);return b;}
+function _cat(arrs){let n=0;for(const a of arrs)n+=a.length;const o=new Uint8Array(n);let p=0;for(const a of arrs){o.set(a,p);p+=a.length;}return o;}
+function zipStore(entries){
+  const enc=new TextEncoder(); const parts=[]; const central=[]; let off=0;
+  for(const e of entries){
+    const name=enc.encode(e.name), data=e.data, crc=crc32(data);
+    const lh=_cat([_u32(0x04034b50),_u16(20),_u16(0),_u16(0),_u16(0),_u16(0),_u32(crc),_u32(data.length),_u32(data.length),_u16(name.length),_u16(0),name,data]);
+    parts.push(lh);
+    central.push(_cat([_u32(0x02014b50),_u16(20),_u16(20),_u16(0),_u16(0),_u16(0),_u16(0),_u32(crc),_u32(data.length),_u32(data.length),_u16(name.length),_u16(0),_u16(0),_u16(0),_u16(0),_u32(0),_u32(off),name]));
+    off+=lh.length;
+  }
+  const cd=_cat(central);
+  const eo=_cat([_u32(0x06054b50),_u16(0),_u16(0),_u16(entries.length),_u16(entries.length),_u32(cd.length),_u32(off),_u16(0)]);
+  return _cat([...parts,cd,eo]);
+}
+// ---- XML helpers ----
+function xmlDoc(text){ return new DOMParser().parseFromString(text,'application/xml'); }
+function xAttr(el,n){ return el?el.getAttribute(n):null; }
+function parseResx(text){ const m=new Map(); try{ const doc=xmlDoc(text); doc.querySelectorAll('data').forEach(d=>{ const n=d.getAttribute('name'); if(!n)return; const v=d.querySelector('value'); m.set(n, v?v.textContent:''); }); }catch(e){} return m; }
+function entryText(entries,name){ const e=entries.find(x=>x.name===name); return e?new TextDecoder().decode(e.data):null; }
+
+// ---- Section parsers → dashboard config shape ----
+function cfgParseLifecycles(text,RES){
+  const doc=xmlDoc(text), out=[];
+  doc.querySelectorAll('LifecycleDefinition').forEach((def,di)=>{
+    const name=xAttr(def,'Name')||('Lifecycle '+(di+1));
+    const init=xAttr(def,'InitialState');
+    const states=[]; const idByName=new Map();
+    [...def.querySelectorAll('LifecycleStates > LifecycleState')].forEach((s,si)=>{
+      const sn=xAttr(s,'Name'); const id=si+1; idByName.set(sn,id);
+      const comments=[...s.querySelectorAll('Comments > Comment')].map(c=>RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean);
+      states.push({id,name:sn,description:RES.get(xAttr(s,'DescriptionResource'))||'',comments,
+        isDefault:sn===init,isReleasedState:xAttr(s,'IsReleased')==='true',isObsoleteState:xAttr(s,'IsObsolete')==='true',
+        color:xAttr(s,'Color')||'#4f8ef7',_ord:+(xAttr(s,'DisplayOrder')||si+1)});
+    });
+    const n=states.length||1; states.forEach((s,i)=>{const a=(2*Math.PI*((s._ord||i+1)-1)/n)-Math.PI/2;s.x=Math.round(420+280*Math.cos(a));s.y=Math.round(300+230*Math.sin(a));delete s._ord;});
+    const transitions=[...def.querySelectorAll('StateTransitions > StateTransition')].map(t=>({from:idByName.get(xAttr(t,'FromState')),to:idByName.get(xAttr(t,'ToState')),waypoints:[]})).filter(t=>t.from!=null&&t.to!=null);
+    out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions});
+  });
+  return out;
+}
+function cfgParseProps(text,RES){
+  const doc=xmlDoc(text), out=[]; let id=1;
+  doc.querySelectorAll('UserDefinedProperty').forEach(p=>{
+    const sys=xAttr(p,'Name')||'';
+    out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(xAttr(p,'ResKey'))||sys,DataType:xAttr(p,'DataType')||'String',
+      IsSystem:!/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(sys),Active:xAttr(p,'Active')!=='false'});
+  });
+  return out;
+}
+function cfgParseRevisions(text,RES){
+  const doc=xmlDoc(text), out=[];
+  doc.querySelectorAll('RevisionSequence').forEach(r=>{
+    const labels=[...r.querySelectorAll('RevisionLabel')].map(l=>xAttr(l,'Label'));
+    const primary=labels.length>6?labels.slice(0,6).join(',')+'…':labels.join(',');
+    out.push({name:xAttr(r,'DisplayName')||xAttr(r,'Name')||'',format:xAttr(r,'IsSystem')==='true'?'System (Sequential)':'Sequential',primary,secondary:'',notes:''});
+  });
+  return out;
+}
+function cfgParseNumbering(text,RES){
+  const doc=xmlDoc(text), out=[];
+  doc.querySelectorAll('NumberingScheme').forEach(ns=>{
+    const f=ns.querySelector('AutogeneratedField');
+    out.push({entity:'File',scheme:(RES.get(xAttr(ns,'SchemeNameResKey'))||xAttr(ns,'SchemeNameResKey')||'Scheme').replace(/_/g,' '),
+      prefix:'',start:f?(xAttr(f,'RangeFrom')||''):'',inc:f?(xAttr(f,'StepSize')||'1'):'1',
+      notes:(xAttr(ns,'IsDefault')==='true'?'Default. ':'')+(xAttr(ns,'IsActive')==='true'?'Active.':'Inactive.')});
+  });
+  return out;
+}
+function cfgParseCategories(text,RES){
+  const doc=xmlDoc(text), out=[];
+  doc.querySelectorAll('Categories > Category').forEach(c=>{
+    const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
+    out.push({name:RES.get(xAttr(c,'ResKey'))||xAttr(c,'Name')||'',entity:'File',lifecycle:beh('LifeCycle'),revision:beh('RevisionScheme'),
+      notes:'Color '+(xAttr(c,'Color')||'')});
+  });
+  return out;
+}
+
+async function applyCfgPackage(ab, replace){
+  const entries=await unzip(ab);
+  loadedCfg={entries};
+  // merge all .resx into one lookup
+  const RES=new Map();
+  entries.forEach(e=>{ if(/\.resx$/i.test(e.name)){ const t=new TextDecoder().decode(e.data); parseResx(t).forEach((v,k)=>{ if(!RES.has(k))RES.set(k,v); }); } });
+  const cfg={};
+  const lcT=entryText(entries,'Lifecycle/Lifecycle.xml'); if(lcT) cfg.lifecycles=cfgParseLifecycles(lcT,RES);
+  const udpT=entryText(entries,'UDP/UDP.xml'); if(udpT) cfg.properties=cfgParseProps(udpT,RES);
+  const revT=entryText(entries,'Revision/Revision.xml'); if(revT) cfg.revisionSchemes=cfgParseRevisions(revT,RES);
+  const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
+  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES);
+  applyConfig(cfg, replace);
+  const btn=document.getElementById('btn-export-cfg'); if(btn) btn.style.display='';
+}
+
+// ---- Export: patch Lifecycle.xml (+resx) into the original package ----
+function patchLifecyclePackage(){
+  const lcEntry=loadedCfg.entries.find(e=>e.name==='Lifecycle/Lifecycle.xml');
+  const rxEntry=loadedCfg.entries.find(e=>e.name==='Lifecycle/LifeCycleResources.resx');
+  if(!lcEntry) throw new Error('Original package has no Lifecycle.xml to patch.');
+  const dec=new TextDecoder(), enc=new TextEncoder();
+  const doc=xmlDoc(dec.decode(lcEntry.data));
+  const NS=doc.documentElement.namespaceURI;
+  const root=doc.querySelector('LifecycleDefinitions')||doc.documentElement;
+  const origDefs={}; [...doc.querySelectorAll('LifecycleDefinition')].forEach(d=>origDefs[xAttr(d,'Name')]=d);
+  const tmplState=doc.querySelector('LifecycleState'), tmplTrans=doc.querySelector('StateTransition');
+  // resx doc (optional)
+  let resxDoc=rxEntry?xmlDoc(dec.decode(rxEntry.data)):null;
+  const resxKeys=resxDoc?new Set([...resxDoc.querySelectorAll('data')].map(d=>d.getAttribute('name'))):new Set();
+  const setRes=(key,text)=>{ if(!resxDoc||!key)return;
+    let el=[...resxDoc.querySelectorAll('data')].find(d=>d.getAttribute('name')===key);
+    if(!el){ el=resxDoc.createElementNS(resxDoc.documentElement.namespaceURI,'data'); el.setAttribute('name',key); el.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve'); resxDoc.documentElement.appendChild(el); resxKeys.add(key); }
+    let v=el.querySelector('value'); if(!v){ v=resxDoc.createElementNS(resxDoc.documentElement.namespaceURI,'value'); el.appendChild(v); } v.textContent=text==null?'':text; };
+  const mk=tag=>doc.createElementNS(NS,tag);
+  [...root.querySelectorAll('LifecycleDefinition')].forEach(d=>d.remove());
+  const U=s=>(s||'').toUpperCase();
+  LIFECYCLES.forEach(lc=>{
+    const orig=origDefs[lc.name];
+    let def=orig?orig.cloneNode(true):mk('LifecycleDefinition');
+    if(!orig) def.setAttribute('SystemAclBehav','Combined');
+    def.setAttribute('Name',lc.name);
+    const dflt=lc.states.find(s=>s.isDefault)||lc.states[0];
+    if(dflt) def.setAttribute('InitialState',dflt.name);
+    setRes('DISPNAME_'+lc.name+'_DEF',lc.name); def.setAttribute('DisplayNameResource','DISPNAME_'+lc.name+'_DEF');
+    setRes('DESCR_'+lc.name+'_DEF',lc.description||''); def.setAttribute('DescriptionResource','DESCR_'+lc.name+'_DEF');
+    const oStates={},oTrans={};
+    if(orig){ [...orig.querySelectorAll('LifecycleState')].forEach(s=>oStates[xAttr(s,'Name')]=s);
+      [...orig.querySelectorAll('StateTransition')].forEach(t=>oTrans[xAttr(t,'FromState')+'→'+xAttr(t,'ToState')]=t); }
+    [...def.querySelectorAll('StateTransitions')].forEach(e=>e.remove());
+    [...def.querySelectorAll('LifecycleStates')].forEach(e=>e.remove());
+    const tw=mk('StateTransitions'), sw=mk('LifecycleStates');
+    lc.transitions.forEach(t=>{
+      const fs=lc.states.find(s=>s.id===t.from), ts=lc.states.find(s=>s.id===t.to); if(!fs||!ts)return;
+      let el=oTrans[fs.name+'→'+ts.name]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
+      el.setAttribute('FromState',fs.name); el.setAttribute('ToState',ts.name); tw.appendChild(el);
+    });
+    lc.states.forEach((s,i)=>{
+      let el=oStates[s.name]; el=el?el.cloneNode(true):(tmplState?tmplState.cloneNode(true):mk('LifecycleState'));
+      el.setAttribute('Name',s.name); el.setAttribute('Color',s.color||'#4f8ef7'); el.setAttribute('DisplayOrder',String(i+1));
+      if(s.isReleasedState) el.setAttribute('IsReleased','true'); else el.removeAttribute('IsReleased');
+      if(s.isObsoleteState) el.setAttribute('IsObsolete','true'); else el.removeAttribute('IsObsolete');
+      const dn='DISPNAME_'+U(lc.name)+'_'+U(s.name)+'_DEF'; setRes(dn,s.name); el.setAttribute('DisplayNameResource',dn);
+      const dd='DESCR_'+U(lc.name)+'_'+U(s.name)+'_DEF'; setRes(dd,s.description||''); el.setAttribute('DescriptionResource',dd);
+      [...el.querySelectorAll('Comments')].forEach(e=>e.remove());
+      const cw=mk('Comments'); const cs=(s.comments&&s.comments.length)?s.comments:[''];
+      cs.forEach((c,ci)=>{ const ck='COMM_'+U(lc.name)+'_'+U(s.name)+'_DEF'+ci; setRes(ck,c); const ce=mk('Comment'); ce.setAttribute('ValueResource',ck); ce.setAttribute('IsDefault',ci===0?'true':'false'); cw.appendChild(ce); });
+      const acl=el.querySelector('StateACL'); if(acl) el.insertBefore(cw,acl); else el.appendChild(cw);
+      sw.appendChild(el);
+    });
+    def.appendChild(tw); def.appendChild(sw); root.appendChild(def);
+  });
+  const ser=new XMLSerializer();
+  const decl='<?xml version="1.0"?>\n';
+  lcEntry.data=enc.encode(decl+ser.serializeToString(doc));
+  if(resxDoc&&rxEntry) rxEntry.data=enc.encode(decl+ser.serializeToString(resxDoc));
+}
+function buildCfgBytes(){ patchLifecyclePackage(); return zipStore(loadedCfg.entries); }
+function exportCfg(){
+  if(!loadedCfg){ alert('Load a Vault .cfg first. Export preserves that original package and patches your lifecycle edits back into it.'); return; }
+  try{
+    const bytes=buildCfgBytes();
+    const blob=new Blob([bytes],{type:'application/octet-stream'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=(val('cfg-vault-name')||'vault')+'-config.cfg'; a.click();
+    notify('Exported .cfg (lifecycle edits patched into original package)');
+  }catch(e){ alert('Could not export .cfg:\n'+e.message); console.error(e); }
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  STATIC SVG DIAGRAM FOR PRINT
