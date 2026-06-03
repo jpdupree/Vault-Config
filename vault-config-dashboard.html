@@ -592,7 +592,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Roles</h3>
     <table class="tbl" id="roles-tbl">
-      <thead><tr><th>Role Name</th><th>Description</th><th>Read</th><th>Write</th><th>Delete</th><th>Admin</th><th></th></tr></thead>
+      <thead><tr><th style="width:24%">Role Name</th><th>Description</th><th style="width:22%">Notes</th><th></th></tr></thead>
       <tbody id="roles-tbody"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRole()">+ Add Role</button></div>
@@ -884,16 +884,38 @@ let CHANGELOG=[];
 let USERS=[
   {username:"Administrator",fullName:"Vault Administrator",email:"admin@company.com",role:"Administrator",status:"Active"},
   {username:"JobProcessor",fullName:"Job Processor",email:"",role:"Administrator",status:"Active"},
-  {username:"ACServiceUser",fullName:"AC Service User",email:"",role:"Administrator",status:"Active"}
+  {username:"ACServiceUser",fullName:"AC Service User",email:"",role:"Administrator",status:"Active"},
+  {username:"SymetriTech",fullName:"Symetri Tech",email:"",role:"Administrator",status:"Active"}
 ];
 let GROUPS=[
-  {name:"Engineering",description:"Design engineers",members:"jsmith, bdesign"},
+  {name:"Engineering",description:"Design engineers",members:""},
   {name:"Administrators",description:"Vault administrators",members:"Administrator"}
 ];
+// Default Vault roles (duplicate one to create a custom role). Each role carries
+// many granular permissions in Vault; here it's name + description + your notes.
 let ROLES=[
-  {name:"Administrator",description:"Full control",read:true,write:true,del:true,admin:true},
-  {name:"Editor",description:"Create and edit",read:true,write:true,del:false,admin:false},
-  {name:"Viewer",description:"Read-only access",read:true,write:false,del:false,admin:false}
+  {name:"Administrator",description:"Full control over all folders and administrative server privileges",notes:"",system:true},
+  {name:"Change Order Editor (Level 1)",description:"Full control over all Change Orders except those in approved status",notes:"",system:true},
+  {name:"Change Order Editor (Level 2)",description:"Full control over all Change Orders including those in approved status",notes:"",system:true},
+  {name:"Configuration Administrator",description:"Full control over configuration of Vault objects and management settings",notes:"",system:true},
+  {name:"Content Center Administrator",description:"Full control within the Content Center and Library Management on the server",notes:"",system:true},
+  {name:"Content Center Editor",description:"Full control within Content Center only",notes:"",system:true},
+  {name:"Custom Object Consumer",description:"Read-only control over Custom Objects",notes:"",system:true},
+  {name:"Custom Object Editor (Level 1)",description:"Basic adding and editing control over Custom Objects",notes:"",system:true},
+  {name:"Custom Object Editor (Level 2)",description:"Full control over all Custom Objects",notes:"",system:true},
+  {name:"Custom Object Manager (Level 1)",description:"Full control over category, lifecycle, revision assignments, and user-defined properties",notes:"",system:true},
+  {name:"Custom Object Manager (Level 2)",description:"Full control over category, lifecycle, revision assignments, user-defined properties, and file behavior",notes:"",system:true},
+  {name:"Document Consumer",description:"Read-only control over all files, folders, and job server queue",notes:"",system:true},
+  {name:"Document Editor (Level 1)",description:"Adding and editing privileges within the vault and can add/remove file and folder user-defined properties",notes:"",system:true},
+  {name:"Document Editor (Level 2)",description:"Full control over files, folders, and their properties",notes:"",system:true},
+  {name:"Document Manager (Level 1)",description:"Full control over category, lifecycle, revision assignments, and user-defined properties",notes:"",system:true},
+  {name:"Document Manager (Level 2)",description:"Full control over category, lifecycle, revision assignments, user-defined properties, file, folder, and custom objects behavior",notes:"",system:true},
+  {name:"ERP Manager",description:"Full control over ERP tasks",notes:"",system:true},
+  {name:"Item Editor (Level 1)",description:"Basic control over files, folders, and items",notes:"",system:true},
+  {name:"Item Editor (Level 2)",description:"Full control over files, folders, and items",notes:"",system:true},
+  {name:"Item Reviewer",description:"Read-only access over files, folders, and items",notes:"",system:true},
+  {name:"Project Administrator",description:"Full control over project settings for all object types",notes:"",system:true},
+  {name:"Security Administrator",description:"Full control over security settings for all object types including objects that are cloaked",notes:"",system:true}
 ];
 let PROPMAPS=[
   {cad:"PART NUMBER",vault:"Part Number",direction:"CAD → Vault"},
@@ -996,11 +1018,13 @@ const SYSTEM_LC_NAMES=new Set(["Basic Release Process","Flexible Release Process
 const SYSTEM_REV_NAMES=new Set(["Standard Alphabetic Format","Standard Numeric Format","Default ASME Y14.35M Format"]);
 const SYSTEM_SEQ_NAMES=new Set(["Alphabetic","Numeric","ASME Y14.35M"]);
 const SYSTEM_CAT_NAMES=new Set(["Base","Folder"]);
+const SYSTEM_ROLE_NAMES=new Set(["Administrator","Change Order Editor (Level 1)","Change Order Editor (Level 2)","Configuration Administrator","Content Center Administrator","Content Center Editor","Custom Object Consumer","Custom Object Editor (Level 1)","Custom Object Editor (Level 2)","Custom Object Manager (Level 1)","Custom Object Manager (Level 2)","Document Consumer","Document Editor (Level 1)","Document Editor (Level 2)","Document Manager (Level 1)","Document Manager (Level 2)","ERP Manager","Item Editor (Level 1)","Item Editor (Level 2)","Item Reviewer","Project Administrator","Security Administrator"]);
 function markSystemDefaults(){
   LIFECYCLES.forEach(l=>{ if(l.system===undefined) l.system=SYSTEM_LC_NAMES.has(l.name); });
   REVISIONS.forEach(r=>{ if(r.system===undefined) r.system=SYSTEM_REV_NAMES.has(r.name); });
   if(typeof REVSEQS!=='undefined') REVSEQS.forEach(s=>{ if(s.system===undefined) s.system=SYSTEM_SEQ_NAMES.has(s.name); });
   CATEGORIES.forEach(c=>{ if(c.system===undefined) c.system=SYSTEM_CAT_NAMES.has(c.name); });
+  if(typeof ROLES!=='undefined') ROLES.forEach(r=>{ if(r.system===undefined) r.system=SYSTEM_ROLE_NAMES.has(r.name); });
 }
 const SVGNS='http://www.w3.org/2000/svg';
 
@@ -1275,18 +1299,27 @@ function renderGroups(){
 function addGroup(){ GROUPS.push({name:'New Group',description:'',members:''}); renderGroups(); }
 
 function renderRoles(){
+  markSystemDefaults();
   const tb=document.getElementById('roles-tbody'); if(!tb)return; tb.innerHTML='';
   ROLES.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    const ck=(f)=>`<input type="checkbox" ${r[f]?'checked':''}/>`;
-    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}"/></td><td><input class="inp" value="${esc(r.description)}"/></td>
-      <td style="text-align:center">${ck('read')}</td><td style="text-align:center">${ck('write')}</td><td style="text-align:center">${ck('del')}</td><td style="text-align:center">${ck('admin')}</td>
-      <td><button class="btn btn-danger btn-icon" onclick="ROLES.splice(${i},1);renderRoles()">✕</button></td>`;
-    bindRow(tr,r,['name','description','read','write','del','admin']);
+    const ro=r.system?'disabled':'';
+    const lock=r.system?' 🔒':'';
+    const actions=r.system
+      ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRole(${i})">⎘</button>`
+      :`<button class="btn btn-danger btn-icon" onclick="ROLES.splice(${i},1);renderRoles()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRole(${i})">⎘</button>`;
+    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}" ${ro}/>${lock}</td>
+      <td><input class="inp" value="${esc(r.description)}" ${ro}/></td>
+      <td><input class="inp" value="${esc(r.notes||'')}" placeholder="Notes..."/></td>
+      <td style="white-space:nowrap">${actions}</td>`;
+    const el=tr.querySelectorAll('input');
+    if(!r.system){ el[0].onchange=e=>r.name=e.target.value; el[1].onchange=e=>r.description=e.target.value; }
+    el[2].onchange=e=>r.notes=e.target.value; // notes always editable
     tb.appendChild(tr);
   });
 }
-function addRole(){ ROLES.push({name:'New Role',description:'',read:true,write:false,del:false,admin:false}); renderRoles(); }
+function addRole(){ ROLES.push({name:'New Role',description:'',notes:'',system:false}); renderRoles(); }
+function duplicateRole(i){ const s=ROLES[i]; if(!s)return; ROLES.splice(i+1,0,{name:'Copy of '+s.name,description:s.description,notes:s.notes,system:false}); renderRoles(); notify('Role duplicated (editable)'); }
 
 function renderPropMaps(){
   const tb=document.getElementById('propmap-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1891,7 +1924,7 @@ function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],a
 function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
 function normUser(u){return{username:pick(u,'username','Username','UserName','name')||'',fullName:pick(u,'fullName','FullName','Name')||'',email:pick(u,'email','Email')||'',role:pick(u,'role','Role')||'',status:pick(u,'status','Status')||'Active'};}
 function normGroup(g){return{name:pick(g,'name','Name')||'',description:pick(g,'description','Description')||'',members:Array.isArray(g.members)?g.members.join(', '):(pick(g,'members','Members')||'')};}
-function normRole(r){return{name:pick(r,'name','Name')||'',description:pick(r,'description','Description')||'',read:toBool(pick(r,'read','Read')),write:toBool(pick(r,'write','Write')),del:toBool(pick(r,'del','delete','Delete')),admin:toBool(pick(r,'admin','Admin'))};}
+function normRole(r){const nm=pick(r,'name','Name')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description')||'',notes:pick(r,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_ROLE_NAMES.has(nm)};}
 function normMap(m){return{cad:pick(m,'cad','cadProperty','CADProperty','CadProp')||'',vault:pick(m,'vault','vaultProperty','VaultProperty')||'',direction:pick(m,'direction','Direction')||'CAD → Vault'};}
 function normAudit(a){return{timestamp:pick(a,'timestamp','Timestamp','time','Time')||'',user:pick(a,'user','User')||'',action:pick(a,'action','Action')||'',entity:pick(a,'entity','Entity')||'',details:pick(a,'details','Details')||''};}
 function normRule(r){return{entityClass:pick(r,'entityClass','EntityClass','EntityClassName')||'',applyToNew:toBool(pick(r,'applyToNew','ApplyToNewEntity')??true),category:pick(r,'category','Category','CategoryName')||'',ruleSetName:pick(r,'ruleSetName','RuleSetName','ruleSet')||'',propDef:pick(r,'propDef','PropDef','PropDefName')||'',condition:pick(r,'condition','Condition')||'EqualTo',value:pick(r,'value','Value')!=null?String(pick(r,'value','Value')):''};}
@@ -2642,9 +2675,9 @@ function buildPrintDoc(){
     </tbody></table></div>`;
 
   // ROLES
-  html+=prSection(S(),'Roles & Permissions')+`
-    <table class="pr-tbl"><thead><tr><th>Role</th><th>Description</th><th>Read</th><th>Write</th><th>Delete</th><th>Admin</th></tr></thead><tbody>
-    ${ROLES.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.description)}</td><td>${r.read?'✓':''}</td><td>${r.write?'✓':''}</td><td>${r.del?'✓':''}</td><td>${r.admin?'✓':''}</td></tr>`).join('')}
+  html+=prSection(S(),'Roles & Permissions',`${ROLES.length} role(s).`)+`
+    <table class="pr-tbl"><thead><tr><th style="width:24%">Role</th><th>Description</th><th style="width:22%">Notes</th></tr></thead><tbody>
+    ${ROLES.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.description)}</td><td>${esc(r.notes||'')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // SECURITY POLICIES
