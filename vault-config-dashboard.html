@@ -348,15 +348,6 @@ input:checked+.slider:before{transform:translateX(18px);}
     <h3>Configuration Completion</h3>
     <div id="completion-bars"></div>
   </div>
-
-  <div class="card">
-    <h3>Quick Reference — Property Definitions</h3>
-    <div class="search-bar"><input placeholder="🔍 Filter properties..." oninput="filterProps(this.value,'ov-prop-tbl')"/></div>
-    <table class="tbl" id="ov-prop-tbl">
-      <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th></tr></thead>
-      <tbody id="ov-prop-tbody"></tbody>
-    </table>
-  </div>
 </div>
 
 <!-- LIFECYCLES -->
@@ -1030,7 +1021,6 @@ window.addEventListener('resize',()=>{ if(activeLCId!==null){lcResizeCanvas();lc
 
 function renderAll(){
   markSystemDefaults();
-  renderPropsTable('ov-prop-tbody',PROPS,true);
   renderPropsTable('prop-tbody',PROPS,false);
   document.getElementById('prop-count-badge').textContent=PROPS.length;
   document.getElementById('folder-count-badge').textContent=FOLDERS.length;
