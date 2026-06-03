@@ -270,7 +270,6 @@ input:checked+.slider:before{transform:translateX(18px);}
 
   <div class="nav-section">Properties</div>
   <div class="nav-item" onclick="showPage('properties')" id="nav-properties"><span class="ni">🔑</span> Property Definitions</div>
-  <div class="nav-item" onclick="showPage('mapping')" id="nav-mapping"><span class="ni">🔗</span> Property Mapping</div>
 
   <div class="nav-section">Structure</div>
   <div class="nav-item" onclick="showPage('folders')" id="nav-folders"><span class="ni">📁</span> Folder Structure</div>
@@ -488,24 +487,10 @@ input:checked+.slider:before{transform:translateX(18px);}
 </div>
 
 <!-- PROPERTY MAPPING -->
-<div class="page" id="page-mapping">
-  <div class="page-title">Property Mapping</div>
-  <div class="page-sub">Maps Vault property definitions to CAD / content-source properties (ContentSourcePropDefMapping). Monikers are content-source identifiers and are preserved exactly.</div>
-  <div class="card">
-    <h3>Content Source Property Mappings <span class="badge" id="csmap-count">0</span></h3>
-    <div class="search-bar"><input placeholder="🔍 Filter by property, entity class, or content source..." oninput="filterCsMaps(this.value)"/></div>
-    <table class="tbl" id="csmap-tbl">
-      <thead><tr><th>Vault Property</th><th>Entity Class</th><th>Content Source</th><th>Direction</th><th>Moniker</th><th></th></tr></thead>
-      <tbody id="csmap-tbody"></tbody>
-    </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCsMap()">+ Add Mapping</button></div>
-  </div>
-</div>
-
 <!-- PROPERTIES -->
 <div class="page" id="page-properties">
   <div class="page-title">Property Definitions</div>
-  <div class="page-sub">All system and custom property definitions captured from Vault.</div>
+  <div class="page-sub">Select a property to view and edit its content-source mappings below (like Vault's Property Definitions ▸ Mapping).</div>
   <div class="card">
     <h3>All Properties <span class="badge" id="prop-count-badge">0</span></h3>
     <div class="search-bar">
@@ -521,6 +506,14 @@ input:checked+.slider:before{transform:translateX(18px);}
       <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th><th></th></tr></thead>
       <tbody id="prop-tbody"></tbody>
     </table>
+  </div>
+  <div class="card" id="prop-map-card" style="display:none">
+    <h3 id="prop-map-title">Mapping</h3>
+    <table class="tbl" id="prop-map-tbl">
+      <thead><tr><th>Entity</th><th>Provider (Content Source)</th><th>Direction</th><th>Create</th><th>Moniker</th><th></th></tr></thead>
+      <tbody id="prop-map-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addMappingForSelected()">+ Add Mapping</button></div>
   </div>
 </div>
 
@@ -1281,7 +1274,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
-  renderRules(); renderCsMaps(); renderFmProps(); renderFmStates();
+  renderRules(); renderPropMapping(); renderFmProps(); renderFmStates();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
 }
 
@@ -1319,16 +1312,46 @@ function renderPropsTable(tbodyId,data,compact){
       tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>`;
     }else{
       const idx=PROPS.indexOf(p);
+      const mapN=CSMAPS.filter(m=>m.propDef===p.SystemName).length;
+      if(p.SystemName===selectedPropSys) tr.style.background='rgba(79,142,247,.12)';
+      tr.style.cursor='pointer';
       tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}${p.IsSystem?' 🔒':''}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>
-        <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}">${p.Active?'Yes':'No'}</span></td>
+        <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}</td>
         <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}"/></td>
-        <td style="white-space:nowrap">${p.IsSystem?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable custom property" onclick="duplicateProperty(${idx})">⎘</button>`:`<button class="btn btn-danger btn-icon" onclick="PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateProperty(${idx})">⎘</button>`}</td>`;
+        <td style="white-space:nowrap">${p.IsSystem?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable custom property" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button>`:`<button class="btn btn-danger btn-icon" onclick="event.stopPropagation();PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button>`}</td>`;
       const inp=tr.querySelector('input');
       inp.onchange=()=>{p.notes=inp.value;};
+      inp.onclick=e=>e.stopPropagation();
+      tr.onclick=()=>selectProp(p.SystemName);
     }
     tb.appendChild(tr);
   });
 }
+let selectedPropSys=null;
+function selectProp(sys){ selectedPropSys=sys; renderPropsTable('prop-tbody',PROPS,false); renderPropMapping(); }
+function renderPropMapping(){
+  const card=document.getElementById('prop-map-card'), tb=document.getElementById('prop-map-tbody'); if(!card||!tb)return;
+  if(!selectedPropSys){ card.style.display='none'; return; }
+  const prop=PROPS.find(p=>p.SystemName===selectedPropSys);
+  card.style.display='block';
+  document.getElementById('prop-map-title').innerHTML=`Mapping — <span style="color:var(--accent)">${esc(prop?prop.DisplayName:selectedPropSys)}</span> <span style="color:var(--text-muted);font-weight:400;font-size:.78rem">(${esc(selectedPropSys)})</span>`;
+  tb.innerHTML='';
+  CSMAPS.forEach((m,idx)=>{
+    if(m.propDef!==selectedPropSys) return;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" style="width:120px" value="${esc(m.entityClass)}"/></td>
+      <td><input class="inp" value="${esc(m.contentSource)}"/></td>
+      <td><select class="inp">${['Read','Write','ReadAndWrite'].map(x=>`<option ${x===m.direction?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td style="text-align:center"><input type="checkbox" ${(m.canCreateNew==='true'||m.canCreateNew===true)?'checked':''}/></td>
+      <td><input class="inp" style="font-family:monospace;font-size:.7rem" value="${esc(m.moniker)}"/></td>
+      <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="CSMAPS.splice(${idx},1);renderPropMapping();renderPropsTable('prop-tbody',PROPS,false)">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="CSMAPS.splice(${idx}+1,0,{...CSMAPS[${idx}]});renderPropMapping();renderPropsTable('prop-tbody',PROPS,false)">⎘</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>m.entityClass=e.target.value; el[1].onchange=e=>m.contentSource=e.target.value; el[2].onchange=e=>m.direction=e.target.value; el[3].onchange=e=>m.canCreateNew=e.target.checked?'true':'false'; el[4].onchange=e=>m.moniker=e.target.value;
+    tb.appendChild(tr);
+  });
+  if(!CSMAPS.some(m=>m.propDef===selectedPropSys)) tb.innerHTML='<tr><td colspan="6" style="color:var(--text-muted)">No mappings for this property. Use + Add Mapping.</td></tr>';
+}
+function addMappingForSelected(){ if(!selectedPropSys)return; CSMAPS.push({propDef:selectedPropSys,entityClass:'File',contentSource:'Inventor',moniker:'',direction:'ReadAndWrite',mappingType:'Constant',priority:'1',canCreateNew:'false'}); renderPropMapping(); renderPropsTable('prop-tbody',PROPS,false); }
 function duplicateProperty(i){
   const s=PROPS[i]; if(!s)return;
   PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy',DataType:s.DataType,IsSystem:false,Active:true,notes:''});
@@ -1601,29 +1624,6 @@ function catOptions(sel){ return '<option value="">—</option>'+CATEGORIES.map(
 function propOptions(sel){ const names=[...new Set(PROPS.map(p=>p.SystemName))]; if(sel&&!names.includes(sel))names.push(sel); names.sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})); return names.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join(''); }
 function addRule(){ RULES.push({entityClass:"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
 function duplicateRule(i){ const s=RULES[i]; if(!s)return; RULES.splice(i+1,0,{...s,ruleSetName:(s.ruleSetName||s.category)+' Copy'}); renderRules(); notify('Rule duplicated'); }
-
-// ── CONTENT-SOURCE PROPERTY MAPPING ──
-function renderCsMaps(filter){
-  const tb=document.getElementById('csmap-tbody'); if(!tb)return; tb.innerHTML='';
-  const cnt=document.getElementById('csmap-count'); if(cnt)cnt.textContent=CSMAPS.length;
-  const f=(filter||'').toLowerCase();
-  CSMAPS.forEach((m,i)=>{
-    if(f && !((m.propDef+' '+m.entityClass+' '+m.contentSource).toLowerCase().includes(f))) return;
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td><select class="inp">${propOptions(m.propDef)}</select></td>
-      <td><input class="inp" value="${esc(m.entityClass)}"/></td>
-      <td><input class="inp" value="${esc(m.contentSource)}"/></td>
-      <td><select class="inp">${['Read','Write','ReadAndWrite'].map(d=>`<option ${d===m.direction?'selected':''}>${d}</option>`).join('')}</select></td>
-      <td><input class="inp" style="font-family:monospace;font-size:.7rem" value="${esc(m.moniker)}"/></td>
-      <td><button class="btn btn-danger btn-icon" onclick="CSMAPS.splice(${i},1);renderCsMaps(document.querySelector('#page-mapping .search-bar input').value)">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCsMap(${i})">⎘</button></td>`;
-    const el=tr.querySelectorAll('input,select');
-    el[0].onchange=e=>m.propDef=e.target.value; el[1].onchange=e=>m.entityClass=e.target.value; el[2].onchange=e=>m.contentSource=e.target.value; el[3].onchange=e=>m.direction=e.target.value; el[4].onchange=e=>m.moniker=e.target.value;
-    tb.appendChild(tr);
-  });
-}
-function filterCsMaps(v){ renderCsMaps(v); }
-function addCsMap(){ CSMAPS.push({propDef:(PROPS[0]&&PROPS[0].SystemName)||"",entityClass:"FileIteration",contentSource:"Inventor",moniker:"",direction:"ReadAndWrite",mappingType:"Constant",priority:"1",canCreateNew:"false"}); renderCsMaps(); }
-function duplicateCsMap(i){ const s=CSMAPS[i]; if(!s)return; CSMAPS.splice(i+1,0,{...s}); renderCsMaps(document.querySelector('#page-mapping .search-bar input').value); notify('Mapping duplicated'); }
 
 // ── FUSION MANAGE CONNECTOR ──
 function renderFmProps(){
