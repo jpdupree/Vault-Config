@@ -845,16 +845,16 @@ let PROPS = [{"Id":"1","DisplayName":"Classification","SystemName":"Classificati
 
 // Planned folder tree (nested). Names only; subfolders via children.
 let FOLDERS = [
-  {name:"Designs", children:[
-    {name:"Project Sync", children:[]},
-    {name:"Templates", children:[]}
-  ]},
   {name:"CAD Support", children:[
-    {name:"Design Data", children:[]},
-    {name:"Configuration", children:[]},
-    {name:"Mold Design", children:[]},
-    {name:"Cable & Harness", children:[]}
-  ]}
+    {name:"AutoCAD", children:[
+      {name:"Templates", children:[]}
+    ]},
+    {name:"Inventor", children:[
+      {name:"Design Data", children:[]},
+      {name:"Templates", children:[]}
+    ]}
+  ]},
+  {name:"Designs", children:[]}
 ];
 
 let ITEMS = [{id:"471",name:"Part1",entity:"ItemVersion",notes:""},{id:"450",name:"Part B",entity:"ItemVersion",notes:""},{id:"397",name:"Assembly 1",entity:"ItemVersion",notes:""},{id:"396",name:"Part A",entity:"ItemVersion",notes:""}];
