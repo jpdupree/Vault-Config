@@ -379,7 +379,11 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
       <div class="form-group" style="margin:0;flex:1;min-width:180px"><label>Name</label><input id="lc-edit-name" oninput="lcUpdateMeta()"/></div>
       <div class="form-group" style="margin:0;flex:2;min-width:220px"><label>Description</label><input id="lc-edit-desc" oninput="lcUpdateMeta()"/></div>
+      <button class="btn btn-warn btn-sm" onclick="duplicateLifecycle(activeLCId)">⎘ Duplicate</button>
       <button class="btn btn-ghost btn-sm" onclick="closeLCEditor()">✕ Close</button>
+    </div>
+    <div id="lc-lock-banner" style="display:none;background:rgba(243,156,18,.12);border:1px solid var(--orange);color:var(--orange);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.8rem">
+      🔒 This is a <b>system/default</b> lifecycle and is read-only. Click <b>⎘ Duplicate</b> to create an editable copy.
     </div>
 
     <div class="lc-toolbar">
@@ -388,7 +392,7 @@ input:checked+.slider:before{transform:translateX(18px);}
       <button class="tool-btn"        id="lc-tool-waypoint"     onclick="lcSetTool('waypoint')">📍 Waypoints</button>
       <button class="tool-btn"        id="lc-tool-delete-arrow" onclick="lcSetTool('delete-arrow')">✂ Remove Arrow</button>
       <div class="tool-sep"></div>
-      <button class="tool-btn" onclick="openAddStateModal()">+ Add State</button>
+      <button class="tool-btn" id="lc-tool-addstate" onclick="openAddStateModal()">+ Add State</button>
       <button class="tool-btn" onclick="lcAutoLayout()">↺ Auto Layout</button>
       <button class="tool-btn" onclick="lcZoomFit()">⤢ Fit</button>
     </div>
@@ -465,7 +469,7 @@ input:checked+.slider:before{transform:translateX(18px);}
       </select>
     </div>
     <table class="tbl" id="prop-tbl">
-      <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th></tr></thead>
+      <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th><th></th></tr></thead>
       <tbody id="prop-tbody"></tbody>
     </table>
   </div>
@@ -941,7 +945,17 @@ let lcTool='select', lcConnectFrom=null;
 let lcDragging=null, lcDragOffX=0, lcDragOffY=0, lcDraggingWP=null;
 let lcPanning=false, lcPanStartX=0, lcPanStartY=0, lcPanCamX=0, lcPanCamY=0;
 let lcCamX=0, lcCamY=0, lcCamZ=1, lcTempLine=null;
+let lcReadOnly=false; // true when the active lifecycle is a system/default (locked) one
 const NW=148, NH=46, NR=10;
+// Names that ship with a fresh Vault — treated as system/locked (duplicate to edit)
+const SYSTEM_LC_NAMES=new Set(["Basic Release Process","Flexible Release Process","Simple Release Process","Long Lead Time Release Process","Design Representation Process","Long Lead Time Release Process with Change Order","Item Release Process"]);
+const SYSTEM_REV_NAMES=new Set(["Alphabetic","Numeric","Alpha-numeric","Alpha-Numeric"]);
+const SYSTEM_CAT_NAMES=new Set(["Base","Folder"]);
+function markSystemDefaults(){
+  LIFECYCLES.forEach(l=>{ if(l.system===undefined) l.system=SYSTEM_LC_NAMES.has(l.name); });
+  REVISIONS.forEach(r=>{ if(r.system===undefined) r.system=SYSTEM_REV_NAMES.has(r.name); });
+  CATEGORIES.forEach(c=>{ if(c.system===undefined) c.system=SYSTEM_CAT_NAMES.has(c.name); });
+}
 const SVGNS='http://www.w3.org/2000/svg';
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -960,6 +974,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 window.addEventListener('resize',()=>{ if(activeLCId!==null){lcResizeCanvas();lcDraw();} });
 
 function renderAll(){
+  markSystemDefaults();
   renderPropsTable('ov-prop-tbody',PROPS,true);
   renderPropsTable('prop-tbody',PROPS,false);
   document.getElementById('prop-count-badge').textContent=PROPS.length;
@@ -1003,15 +1018,21 @@ function renderPropsTable(tbodyId,data,compact){
     if(compact){
       tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>`;
     }else{
-      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>
+      const idx=PROPS.indexOf(p);
+      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}${p.IsSystem?' 🔒':''}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>
         <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}">${p.Active?'Yes':'No'}</span></td>
-        <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}" onchange="p.notes=this.value"/></td>`;
-      // bind note back to object
+        <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}"/></td>
+        <td style="white-space:nowrap">${p.IsSystem?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable custom property" onclick="duplicateProperty(${idx})">⎘</button>`:`<button class="btn btn-danger btn-icon" onclick="PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateProperty(${idx})">⎘</button>`}</td>`;
       const inp=tr.querySelector('input');
       inp.onchange=()=>{p.notes=inp.value;};
     }
     tb.appendChild(tr);
   });
+}
+function duplicateProperty(i){
+  const s=PROPS[i]; if(!s)return;
+  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy',DataType:s.DataType,IsSystem:false,Active:true,notes:''});
+  renderAll(); notify('Property duplicated → editable custom property');
 }
 function reFilterProps(){ filterProps(document.querySelector('#page-properties .search-bar input').value,'prop-tbl'); }
 function filterProps(val,tblId){
@@ -1065,36 +1086,50 @@ function addItem(){ ITEMS.push({id:'—',name:'New Item',entity:'ItemVersion',no
 // ═══════════════════════════════════════════════════════════════
 function lcOptions(sel){ return '<option value="">— None —</option>'+LIFECYCLES.map(l=>`<option ${l.name===sel?'selected':''}>${esc(l.name)}</option>`).join(''); }
 function renderCategories(){
+  markSystemDefaults();
   const tb=document.getElementById('cat-tbody'); if(!tb)return; tb.innerHTML='';
   CATEGORIES.forEach((c,i)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input class="inp" value="${esc(c.name)}"/></td>
-      <td><select class="inp">${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
-      <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
-      <td><input class="inp" value="${esc(c.revision)}" placeholder="e.g. Numeric"/></td>
-      <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..."/></td>
-      <td><button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button></td>`;
-    const el=tr.querySelectorAll('input,select');
-    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.entity=e.target.value; el[2].onchange=e=>c.lifecycle=e.target.value; el[3].onchange=e=>c.revision=e.target.value; el[4].onchange=e=>c.notes=e.target.value;
+    const ro=c.system?'disabled':'';
+    const lockName=c.system?' 🔒':'';
+    const actions=c.system
+      ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateCategory(${i})">⎘</button>`
+      :`<button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
+    tr.innerHTML=`<td><input class="inp" value="${esc(c.name)}" ${ro}/>${lockName}</td>
+      <td><select class="inp" ${ro}>${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
+      <td><select class="inp" ${ro}>${lcOptions(c.lifecycle)}</select></td>
+      <td><input class="inp" value="${esc(c.revision)}" placeholder="e.g. Numeric" ${ro}/></td>
+      <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..." ${ro}/></td>
+      <td style="white-space:nowrap">${actions}</td>`;
+    if(!c.system){const el=tr.querySelectorAll('input,select');
+      el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.entity=e.target.value; el[2].onchange=e=>c.lifecycle=e.target.value; el[3].onchange=e=>c.revision=e.target.value; el[4].onchange=e=>c.notes=e.target.value;}
     tb.appendChild(tr);
   });
 }
-function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:""}); renderCategories(); updateMetrics(); }
+function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:"",system:false}); renderCategories(); updateMetrics(); }
+function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,system:false}); renderCategories(); updateMetrics(); notify('Category duplicated (editable)'); }
 
 function renderRevisions(){
+  markSystemDefaults();
   const tb=document.getElementById('rev-tbody'); if(!tb)return; tb.innerHTML='';
   REVISIONS.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}"/></td><td><input class="inp" value="${esc(r.format)}"/></td>
-      <td><input class="inp" value="${esc(r.primary)}"/></td><td><input class="inp" value="${esc(r.secondary)}"/></td>
-      <td><input class="inp" value="${esc(r.notes)}" placeholder="Notes..."/></td>
-      <td><button class="btn btn-danger btn-icon" onclick="REVISIONS.splice(${i},1);renderRevisions()">✕</button></td>`;
-    const el=tr.querySelectorAll('input');
-    el[0].onchange=e=>r.name=e.target.value; el[1].onchange=e=>r.format=e.target.value; el[2].onchange=e=>r.primary=e.target.value; el[3].onchange=e=>r.secondary=e.target.value; el[4].onchange=e=>r.notes=e.target.value;
+    const ro=r.system?'disabled':'';
+    const lockName=r.system?' 🔒':'';
+    const actions=r.system
+      ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRevision(${i})">⎘</button>`
+      :`<button class="btn btn-danger btn-icon" onclick="REVISIONS.splice(${i},1);renderRevisions()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRevision(${i})">⎘</button>`;
+    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}" ${ro}/>${lockName}</td><td><input class="inp" value="${esc(r.format)}" ${ro}/></td>
+      <td><input class="inp" value="${esc(r.primary)}" ${ro}/></td><td><input class="inp" value="${esc(r.secondary)}" ${ro}/></td>
+      <td><input class="inp" value="${esc(r.notes)}" placeholder="Notes..." ${ro}/></td>
+      <td style="white-space:nowrap">${actions}</td>`;
+    if(!r.system){const el=tr.querySelectorAll('input');
+      el[0].onchange=e=>r.name=e.target.value; el[1].onchange=e=>r.format=e.target.value; el[2].onchange=e=>r.primary=e.target.value; el[3].onchange=e=>r.secondary=e.target.value; el[4].onchange=e=>r.notes=e.target.value;}
     tb.appendChild(tr);
   });
 }
-function addRevision(){ REVISIONS.push({name:"New Scheme",format:"",primary:"",secondary:"",notes:""}); renderRevisions(); }
+function addRevision(){ REVISIONS.push({name:"New Scheme",format:"",primary:"",secondary:"",notes:"",system:false}); renderRevisions(); }
+function duplicateRevision(i){ const s=REVISIONS[i]; if(!s)return; REVISIONS.splice(i+1,0,{name:'Copy of '+s.name,format:s.format,primary:s.primary,secondary:s.secondary,notes:s.notes,system:false}); renderRevisions(); notify('Revision scheme duplicated (editable)'); }
 
 function renderNumbering(){
   const tb=document.getElementById('num-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1232,22 +1267,37 @@ function restoreFields(obj){ if(!obj)return; Object.keys(obj).forEach(id=>{const
 //  LIFECYCLE LIST
 // ═══════════════════════════════════════════════════════════════
 function renderLCList(){
+  markSystemDefaults();
   const tb=document.getElementById('lc-list-tbody'); if(!tb)return; tb.innerHTML='';
   LIFECYCLES.forEach(lc=>{
     const tr=document.createElement('tr');
+    const lock=lc.system?'<span class="tag tag-default" title="System / default — read-only" style="margin-left:6px">🔒 System</span>':'';
+    const editBtn=lc.system
+      ?`<button class="btn btn-ghost btn-sm" onclick="openLCEditor(${lc.id})">👁 View</button>`
+      :`<button class="btn btn-primary btn-sm" onclick="openLCEditor(${lc.id})">✏ Edit</button>`;
     tr.innerHTML=`<td style="color:var(--text-muted)">${lc.id}</td>
-      <td style="font-weight:600">${esc(lc.name)}</td>
+      <td style="font-weight:600">${esc(lc.name)}${lock}</td>
       <td style="color:var(--text-muted);font-size:.76rem">${esc(lc.description)}</td>
       <td><span class="badge">${lc.states.length}</span></td>
       <td><span class="badge">${lc.transitions.length}</span></td>
-      <td><button class="btn btn-primary btn-sm" onclick="openLCEditor(${lc.id})">✏ Edit</button></td>`;
+      <td style="white-space:nowrap">${editBtn} <button class="btn btn-warn btn-sm" onclick="duplicateLifecycle(${lc.id})">⎘ Duplicate</button></td>`;
     tb.appendChild(tr);
   });
 }
 function addLifecycle(){
   const id=lcNextId++;
-  LIFECYCLES.push({id,name:"New Lifecycle",description:"",states:[],transitions:[]});
+  LIFECYCLES.push({id,name:"New Lifecycle",description:"",states:[],transitions:[],system:false});
   renderLCList(); updateMetrics(); openLCEditor(id); notify('Lifecycle created');
+}
+function duplicateLifecycle(id){
+  const src=LIFECYCLES.find(l=>l.id===id); if(!src)return;
+  const idMap=new Map();
+  const states=src.states.map(s=>{ const nid=lcStateNextId++; idMap.set(s.id,nid); return {...s,id:nid,comments:[...(s.comments||[])]}; });
+  const transitions=src.transitions.map(t=>({id:lcNextId++,from:idMap.get(t.from),to:idMap.get(t.to),waypoints:(t.waypoints||[]).map(w=>({...w}))}));
+  const copy={id:lcNextId++,name:'Copy of '+src.name,description:src.description,states,transitions,system:false};
+  LIFECYCLES.push(copy);
+  renderLCList(); updateMetrics(); openLCEditor(copy.id);
+  notify('Duplicated → "'+copy.name+'" (editable)');
 }
 function deleteLifecycle(){
   if(activeLCId===null)return;
@@ -1263,10 +1313,17 @@ function openLCEditor(id){
   activeLCId=id; lcSelectedStateId=null; lcSelectedTransId=null; lcTool='select'; lcConnectFrom=null;
   lcCamX=0; lcCamY=0; lcCamZ=1;
   const lc=activeLC();
+  lcReadOnly=!!lc.system;
   document.getElementById('lc-editor-card').style.display='block';
-  document.getElementById('lc-editor-title').textContent='Lifecycle Editor — '+lc.name;
+  document.getElementById('lc-editor-title').textContent=(lcReadOnly?'🔒 ':'')+'Lifecycle Editor — '+lc.name;
   document.getElementById('lc-edit-name').value=lc.name;
   document.getElementById('lc-edit-desc').value=lc.description;
+  document.getElementById('lc-edit-name').disabled=lcReadOnly;
+  document.getElementById('lc-edit-desc').disabled=lcReadOnly;
+  document.getElementById('lc-lock-banner').style.display=lcReadOnly?'block':'none';
+  // disable editing tools for system lifecycles (Select / Auto Layout / Fit stay usable for viewing)
+  ['lc-tool-connect','lc-tool-waypoint','lc-tool-delete-arrow'].forEach(tid=>{const b=document.getElementById(tid);if(b){b.disabled=lcReadOnly;b.style.opacity=lcReadOnly?'.4':'';b.style.pointerEvents=lcReadOnly?'none':'';}});
+  const addBtn=document.getElementById('lc-tool-addstate'); if(addBtn){addBtn.disabled=lcReadOnly;addBtn.style.opacity=lcReadOnly?'.4':'';addBtn.style.pointerEvents=lcReadOnly?'none':'';}
   lcSetTool('select'); lcRenderSidebar(); lcShowEmpty();
   setTimeout(()=>{ lcInitCanvas(); lcZoomFit(); lcDraw(); },60);
   document.getElementById('lc-editor-card').scrollIntoView({behavior:'smooth'});
@@ -1361,8 +1418,8 @@ function lcDrawEdge(g,t,lc){
       const c=document.createElementNS(SVGNS,'circle');
       c.setAttribute('cx',wp.x);c.setAttribute('cy',wp.y);c.setAttribute('r',7/lcCamZ);
       c.setAttribute('fill',isSel?'#fff':color);c.setAttribute('stroke','#0f1117');c.setAttribute('stroke-width',1.5/lcCamZ);c.style.cursor='move';
-      c.addEventListener('mousedown',e=>{e.stopPropagation();lcDraggingWP={trans:t,index:i};lcSelectedTransId=t.id;lcSelectedStateId=null;lcRenderSidebar();lcShowTransDetail(t);lcDraw();});
-      c.addEventListener('dblclick',e=>{e.stopPropagation();t.waypoints.splice(i,1);if(lcSelectedTransId===t.id)lcShowTransDetail(t);lcDraw();notify('Waypoint removed');});
+      c.addEventListener('mousedown',e=>{e.stopPropagation();if(lcReadOnly)return;lcDraggingWP={trans:t,index:i};lcSelectedTransId=t.id;lcSelectedStateId=null;lcRenderSidebar();lcShowTransDetail(t);lcDraw();});
+      c.addEventListener('dblclick',e=>{e.stopPropagation();if(lcReadOnly)return;t.waypoints.splice(i,1);if(lcSelectedTransId===t.id)lcShowTransDetail(t);lcDraw();notify('Waypoint removed');});
       g.appendChild(c);
     });
     if(isWP){
@@ -1405,6 +1462,7 @@ function lcOnMouseDown(e){
   if(lcTool==='waypoint'){ const wh=lcHitWPHandle(wp.x,wp.y); if(wh)lcDraggingWP=wh; }
 }
 function lcStartConnect(s){
+  if(lcReadOnly)return;
   lcConnectFrom=s;
   lcTempLine=document.createElementNS(SVGNS,'line');
   lcTempLine.setAttribute('stroke','#8892b0');lcTempLine.setAttribute('stroke-width',2);lcTempLine.setAttribute('stroke-dasharray','6,4');lcTempLine.setAttribute('marker-end','url(#lc-arr-tmp)');lcTempLine.setAttribute('pointer-events','none');
@@ -1413,7 +1471,7 @@ function lcStartConnect(s){
 }
 function lcOnNodeMouseDown(e,s){
   e.stopPropagation(); const sp=lcSvgPt(e),wp=lcToWorld(sp.x,sp.y);
-  if(lcTool==='select'){lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw();lcDragging=s;lcDragOffX=wp.x-s.x;lcDragOffY=wp.y-s.y;}
+  if(lcTool==='select'){lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw(); if(!lcReadOnly){lcDragging=s;lcDragOffX=wp.x-s.x;lcDragOffY=wp.y-s.y;}}
   else if(lcTool==='connect'){lcStartConnect(s);}
   else if(lcTool==='waypoint'){lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw();}
 }
@@ -1446,6 +1504,7 @@ function lcOnWheel(e){e.preventDefault();const sp=lcSvgPt(e);const f=e.deltaY<0?
 // ── TOOLS / LAYOUT ──
 const LC_HINTS={'select':'🖱 Drag states · Click arrows to inspect · Drag empty space to pan · Scroll to zoom','connect':'➡ Click a source state and drag to a target state to create a transition arrow','waypoint':'📍 Click ⊕ ghost dots to add a node · Drag ● to move · Double-click ● to remove','delete-arrow':'✂ Click any arrow to permanently remove that transition'};
 function lcSetTool(t){
+  if(lcReadOnly && t!=='select') t='select';
   lcTool=t;lcConnectFrom=null;if(lcTempLine){lcTempLine.remove();lcTempLine=null;}
   ['select','connect','waypoint','delete-arrow'].forEach(id=>document.getElementById('lc-tool-'+id)?.classList.remove('active'));
   document.getElementById('lc-tool-'+t)?.classList.add('active');
@@ -1453,6 +1512,7 @@ function lcSetTool(t){
   lcDraw();
 }
 function lcAutoLayout(){
+  if(lcReadOnly){notify('System lifecycle is read-only — Duplicate to edit');return;}
   const lc=activeLC(); if(!lc)return; const n=lc.states.length; if(!n)return;
   const wrap=document.getElementById('lc-canvas-wrap'),W=wrap.clientWidth,H=wrap.clientHeight,r=Math.min(W,H)*0.32;
   lc.states.forEach((s,i)=>{const a=(2*Math.PI*i/n)-Math.PI/2;s.x=400+r/lcCamZ*Math.cos(a);s.y=270+r/lcCamZ*Math.sin(a);});
@@ -1483,13 +1543,23 @@ function lcRenderSidebar(){
     if(!s.isDefault&&!s.isReleasedState&&!s.isObsoleteState)tags+='<span class="tag tag-normal">Normal</span>';
     div.innerHTML=`<div class="sh"><div class="state-dot" style="background:${s.color}"></div><span class="state-name-t">${esc(s.name)}</span></div>
       <div class="state-badges">${tags}</div>
-      <div class="sc-actions"><button class="btn btn-danger btn-sm btn-icon" onclick="event.stopPropagation();lcDeleteState(${s.id})">✕</button></div>`;
+      ${lcReadOnly?'':`<div class="sc-actions"><button class="btn btn-danger btn-sm btn-icon" onclick="event.stopPropagation();lcDeleteState(${s.id})">✕</button></div>`}`;
     list.appendChild(div);
   });
   if(lc.states.length===0) list.innerHTML='<div style="color:var(--text-muted);font-size:.75rem">No states yet. Use <b>+ Add State</b>.</div>';
 }
 
 // ── RIGHT PANEL ──
+// For system/locked lifecycles: disable all fields and hide mutating buttons.
+function lcLockPanel(el){
+  if(!lcReadOnly||!el)return;
+  el.querySelectorAll('input,select,textarea').forEach(x=>{x.disabled=true;});
+  el.querySelectorAll('button').forEach(b=>{b.style.display='none';});
+  const note=document.createElement('div');
+  note.style.cssText='font-size:.72rem;color:var(--orange);margin-top:6px';
+  note.innerHTML='🔒 Read-only (system default). Duplicate the lifecycle to edit.';
+  el.appendChild(note);
+}
 function lcShowEmpty(){document.getElementById('lc-right-empty').style.display='flex';document.getElementById('lc-right-detail').style.display='none';document.getElementById('lc-right-trans').style.display='none';}
 function lcShowStateDetail(s){
   const lc=activeLC();
@@ -1524,6 +1594,7 @@ function lcShowStateDetail(s){
     </div>
     <div class="section-card"><h5>Incoming ←</h5>${inRows}</div>
     <button class="btn btn-danger" style="width:100%" onclick="lcDeleteState(${s.id})">🗑 Delete State</button>`;
+  lcLockPanel(d);
 }
 function lcShowTransDetail(t){
   const lc=activeLC();
@@ -1549,25 +1620,28 @@ function lcShowTransDetail(t){
       </div>
     </div>
     <button class="btn btn-danger" style="width:100%" onclick="lcDeleteTransition(${t.id})">✕ Remove Transition</button>`;
+  lcLockPanel(d);
 }
 
 // ── STATE CRUD ──
-function lcUpdateStateField(id,field,val){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s[field]=val;if(field==='name'){renderLCList();if(lcSelectedStateId===id)lcShowStateDetail(s);}}}
-function lcSetDefault(id,checked){const lc=activeLC();if(checked)lc.states.forEach(s=>s.isDefault=false);const s=lc.states.find(x=>x.id===id);if(s)s.isDefault=checked;lcRenderSidebar();lcDraw();}
+function lcUpdateStateField(id,field,val){if(lcReadOnly)return;const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s[field]=val;if(field==='name'){renderLCList();if(lcSelectedStateId===id)lcShowStateDetail(s);}}}
+function lcSetDefault(id,checked){if(lcReadOnly)return;const lc=activeLC();if(checked)lc.states.forEach(s=>s.isDefault=false);const s=lc.states.find(x=>x.id===id);if(s)s.isDefault=checked;lcRenderSidebar();lcDraw();}
 function lcDeleteState(id){
+  if(lcReadOnly)return;
   const lc=activeLC(); if(!confirm('Delete this state and all its transitions?'))return;
   lc.states=lc.states.filter(s=>s.id!==id);
   lc.transitions=lc.transitions.filter(t=>t.from!==id&&t.to!==id);
   if(lcSelectedStateId===id){lcSelectedStateId=null;lcShowEmpty();}
   lcRenderSidebar();lcDraw();renderLCList();notify('State deleted');
 }
-function lcAddComment(id){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s.comments.push('New comment');lcShowStateDetail(s);}}
-function lcUpdateComment(id,i,v){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s)s.comments[i]=v;}
-function lcDeleteComment(id,i){const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s.comments.splice(i,1);lcShowStateDetail(s);}}
+function lcAddComment(id){if(lcReadOnly)return;const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s.comments.push('New comment');lcShowStateDetail(s);}}
+function lcUpdateComment(id,i,v){if(lcReadOnly)return;const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s)s.comments[i]=v;}
+function lcDeleteComment(id,i){if(lcReadOnly)return;const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s.comments.splice(i,1);lcShowStateDetail(s);}}
 
-function openAddStateModal(){ if(activeLCId===null){notify('Open a lifecycle first');return;} document.getElementById('add-state-modal').classList.add('open'); }
+function openAddStateModal(){ if(activeLCId===null){notify('Open a lifecycle first');return;} if(lcReadOnly){notify('System lifecycle is read-only — Duplicate to edit');return;} document.getElementById('add-state-modal').classList.add('open'); }
 function closeAddStateModal(){ document.getElementById('add-state-modal').classList.remove('open'); }
 function lcAddState(){
+  if(lcReadOnly)return;
   const lc=activeLC(); if(!lc)return;
   const name=document.getElementById('ns-name').value.trim(); if(!name){alert('Enter a state name');return;}
   const color=document.getElementById('ns-color').value, type=document.getElementById('ns-type').value, desc=document.getElementById('ns-desc').value.trim();
@@ -1579,11 +1653,13 @@ function lcAddState(){
 
 // ── TRANSITION CRUD ──
 function lcDeleteTransition(id){
+  if(lcReadOnly)return;
   const lc=activeLC(); lc.transitions=lc.transitions.filter(t=>t.id!==id); lcSelectedTransId=null;
   if(lcSelectedStateId){const s=lc.states.find(x=>x.id===lcSelectedStateId);if(s)lcShowStateDetail(s);}else lcShowEmpty();
   lcRenderSidebar();lcDraw();renderLCList();notify('Transition removed');
 }
 function lcAddTransFromPanel(fromId){
+  if(lcReadOnly)return;
   const lc=activeLC(); const sel=document.getElementById('lc-add-out'); if(!sel)return;
   const toId=parseInt(sel.value);
   if(lc.transitions.some(t=>t.from===fromId&&t.to===toId)){notify('Already exists!');return;}
@@ -1591,14 +1667,15 @@ function lcAddTransFromPanel(fromId){
   const s=lc.states.find(x=>x.id===fromId);if(s)lcShowStateDetail(s);
   lcDraw();renderLCList();notify('Transition added');
 }
-function lcUpdateTransFrom(id,val){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.from=parseInt(val);lcDraw();lcShowTransDetail(t);}}
-function lcUpdateTransTo(id,val){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.to=parseInt(val);lcDraw();lcShowTransDetail(t);}}
+function lcUpdateTransFrom(id,val){if(lcReadOnly)return;const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.from=parseInt(val);lcDraw();lcShowTransDetail(t);}}
+function lcUpdateTransTo(id,val){if(lcReadOnly)return;const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.to=parseInt(val);lcDraw();lcShowTransDetail(t);}}
 
 // ── WAYPOINT CRUD ──
-function lcUpdateWP(id,i,axis,v){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t&&t.waypoints[i]){t.waypoints[i][axis]=v;lcDraw();}}
-function lcRemoveWP(id,i){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.waypoints.splice(i,1);lcShowTransDetail(t);lcDraw();notify('Waypoint removed');}}
-function lcClearWP(id){const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.waypoints=[];lcShowTransDetail(t);lcDraw();notify('Waypoints cleared');}}
+function lcUpdateWP(id,i,axis,v){if(lcReadOnly)return;const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t&&t.waypoints[i]){t.waypoints[i][axis]=v;lcDraw();}}
+function lcRemoveWP(id,i){if(lcReadOnly)return;const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.waypoints.splice(i,1);lcShowTransDetail(t);lcDraw();notify('Waypoint removed');}}
+function lcClearWP(id){if(lcReadOnly)return;const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(t){t.waypoints=[];lcShowTransDetail(t);lcDraw();notify('Waypoints cleared');}}
 function lcAddWPMidpoint(id){
+  if(lcReadOnly)return;
   const lc=activeLC();const t=lc.transitions.find(x=>x.id===id);if(!t)return;
   const pts=fullPolyline(lc,t);if(!pts||pts.length<2)return;
   let maxLen=0,best=0; for(let i=0;i<pts.length-1;i++){const dd=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);if(dd>maxLen){maxLen=dd;best=i;}}
@@ -1609,7 +1686,7 @@ function lcAddWPMidpoint(id){
 
 // ── IMPORT / EXPORT ──
 function lcExportData(lc){
-  return {id:lc.id,displayName:lc.name,description:lc.description,
+  return {id:lc.id,displayName:lc.name,description:lc.description,system:!!lc.system,
     states:lc.states.map(s=>({id:s.id,displayName:s.name,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
     transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)}))}))};
 }
@@ -1673,8 +1750,8 @@ function colorForState(s,i){
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{id:String(pick(f,'id','Id','ObjectId','FldId')??'—'),name:pick(f,'name','Name','Label','FullName')||'(unnamed)',createUserName:pick(f,'createUserName','CreateUserName','createdBy','CreatedBy')||'',createDate:String(pick(f,'createDate','CreateDate','created','Created')||'').split('T')[0],notes:pick(f,'notes','Notes')||''};}
 function normItem(it){return{id:String(pick(it,'id','Id','ItemNum','Number')??'—'),name:pick(it,'name','Name','Title')||'(unnamed)',entity:pick(it,'entity','Entity','EntityType','entityType')||'ItemVersion',notes:pick(it,'notes','Notes')||''};}
-function normCat(c){return{name:pick(c,'name','Name')||'',entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||''};}
-function normRev(r){return{name:pick(r,'name','Name','DispName')||'',format:pick(r,'format','Format')||'',primary:pick(r,'primary','Primary','primarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence')||'',notes:pick(r,'notes','Notes')||''};}
+function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
+function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,format:pick(r,'format','Format')||'',primary:pick(r,'primary','Primary','primarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence')||'',notes:pick(r,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normNum(n){return{entity:pick(n,'entity','Entity')||'',scheme:pick(n,'scheme','Scheme')||'Sequential',prefix:pick(n,'prefix','Prefix')||'',start:String(pick(n,'start','Start','startNumber')??'1'),inc:String(pick(n,'inc','Increment','increment')??'1'),notes:pick(n,'notes','Notes')||''};}
 function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],author:pick(c,'author','Author')||'',section:pick(c,'section','Section')||'',desc:pick(c,'desc','Description','description')||''};}
 function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
@@ -1715,7 +1792,9 @@ function normLifecycle(lc,idx,nid){
     const to=idMap.get(String(pick(t,'to','toStateId','ToId','To','toId','ToStateId')));
     return {id:nid(),from,to,waypoints:(firstArr(t,'waypoints','Waypoints')||[]).map(p=>({x:asNum(pick(p,'x','X'))||0,y:asNum(pick(p,'y','Y'))||0}))};
   }).filter(t=>t.from!=null&&t.to!=null);
-  return {id:nid(),name:pick(lc,'name','displayName','DispName','DisplayName','Name')||('Lifecycle '+(idx+1)),description:pick(lc,'description','Description','Descr')||'',states,transitions};
+  const nm=pick(lc,'name','displayName','DispName','DisplayName','Name')||('Lifecycle '+(idx+1));
+  const sysv=pick(lc,'system','isSystem');
+  return {id:nid(),name:nm,description:pick(lc,'description','Description','Descr')||'',states,transitions,system:sysv!=null?toBool(sysv):SYSTEM_LC_NAMES.has(nm)};
 }
 
 function normalizeConfig(raw){
@@ -1904,7 +1983,7 @@ function cfgParseLifecycles(text,RES){
     });
     const n=states.length||1; states.forEach((s,i)=>{const a=(2*Math.PI*((s._ord||i+1)-1)/n)-Math.PI/2;s.x=Math.round(420+280*Math.cos(a));s.y=Math.round(300+230*Math.sin(a));delete s._ord;});
     const transitions=[...def.querySelectorAll('StateTransitions > StateTransition')].map(t=>({from:idByName.get(xAttr(t,'FromState')),to:idByName.get(xAttr(t,'ToState')),waypoints:[]})).filter(t=>t.from!=null&&t.to!=null);
-    out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions});
+    out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:true});
   });
   return out;
 }
@@ -1922,7 +2001,8 @@ function cfgParseRevisions(text,RES){
   doc.querySelectorAll('RevisionSequence').forEach(r=>{
     const labels=[...r.querySelectorAll('RevisionLabel')].map(l=>xAttr(l,'Label'));
     const primary=labels.length>6?labels.slice(0,6).join(',')+'…':labels.join(',');
-    out.push({name:xAttr(r,'DisplayName')||xAttr(r,'Name')||'',format:xAttr(r,'IsSystem')==='true'?'System (Sequential)':'Sequential',primary,secondary:'',notes:''});
+    const sys=xAttr(r,'IsSystem')==='true';
+    out.push({name:xAttr(r,'DisplayName')||xAttr(r,'Name')||'',format:sys?'System (Sequential)':'Sequential',primary,secondary:'',notes:'',system:sys});
   });
   return out;
 }
@@ -1940,8 +2020,9 @@ function cfgParseCategories(text,RES){
   const doc=xmlDoc(text), out=[];
   doc.querySelectorAll('Categories > Category').forEach(c=>{
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
-    out.push({name:RES.get(xAttr(c,'ResKey'))||xAttr(c,'Name')||'',entity:'File',lifecycle:beh('LifeCycle'),revision:beh('RevisionScheme'),
-      notes:'Color '+(xAttr(c,'Color')||'')});
+    const cn=RES.get(xAttr(c,'ResKey'))||xAttr(c,'Name')||'';
+    out.push({name:cn,entity:'File',lifecycle:beh('LifeCycle'),revision:beh('RevisionScheme'),
+      notes:'Color '+(xAttr(c,'Color')||''),system:SYSTEM_CAT_NAMES.has(cn)});
   });
   return out;
 }
