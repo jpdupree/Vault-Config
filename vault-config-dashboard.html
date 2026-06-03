@@ -702,7 +702,19 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Backup Script</h3>
     <p style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 10px">Paste the backup/restore script (e.g. a PowerShell or batch routine that runs the ADMS backup).</p>
-    <textarea id="bk-script" rows="14" spellcheck="false" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-family:monospace;font-size:.78rem;resize:vertical;white-space:pre" placeholder="# e.g.\n&amp; 'C:\Program Files\Autodesk\Vault Server 2026\ADMS Console\Connectivity.ADMSConsole.exe' -Obackup -VFull -B\\backup-server\vault ..."></textarea>
+    <textarea id="bk-script" rows="16" spellcheck="false" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-family:monospace;font-size:.78rem;resize:vertical;white-space:pre">@ECHO OFF
+REM Modified for use with Vault 2026
+SET ADMS_CONSOLE_LOC=C:\Program Files\Autodesk\Vault Server 2026\ADMS Console
+SET BACKUP_LOC_A=C:\ADMS\Backups\A
+SET BACKUP_LOC_B=C:\ADMS\Backups\B
+SET BACKUP_LOG_LOC=C:\Backups\ADMS_Backup_Logs.txt
+SET ACCOUNT=Administrator
+SET PSSWD=
+RMDIR %BACKUP_LOC_B% /Q /S
+Ren %BACKUP_LOC_A% "B"
+MKDIR %BACKUP_LOC_A%
+CD %ADMS_CONSOLE_LOC%
+CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -L%BACKUP_LOG_LOC% -S</textarea>
   </div>
 </div>
 
