@@ -621,26 +621,16 @@ input:checked+.slider:before{transform:translateX(18px);}
 <!-- SECURITY POLICIES -->
 <div class="page" id="page-security">
   <div class="page-title">Security Policies</div>
-  <div class="page-sub">Password policy, authentication, and directory integration.</div>
+  <div class="page-sub">Password policy.</div>
   <div class="card">
     <h3>Password Policy</h3>
     <div class="toggle-stack">
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-minlen-en" checked><span class="slider"></span></label><span>Minimum password length</span>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-minlen-en"><span class="slider"></span></label><span>Minimum password length</span>
         <input id="sec-minlen" type="number" value="8" style="width:70px;margin-left:auto;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:.8rem"></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-lower" checked><span class="slider"></span></label><span>Lowercase characters</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-upper" checked><span class="slider"></span></label><span>Uppercase characters</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-num" checked><span class="slider"></span></label><span>Numbers</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-special" checked><span class="slider"></span></label><span>Special characters</span></div>
-    </div>
-  </div>
-  <div class="card">
-    <h3>AD / LDAP Settings</h3>
-    <div class="toggle-wrap" style="margin-bottom:14px"><label class="toggle"><input type="checkbox" id="sec-ad"><span class="slider"></span></label><span>Active Directory Integration</span></div>
-    <div class="form-grid">
-      <div class="form-group"><label>LDAP Server</label><input id="sec-ldap" placeholder="ldap://dc.company.com"></div>
-      <div class="form-group"><label>Base DN</label><input id="sec-basedn" placeholder="DC=company,DC=com"></div>
-      <div class="form-group"><label>Bind User</label><input id="sec-binduser" placeholder="CN=vaultbind,OU=Service"></div>
-      <div class="form-group"><label>AD Group Filter</label><input id="sec-adgroup" placeholder="CN=VaultUsers,OU=Groups"></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-lower"><span class="slider"></span></label><span>Lowercase characters</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-upper"><span class="slider"></span></label><span>Uppercase characters</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-num"><span class="slider"></span></label><span>Numbers</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-special"><span class="slider"></span></label><span>Special characters</span></div>
     </div>
   </div>
 </div>
@@ -1213,7 +1203,7 @@ const FM_FIELDS=['fm-tenant','fm-att-designrep','fm-att-designrep-primary','fm-a
 // Settings groups captured directly from form fields (key = element id)
 const SETTING_FIELDS={
   server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','srv-tmp','db-host','db-name','db-auth','db-user','db-pool','db-timeout','jp-account','jp-machine','jp-count','thin-client-url'],
-  security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special','sec-ad','sec-ldap','sec-basedn','sec-binduser','sec-adgroup'],
+  security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special'],
   cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
   api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
@@ -1226,7 +1216,6 @@ const PRINT_FIELDS={
   'Database Configuration':[['DB Server','db-host'],['DB Name','db-name'],['Authentication','db-auth'],['DB Username','db-user'],['Connection Pool Size','db-pool'],['Query Timeout (sec)','db-timeout']],
   'Job Processor & Web Client':[['Job Processor Account','jp-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
-  'AD / LDAP':[['Active Directory Integration','sec-ad'],['LDAP Server','sec-ldap'],['Base DN','sec-basedn'],['Bind User','sec-binduser'],['AD Group Filter','sec-adgroup']],
   'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
   'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
   'API & Connections':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
@@ -1731,7 +1720,6 @@ function renderCompletionBars(){
     {label:'Vault Details',fields:['cfg-org','cfg-version','cfg-consultant']},
     {label:'Server & Database',fields:['srv-host','srv-port','srv-fstore','db-host','db-name']},
     {label:'Job Processor & Clients',fields:['jp-account','jp-machine','thin-client-url']},
-    {label:'Security & AD',fields:['sec-ldap','sec-basedn','sec-binduser','sec-adgroup']},
     {label:'CAD Integration',fields:['cad-ver','cad-wf','cad-ws']},
     {label:'Email / SMTP',fields:['email-smtp','email-from','email-user']},
     {label:'API & Connections',fields:['api-url','api-key']},
@@ -3260,8 +3248,7 @@ function buildPrintDoc(){
 
   // SECURITY POLICIES
   html+=prSection(S(),'Security Policies')+`
-    <div class="pr-h3">Password Policy</div>${prKV(PRINT_FIELDS['Password Policy'])}
-    <div class="pr-h3">AD / LDAP</div>${prKV(PRINT_FIELDS['AD / LDAP'])}</div>`;
+    <div class="pr-h3">Password Policy</div>${prKV(PRINT_FIELDS['Password Policy'])}</div>`;
 
   // CATEGORIES (custom only)
   html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+
