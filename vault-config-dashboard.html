@@ -279,6 +279,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
   <div class="nav-item" onclick="showPage('email')" id="nav-email"><span class="ni">📧</span> Email &amp; Notifications</div>
   <div class="nav-item" onclick="showPage('api')" id="nav-api"><span class="ni">🔌</span> API &amp; Connections</div>
+  <div class="nav-item" onclick="showPage('fusion')" id="nav-fusion"><span class="ni">🔄</span> Vault Connector (Fusion)</div>
 
   <div class="nav-section">Maintenance</div>
   <div class="nav-item" onclick="showPage('backup')" id="nav-backup"><span class="ni">💾</span> Backup &amp; Restore</div>
@@ -546,6 +547,15 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div class="form-group"><label>Query Timeout (sec)</label><input id="db-timeout" type="number" placeholder="e.g. 30"></div>
     </div>
   </div>
+  <div class="card">
+    <h3>Job Processor &amp; Web Client</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Job Processor Account</label><input id="jp-account" placeholder="e.g. JobProcessor"></div>
+      <div class="form-group"><label>Job Processor Machine(s)</label><input id="jp-machine" placeholder="e.g. VAULT-JP01, VAULT-JP02"></div>
+      <div class="form-group"><label>Number of Job Processors</label><input id="jp-count" type="number" placeholder="e.g. 2"></div>
+      <div class="form-group"><label>Thin Client (Web Client) Address</label><input id="thin-client-url" placeholder="https://vault-server/AutodeskDM/Webserver"></div>
+    </div>
+  </div>
 </div>
 
 <!-- USERS & GROUPS -->
@@ -677,6 +687,47 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="api-enabled"><span class="slider"></span></label><span>Enable REST API</span></div>
       <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="api-log"><span class="slider"></span></label><span>Log all API requests</span></div>
     </div>
+  </div>
+</div>
+
+<!-- VAULT CONNECTOR (FUSION MANAGE) -->
+<div class="page" id="page-fusion">
+  <div class="page-title">Vault Connector — Fusion Manage</div>
+  <div class="page-sub">Tenant, property mappings, attachment options, and state mappings for the Vault ⇄ Fusion Manage connector.</div>
+  <div class="card">
+    <h3>Tenant</h3>
+    <div class="form-group"><label>Fusion Manage Tenant</label><input id="fm-tenant" placeholder="https://YOURTENANT.autodeskplm360.net"></div>
+  </div>
+  <div class="card">
+    <h3>Property Mappings</h3>
+    <table class="tbl" id="fmprop-tbl">
+      <thead><tr><th>Vault Property</th><th>Fusion Manage Property</th><th>Entity Type</th><th></th></tr></thead>
+      <tbody id="fmprop-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addFmProp()">+ Add Mapping</button></div>
+  </div>
+  <div class="card">
+    <h3>Attachments</h3>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="fm-att-designrep" checked><span class="slider"></span></label><span>Design representation attachments</span></div>
+      <div class="toggle-wrap" style="padding-left:30px"><label class="toggle"><input type="checkbox" id="fm-att-designrep-primary" checked><span class="slider"></span></label><span>Primary Linked Files</span></div>
+      <div class="toggle-wrap" style="padding-left:30px"><label class="toggle"><input type="checkbox" id="fm-att-designrep-tertiary" checked><span class="slider"></span></label><span>Tertiary Linked Files</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="fm-att-designvis" checked><span class="slider"></span></label><span>Design visualization attachments</span></div>
+      <div class="toggle-wrap" style="padding-left:30px"><label class="toggle"><input type="checkbox" id="fm-att-designvis-primary" checked><span class="slider"></span></label><span>Primary Linked Files</span></div>
+      <div class="toggle-wrap" style="padding-left:30px"><label class="toggle"><input type="checkbox" id="fm-att-designvis-tertiary" checked><span class="slider"></span></label><span>Tertiary Linked Files</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="fm-att-direct" checked><span class="slider"></span></label><span>Direct attachments on Items</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-muted)">Extensions to sync<input id="fm-att-ext" value=".*" style="width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;font-size:.8rem"></span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="fm-att-others"><span class="slider"></span></label><span>Others</span>
+        <input id="fm-att-others-ext" placeholder="e.g. .pdf, .step" style="margin-left:auto;width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;font-size:.8rem"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>State Mappings</h3>
+    <table class="tbl" id="fmstate-tbl">
+      <thead><tr><th>Mapping Name</th><th>Change Workspace</th><th>Fusion Transition (From → To)</th><th>Vault Action</th><th>Item Lifecycle</th><th>Files Lifecycle</th><th>Description</th><th></th></tr></thead>
+      <tbody id="fmstate-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addFmState()">+ Add Mapping</button></div>
   </div>
 </div>
 
@@ -934,9 +985,29 @@ let RULES=[];
 // the full attribute set so write-back is lossless.
 let CSMAPS=[];
 
+// Fusion Manage connector: property mappings + state mappings (form fields handled separately)
+let FMPROPMAPS=[
+  {vault:"Title (Item,CO)",fusion:"Title",entity:"Item"},
+  {vault:"Description (Item,CO)",fusion:"Description",entity:"Item"},
+  {vault:"Category Name",fusion:"PDM Category",entity:"Item"},
+  {vault:"Date Modified",fusion:"PDM Last Modification Date",entity:"Item"},
+  {vault:"Material",fusion:"Material",entity:"Item"},
+  {vault:"Last Updated By",fusion:"Responsible Designer",entity:"Item"},
+  {vault:"Units",fusion:"PDM_UNIT_OF_MEASURE",entity:"Item"},
+  {vault:"BOMOrder",fusion:"Row Order",entity:"BOM"},
+  {vault:"QuantityNumber",fusion:"Qty Pos",entity:"BOM"},
+  {vault:"File Name",fusion:"Primary File Name",entity:"File"},
+  {vault:"Revision",fusion:"Primary File Revision / Version",entity:"File"},
+  {vault:"Folder Path",fusion:"PDM Location",entity:"File"}
+];
+let FMSTATEMAPS=[
+  {name:"Change Vault State to WIP for Initiate",description:"",workspace:"Change Orders",fromState:"Results Review",toState:"Change Control Board Review",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}
+];
+const FM_FIELDS=['fm-tenant','fm-att-designrep','fm-att-designrep-primary','fm-att-designrep-tertiary','fm-att-designvis','fm-att-designvis-primary','fm-att-designvis-tertiary','fm-att-direct','fm-att-ext','fm-att-others','fm-att-others-ext'];
+
 // Settings groups captured directly from form fields (key = element id)
 const SETTING_FIELDS={
-  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','srv-tmp','db-host','db-name','db-auth','db-user','db-pool','db-timeout'],
+  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','srv-tmp','db-host','db-name','db-auth','db-user','db-pool','db-timeout','jp-account','jp-machine','jp-count','thin-client-url'],
   security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special','sec-ad','sec-ldap','sec-basedn','sec-binduser','sec-adgroup'],
   cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
@@ -948,6 +1019,7 @@ const SETTING_FIELDS={
 const PRINT_FIELDS={
   'Server Configuration':[['Server Hostname / IP','srv-host'],['Port','srv-port'],['Protocol','srv-proto'],['SSL Certificate Path','srv-ssl'],['File Store Path','srv-fstore'],['Temp Directory','srv-tmp']],
   'Database Configuration':[['DB Server','db-host'],['DB Name','db-name'],['Authentication','db-auth'],['DB Username','db-user'],['Connection Pool Size','db-pool'],['Query Timeout (sec)','db-timeout']],
+  'Job Processor & Web Client':[['Job Processor Account','jp-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
   'AD / LDAP':[['Active Directory Integration','sec-ad'],['LDAP Server','sec-ldap'],['Base DN','sec-basedn'],['Bind User','sec-binduser'],['AD Group Filter','sec-adgroup']],
   'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
@@ -1057,7 +1129,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
-  renderRules(); renderCsMaps();
+  renderRules(); renderCsMaps(); renderFmProps(); renderFmStates();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
 }
 
@@ -1400,6 +1472,40 @@ function renderCsMaps(filter){
 function filterCsMaps(v){ renderCsMaps(v); }
 function addCsMap(){ CSMAPS.push({propDef:(PROPS[0]&&PROPS[0].SystemName)||"",entityClass:"FileIteration",contentSource:"Inventor",moniker:"",direction:"ReadAndWrite",mappingType:"Constant",priority:"1",canCreateNew:"false"}); renderCsMaps(); }
 function duplicateCsMap(i){ const s=CSMAPS[i]; if(!s)return; CSMAPS.splice(i+1,0,{...s}); renderCsMaps(document.querySelector('#page-mapping .search-bar input').value); notify('Mapping duplicated'); }
+
+// ── FUSION MANAGE CONNECTOR ──
+function renderFmProps(){
+  const tb=document.getElementById('fmprop-tbody'); if(!tb)return; tb.innerHTML='';
+  FMPROPMAPS.forEach((m,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(m.vault)}"/></td>
+      <td><input class="inp" value="${esc(m.fusion)}"/></td>
+      <td><select class="inp">${['Item','File','BOM','Change Order','Folder'].map(e=>`<option ${e===m.entity?'selected':''}>${e}</option>`).join('')}</select></td>
+      <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="FMPROPMAPS.splice(${i},1);renderFmProps()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="FMPROPMAPS.splice(${i}+1,0,{...FMPROPMAPS[${i}]});renderFmProps()">⎘</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>m.vault=e.target.value; el[1].onchange=e=>m.fusion=e.target.value; el[2].onchange=e=>m.entity=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addFmProp(){ FMPROPMAPS.push({vault:"",fusion:"",entity:"Item"}); renderFmProps(); }
+function renderFmStates(){
+  const tb=document.getElementById('fmstate-tbody'); if(!tb)return; tb.innerHTML='';
+  FMSTATEMAPS.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(s.name)}"/></td>
+      <td><input class="inp" value="${esc(s.workspace)}"/></td>
+      <td><div style="display:flex;gap:4px;align-items:center"><input class="inp" style="width:110px" value="${esc(s.fromState)}" placeholder="From"/><span style="color:var(--text-muted)">→</span><input class="inp" style="width:110px" value="${esc(s.toState)}" placeholder="To"/></div></td>
+      <td><select class="inp">${['Change Item State','Change Primary Linked File States','Change Secondary Linked File States','Change Tertiary Linked File States'].map(a=>`<option ${a===s.action?'selected':''}>${a}</option>`).join('')}</select></td>
+      <td><select class="inp">${lcOptions(s.itemLifecycle)}</select></td>
+      <td><select class="inp">${lcOptions(s.filesLifecycle)}</select></td>
+      <td><input class="inp" value="${esc(s.description)}" placeholder="Description"/></td>
+      <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="FMSTATEMAPS.splice(${i},1);renderFmStates()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="FMSTATEMAPS.splice(${i}+1,0,{...FMSTATEMAPS[${i}]});renderFmStates()">⎘</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>s.name=e.target.value; el[1].onchange=e=>s.workspace=e.target.value; el[2].onchange=e=>s.fromState=e.target.value; el[3].onchange=e=>s.toState=e.target.value; el[4].onchange=e=>s.action=e.target.value; el[5].onchange=e=>s.itemLifecycle=e.target.value; el[6].onchange=e=>s.filesLifecycle=e.target.value; el[7].onchange=e=>s.description=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function addFmState(){ FMSTATEMAPS.push({name:"New Mapping",description:"",workspace:"",fromState:"",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}); renderFmStates(); }
 
 // ═══════════════════════════════════════════════════════════════
 //  COMPLETION BARS
@@ -1889,6 +1995,7 @@ function collectConfig(){
     backup:collectFields(SETTING_FIELDS.backup),
     audit:{settings:collectFields(SETTING_FIELDS.audit),entries:AUDITLOG},
     categoryRules:RULES, contentSourceMappings:CSMAPS,
+    fusionConnector:{fields:collectFields(FM_FIELDS),propertyMappings:FMPROPMAPS,stateMappings:FMSTATEMAPS},
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),
     // Embed the original Vault .cfg package so a single JSON is a complete,
     // reload-proof snapshot and re-arms Export .cfg when loaded.
@@ -1934,6 +2041,8 @@ function normMap(m){return{cad:pick(m,'cad','cadProperty','CADProperty','CadProp
 function normAudit(a){return{timestamp:pick(a,'timestamp','Timestamp','time','Time')||'',user:pick(a,'user','User')||'',action:pick(a,'action','Action')||'',entity:pick(a,'entity','Entity')||'',details:pick(a,'details','Details')||''};}
 function normRule(r){return{entityClass:pick(r,'entityClass','EntityClass','EntityClassName')||'',applyToNew:toBool(pick(r,'applyToNew','ApplyToNewEntity')??true),category:pick(r,'category','Category','CategoryName')||'',ruleSetName:pick(r,'ruleSetName','RuleSetName','ruleSet')||'',propDef:pick(r,'propDef','PropDef','PropDefName')||'',condition:pick(r,'condition','Condition')||'EqualTo',value:pick(r,'value','Value')!=null?String(pick(r,'value','Value')):''};}
 function normCsMap(m){return{propDef:pick(m,'propDef','PropDef','PropDefSysName')||'',entityClass:pick(m,'entityClass','EntityClass')||'',contentSource:pick(m,'contentSource','ContentSource','ContentSourceName')||'',moniker:pick(m,'moniker','Moniker')||'',direction:pick(m,'direction','Direction','MappingDirection')||'ReadAndWrite',mappingType:pick(m,'mappingType','MappingType')||'Constant',priority:String(pick(m,'priority','Priority')??'1'),canCreateNew:String(pick(m,'canCreateNew','CanCreateNew')??'false')};}
+function normFmProp(m){return{vault:pick(m,'vault','Vault','vaultProperty')||'',fusion:pick(m,'fusion','Fusion','fusionProperty')||'',entity:pick(m,'entity','Entity','entityType')||'Item'};}
+function normFmState(s){return{name:pick(s,'name','Name')||'',description:pick(s,'description','Description')||'',workspace:pick(s,'workspace','Workspace')||'',fromState:pick(s,'fromState','From')||'',toState:pick(s,'toState','To')||'',action:pick(s,'action','Action')||'Change Item State',itemLifecycle:pick(s,'itemLifecycle','ItemLifecycle')||'',filesLifecycle:pick(s,'filesLifecycle','FilesLifecycle')||''};}
 
 function normLifecycle(lc,idx,nid){
   const idMap=new Map();
@@ -2002,6 +2111,7 @@ function normalizeConfig(raw){
   if(raw.audit){ if(!Array.isArray(raw.audit)) out.auditFields=raw.audit.settings; const ae=Array.isArray(raw.audit)?raw.audit:firstArr(raw.audit,'entries','Entries'); if(ae) out.auditlog=ae.map(normAudit); }
   const rules=firstArr(raw,'categoryRules','CategoryRules'); if(rules) out.rules=rules.map(normRule);
   const csm=firstArr(raw,'contentSourceMappings','ContentSourceMappings'); if(csm) out.csmaps=csm.map(normCsMap);
+  const fm=raw.fusionConnector||raw.FusionConnector; if(fm){ out.fmFields=fm.fields; const fp=firstArr(fm,'propertyMappings','PropertyMappings'); if(fp) out.fmpropmaps=fp.map(normFmProp); const fst=firstArr(fm,'stateMappings','StateMappings'); if(fst) out.fmstatemaps=fst.map(normFmState); }
   const pkg=pick(raw,'cfgPackageB64','CfgPackageB64'); if(pkg) out.cfgPackageB64=pkg;
   const psn=pick(raw,'cfgSourceName'); if(psn) out.cfgSourceName=psn;
   return out;
@@ -2020,6 +2130,8 @@ function applyConfig(raw,replace){
   arr('changelog',v=>CHANGELOG=v); arr('users',v=>USERS=v); arr('groups',v=>GROUPS=v);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
   arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
+  arr('fmpropmaps',v=>FMPROPMAPS=v); arr('fmstatemaps',v=>FMSTATEMAPS=v);
+  if(c.fmFields) restoreFields(c.fmFields);
   // Settings field-groups: present → restore; absent + replace → clear
   const grp=(fields,obj)=>{ if(obj) restoreFields(obj); else if(replace) clearFields(fields); };
   grp(SETTING_FIELDS.server,c.serverFields); grp(SETTING_FIELDS.security,c.securityFields);
@@ -2687,7 +2799,8 @@ function buildPrintDoc(){
   // SERVER & DATABASE
   html+=prSection(S(),'Server & Database')+`
     <div class="pr-h3">Server Configuration</div>${prKV(PRINT_FIELDS['Server Configuration'])}
-    <div class="pr-h3">Database Configuration</div>${prKV(PRINT_FIELDS['Database Configuration'])}</div>`;
+    <div class="pr-h3">Database Configuration</div>${prKV(PRINT_FIELDS['Database Configuration'])}
+    <div class="pr-h3">Job Processor &amp; Web Client</div>${prKV(PRINT_FIELDS['Job Processor & Web Client'])}</div>`;
 
   // USERS & GROUPS
   html+=prSection(S(),'Users & Groups',`${USERS.length} user(s), ${GROUPS.length} group(s).`)+`
@@ -2784,6 +2897,24 @@ function buildPrintDoc(){
 
   // API
   html+=prSection(S(),'API & Connections')+prKV(PRINT_FIELDS['API & Connections'])+`</div>`;
+
+  // VAULT CONNECTOR (FUSION MANAGE)
+  html+=prSection(S(),'Vault Connector — Fusion Manage',`Tenant: ${esc(val('fm-tenant')||'—')}`)+`
+    <div class="pr-h3">Property Mappings</div>
+    <table class="pr-tbl"><thead><tr><th>Vault Property</th><th>Fusion Manage Property</th><th>Entity Type</th></tr></thead><tbody>
+    ${FMPROPMAPS.map(m=>`<tr><td>${esc(m.vault)}</td><td>${esc(m.fusion)}</td><td>${esc(m.entity)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="pr-h3">Attachments</div>
+    <table class="pr-kv">
+      <tr><td>Design representation attachments</td><td>${prFieldVal('fm-att-designrep')} (Primary ${prFieldVal('fm-att-designrep-primary')}, Tertiary ${prFieldVal('fm-att-designrep-tertiary')})</td></tr>
+      <tr><td>Design visualization attachments</td><td>${prFieldVal('fm-att-designvis')} (Primary ${prFieldVal('fm-att-designvis-primary')}, Tertiary ${prFieldVal('fm-att-designvis-tertiary')})</td></tr>
+      <tr><td>Direct attachments on Items</td><td>${prFieldVal('fm-att-direct')} · extensions: ${esc(val('fm-att-ext')||'—')}</td></tr>
+      <tr><td>Others</td><td>${prFieldVal('fm-att-others')} ${esc(val('fm-att-others-ext')||'')}</td></tr>
+    </table>
+    <div class="pr-h3">State Mappings</div>
+    <table class="pr-tbl"><thead><tr><th>Mapping</th><th>Workspace</th><th>From → To</th><th>Vault Action</th><th>Item LC</th><th>Files LC</th></tr></thead><tbody>
+    ${FMSTATEMAPS.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.workspace)}</td><td>${esc(s.fromState)} → ${esc(s.toState)}</td><td>${esc(s.action)}</td><td>${esc(s.itemLifecycle||'—')}</td><td>${esc(s.filesLifecycle||'—')}</td></tr>`).join('')}
+    </tbody></table></div>`;
 
   // BACKUP
   html+=prSection(S(),'Backup & Restore')+prKV(PRINT_FIELDS['Backup Configuration'])
