@@ -241,7 +241,7 @@ input:checked+.slider:before{transform:translateX(18px);}
     <label title="When on, sections missing from the loaded file are cleared (full replace). When off, they keep current data (merge)." style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted);cursor:pointer;margin-right:2px"><input type="checkbox" id="imp-replace" style="cursor:pointer">Replace</label>
     <button class="btn btn-primary" onclick="document.getElementById('cfg-file').click()">📂 Load Data</button>
     <button class="btn btn-ghost" onclick="exportAllJSON()">⬇ Export JSON</button>
-    <button class="btn btn-ghost" id="btn-export-cfg" style="display:none" onclick="exportCfg()" title="Patch your lifecycle edits back into the imported Vault .cfg package">⬇ Export .cfg</button>
+    <button class="btn btn-ghost" id="btn-export-cfg" onclick="exportCfg()" title="Patch your lifecycle edits back into an imported Vault .cfg package (load a .cfg first)">⬇ Export .cfg</button>
     <button class="btn btn-warn" onclick="printDoc()">🖨 Print / PDF</button>
     <button class="btn btn-success" onclick="saveLocal(true)">💾 Save</button>
     <button class="btn btn-ghost" onclick="resetSample()" title="Discard data and reload the built-in sample">↺ Reset</button>
