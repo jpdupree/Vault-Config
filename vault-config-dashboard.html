@@ -264,10 +264,12 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Behaviors</div>
   <div class="nav-item" onclick="showPage('lifecycles')" id="nav-lifecycles"><span class="ni">🔄</span> Lifecycles</div>
   <div class="nav-item" onclick="showPage('categories')" id="nav-categories"><span class="ni">🏷</span> Categories</div>
+  <div class="nav-item" onclick="showPage('rules')" id="nav-rules"><span class="ni">🧭</span> Category Rules</div>
   <div class="nav-item" onclick="showPage('revisions')" id="nav-revisions"><span class="ni">📋</span> Revision Schemes</div>
 
   <div class="nav-section">Properties</div>
   <div class="nav-item" onclick="showPage('properties')" id="nav-properties"><span class="ni">🔑</span> Property Definitions</div>
+  <div class="nav-item" onclick="showPage('mapping')" id="nav-mapping"><span class="ni">🔗</span> Property Mapping</div>
 
   <div class="nav-section">Structure</div>
   <div class="nav-item" onclick="showPage('folders')" id="nav-folders"><span class="ni">📁</span> Folder Structure</div>
@@ -460,6 +462,35 @@ input:checked+.slider:before{transform:translateX(18px);}
       <tbody id="revseq-tbody"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRevSeq()">+ Add Sequence</button></div>
+  </div>
+</div>
+
+<!-- CATEGORY RULES -->
+<div class="page" id="page-rules">
+  <div class="page-title">Category Rules</div>
+  <div class="page-sub">Rules that auto-assign a category to an entity when a property condition is met (EntityClassCategoryRuleSet).</div>
+  <div class="card">
+    <h3>Category Assignment Rules</h3>
+    <table class="tbl" id="rules-tbl">
+      <thead><tr><th>Entity Class</th><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
+      <tbody id="rules-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule()">+ Add Rule</button></div>
+  </div>
+</div>
+
+<!-- PROPERTY MAPPING -->
+<div class="page" id="page-mapping">
+  <div class="page-title">Property Mapping</div>
+  <div class="page-sub">Maps Vault property definitions to CAD / content-source properties (ContentSourcePropDefMapping). Monikers are content-source identifiers and are preserved exactly.</div>
+  <div class="card">
+    <h3>Content Source Property Mappings <span class="badge" id="csmap-count">0</span></h3>
+    <div class="search-bar"><input placeholder="🔍 Filter by property, entity class, or content source..." oninput="filterCsMaps(this.value)"/></div>
+    <table class="tbl" id="csmap-tbl">
+      <thead><tr><th>Vault Property</th><th>Entity Class</th><th>Content Source</th><th>Direction</th><th>Moniker</th><th></th></tr></thead>
+      <tbody id="csmap-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCsMap()">+ Add Mapping</button></div>
   </div>
 </div>
 
@@ -878,6 +909,11 @@ let PROPMAPS=[
   {cad:"DESCRIPTION",vault:"Description",direction:"Both"}
 ];
 let AUDITLOG=[];
+// Category assignment rules (EntityClassCategoryRuleSet)
+let RULES=[];
+// Content-source property mappings (ContentSourcePropDefMapping). Each row keeps
+// the full attribute set so write-back is lossless.
+let CSMAPS=[];
 
 // Settings groups captured directly from form fields (key = element id)
 const SETTING_FIELDS={
@@ -1001,6 +1037,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderItems(); renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
+  renderRules(); renderCsMaps();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
 }
 
@@ -1287,6 +1324,53 @@ function renderAudit(){
   });
 }
 function addAuditEntry(){ AUDITLOG.push({timestamp:new Date().toISOString().replace('T',' ').split('.')[0],user:'',action:'',entity:'',details:''}); renderAudit(); }
+
+// ── CATEGORY RULES ──
+const RULE_CONDITIONS=['EqualTo','NotEqualTo','Contains','DoesNotContain','GreaterThan','LessThan','IsEmpty','IsNotEmpty'];
+function renderRules(){
+  const tb=document.getElementById('rules-tbody'); if(!tb)return; tb.innerHTML='';
+  RULES.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(r.entityClass)}" placeholder="e.g. FileMaster"/></td>
+      <td style="text-align:center"><input type="checkbox" ${r.applyToNew?'checked':''}/></td>
+      <td><select class="inp">${catOptions(r.category)}</select></td>
+      <td><input class="inp" value="${esc(r.ruleSetName||r.category)}"/></td>
+      <td><select class="inp">${propOptions(r.propDef)}</select></td>
+      <td><select class="inp">${RULE_CONDITIONS.map(c=>`<option ${c===r.condition?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><input class="inp" value="${esc(r.value)}"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="RULES.splice(${i},1);renderRules()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRule(${i})">⎘</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>r.entityClass=e.target.value; el[1].onchange=e=>r.applyToNew=e.target.checked; el[2].onchange=e=>r.category=e.target.value; el[3].onchange=e=>r.ruleSetName=e.target.value; el[4].onchange=e=>r.propDef=e.target.value; el[5].onchange=e=>r.condition=e.target.value; el[6].onchange=e=>r.value=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function catOptions(sel){ return '<option value="">—</option>'+CATEGORIES.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join(''); }
+function propOptions(sel){ const names=[...new Set(PROPS.map(p=>p.SystemName))]; if(sel&&!names.includes(sel))names.unshift(sel); return names.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join(''); }
+function addRule(){ RULES.push({entityClass:"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
+function duplicateRule(i){ const s=RULES[i]; if(!s)return; RULES.splice(i+1,0,{...s,ruleSetName:(s.ruleSetName||s.category)+' Copy'}); renderRules(); notify('Rule duplicated'); }
+
+// ── CONTENT-SOURCE PROPERTY MAPPING ──
+function renderCsMaps(filter){
+  const tb=document.getElementById('csmap-tbody'); if(!tb)return; tb.innerHTML='';
+  const cnt=document.getElementById('csmap-count'); if(cnt)cnt.textContent=CSMAPS.length;
+  const f=(filter||'').toLowerCase();
+  CSMAPS.forEach((m,i)=>{
+    if(f && !((m.propDef+' '+m.entityClass+' '+m.contentSource).toLowerCase().includes(f))) return;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><select class="inp">${propOptions(m.propDef)}</select></td>
+      <td><input class="inp" value="${esc(m.entityClass)}"/></td>
+      <td><input class="inp" value="${esc(m.contentSource)}"/></td>
+      <td><select class="inp">${['Read','Write','ReadAndWrite'].map(d=>`<option ${d===m.direction?'selected':''}>${d}</option>`).join('')}</select></td>
+      <td><input class="inp" style="font-family:monospace;font-size:.7rem" value="${esc(m.moniker)}"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="CSMAPS.splice(${i},1);renderCsMaps(document.querySelector('#page-mapping .search-bar input').value)">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCsMap(${i})">⎘</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>m.propDef=e.target.value; el[1].onchange=e=>m.entityClass=e.target.value; el[2].onchange=e=>m.contentSource=e.target.value; el[3].onchange=e=>m.direction=e.target.value; el[4].onchange=e=>m.moniker=e.target.value;
+    tb.appendChild(tr);
+  });
+}
+function filterCsMaps(v){ renderCsMaps(v); }
+function addCsMap(){ CSMAPS.push({propDef:(PROPS[0]&&PROPS[0].SystemName)||"",entityClass:"FileIteration",contentSource:"Inventor",moniker:"",direction:"ReadAndWrite",mappingType:"Constant",priority:"1",canCreateNew:"false"}); renderCsMaps(); }
+function duplicateCsMap(i){ const s=CSMAPS[i]; if(!s)return; CSMAPS.splice(i+1,0,{...s}); renderCsMaps(document.querySelector('#page-mapping .search-bar input').value); notify('Mapping duplicated'); }
 
 // ═══════════════════════════════════════════════════════════════
 //  COMPLETION BARS
@@ -1775,6 +1859,7 @@ function collectConfig(){
     api:collectFields(SETTING_FIELDS.api),
     backup:collectFields(SETTING_FIELDS.backup),
     audit:{settings:collectFields(SETTING_FIELDS.audit),entries:AUDITLOG},
+    categoryRules:RULES, contentSourceMappings:CSMAPS,
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),
     // Embed the original Vault .cfg package so a single JSON is a complete,
     // reload-proof snapshot and re-arms Export .cfg when loaded.
@@ -1819,6 +1904,8 @@ function normGroup(g){return{name:pick(g,'name','Name')||'',description:pick(g,'
 function normRole(r){return{name:pick(r,'name','Name')||'',description:pick(r,'description','Description')||'',read:toBool(pick(r,'read','Read')),write:toBool(pick(r,'write','Write')),del:toBool(pick(r,'del','delete','Delete')),admin:toBool(pick(r,'admin','Admin'))};}
 function normMap(m){return{cad:pick(m,'cad','cadProperty','CADProperty','CadProp')||'',vault:pick(m,'vault','vaultProperty','VaultProperty')||'',direction:pick(m,'direction','Direction')||'CAD → Vault'};}
 function normAudit(a){return{timestamp:pick(a,'timestamp','Timestamp','time','Time')||'',user:pick(a,'user','User')||'',action:pick(a,'action','Action')||'',entity:pick(a,'entity','Entity')||'',details:pick(a,'details','Details')||''};}
+function normRule(r){return{entityClass:pick(r,'entityClass','EntityClass','EntityClassName')||'',applyToNew:toBool(pick(r,'applyToNew','ApplyToNewEntity')??true),category:pick(r,'category','Category','CategoryName')||'',ruleSetName:pick(r,'ruleSetName','RuleSetName','ruleSet')||'',propDef:pick(r,'propDef','PropDef','PropDefName')||'',condition:pick(r,'condition','Condition')||'EqualTo',value:pick(r,'value','Value')!=null?String(pick(r,'value','Value')):''};}
+function normCsMap(m){return{propDef:pick(m,'propDef','PropDef','PropDefSysName')||'',entityClass:pick(m,'entityClass','EntityClass')||'',contentSource:pick(m,'contentSource','ContentSource','ContentSourceName')||'',moniker:pick(m,'moniker','Moniker')||'',direction:pick(m,'direction','Direction','MappingDirection')||'ReadAndWrite',mappingType:pick(m,'mappingType','MappingType')||'Constant',priority:String(pick(m,'priority','Priority')??'1'),canCreateNew:String(pick(m,'canCreateNew','CanCreateNew')??'false')};}
 
 function normLifecycle(lc,idx,nid){
   const idMap=new Map();
@@ -1886,6 +1973,8 @@ function normalizeConfig(raw){
   if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); }
   const pm=firstArr(raw,'propMappings','propmaps','PropMaps'); if(pm&&!out.propmaps) out.propmaps=pm.map(normMap);
   if(raw.audit){ if(!Array.isArray(raw.audit)) out.auditFields=raw.audit.settings; const ae=Array.isArray(raw.audit)?raw.audit:firstArr(raw.audit,'entries','Entries'); if(ae) out.auditlog=ae.map(normAudit); }
+  const rules=firstArr(raw,'categoryRules','CategoryRules'); if(rules) out.rules=rules.map(normRule);
+  const csm=firstArr(raw,'contentSourceMappings','ContentSourceMappings'); if(csm) out.csmaps=csm.map(normCsMap);
   const pkg=pick(raw,'cfgPackageB64','CfgPackageB64'); if(pkg) out.cfgPackageB64=pkg;
   const psn=pick(raw,'cfgSourceName'); if(psn) out.cfgSourceName=psn;
   return out;
@@ -1903,6 +1992,7 @@ function applyConfig(raw,replace){
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   arr('changelog',v=>CHANGELOG=v); arr('users',v=>USERS=v); arr('groups',v=>GROUPS=v);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
+  arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
   // Settings field-groups: present → restore; absent + replace → clear
   const grp=(fields,obj)=>{ if(obj) restoreFields(obj); else if(replace) clearFields(fields); };
   grp(SETTING_FIELDS.server,c.serverFields); grp(SETTING_FIELDS.security,c.securityFields);
@@ -2109,6 +2199,38 @@ function cfgParseCategories(text,RES){
   return out;
 }
 
+function cfgParseRules(text){
+  const doc=xmlDoc(text), out=[];
+  doc.querySelectorAll('EntityClassCategoryRuleSet').forEach(ec=>{
+    const cls=xAttr(ec,'EntityClassName')||'', applyNew=xAttr(ec,'ApplyToNewEntity')==='true';
+    ec.querySelectorAll('CategoryRuleSet').forEach(crs=>{
+      const cat=xAttr(crs,'CategoryName')||'';
+      crs.querySelectorAll('RuleSet').forEach(rs=>{
+        const rsName=xAttr(rs,'Name')||'';
+        const rules=[...rs.querySelectorAll('Rule')];
+        if(rules.length===0){ out.push({entityClass:cls,applyToNew:applyNew,category:cat,ruleSetName:rsName,propDef:'',condition:'EqualTo',value:''}); }
+        rules.forEach(r=>out.push({entityClass:cls,applyToNew:applyNew,category:cat,ruleSetName:rsName,propDef:xAttr(r,'PropDefName')||'',condition:xAttr(r,'Condition')||'EqualTo',value:xAttr(r,'Value')||''}));
+      });
+    });
+  });
+  return out;
+}
+function cfgParseCsMap(text){
+  const doc=xmlDoc(text), out=[];
+  doc.querySelectorAll('CtntSrcPropDefMapping').forEach(m=>{
+    const propDef=xAttr(m,'PropDefSysName')||'';
+    m.querySelectorAll('EntClassToCtntSrcPropDefs').forEach(ecs=>{
+      const ec=xAttr(ecs,'EntityClass')||'';
+      ecs.querySelectorAll('EntClassToCtntSrcPropDef').forEach(d=>{
+        const cs=d.querySelector('ContentSourcePropDef');
+        out.push({propDef,entityClass:ec,contentSource:cs?xAttr(cs,'ContentSourceName')||'':'',moniker:cs?xAttr(cs,'Moniker')||'':'',
+          direction:xAttr(d,'MappingDirection')||'ReadAndWrite',mappingType:xAttr(d,'MappingType')||'Constant',priority:xAttr(d,'Priority')||'1',canCreateNew:xAttr(d,'CanCreateNew')||'false'});
+      });
+    });
+  });
+  return out;
+}
+
 async function applyCfgPackage(ab, replace, sourceName){
   const entries=await unzip(ab);
   const rawB64=bytesToB64(new Uint8Array(ab));
@@ -2121,6 +2243,8 @@ async function applyCfgPackage(ab, replace, sourceName){
   const revT=entryText(entries,'Revision/Revision.xml'); if(revT){ const rv=cfgParseRevisions(revT,RES); cfg.revisionSchemes=rv.schemes; cfg.revisionSequences=rv.sequences; }
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
   const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES);
+  const rulT=entryText(entries,'EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml'); if(rulT) cfg.categoryRules=cfgParseRules(rulT);
+  const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(csmT) cfg.contentSourceMappings=cfgParseCsMap(csmT);
   applyConfig(cfg, replace);
   // stash the original package AFTER applyConfig (which may reset loadedCfg)
   loadedCfg={entries,rawB64,sourceName:sourceName||'loaded .cfg'};
@@ -2324,7 +2448,68 @@ function patchNumberingPackage(){
   }
   ent.data=reserializeXml(doc, ent.data);
 }
-function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); patchCategoryPackage(); patchPropertyPackage(); patchNumberingPackage(); return zipStore(loadedCfg.entries); }
+// Patch EntityClassCategoryRuleSets.xml (+resx): rebuild from the RULES model,
+// grouping rows by entity class; each row becomes a CategoryRuleSet/RuleSet/Rule.
+function patchRulesPackage(){
+  const ent=loadedCfg.entries.find(e=>e.name==='EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml'); if(!ent) return;
+  const rxEntry=loadedCfg.entries.find(e=>e.name==='EntityClassCategoryRuleSet/EntityClassCategoryRuleSetResources.resx');
+  const dec=new TextDecoder();
+  const doc=xmlDoc(dec.decode(ent.data));
+  const NS=doc.documentElement.namespaceURI, mk=t=>doc.createElementNS(NS,t);
+  const wrap=doc.querySelector('EntityClassCategoryRuleSets'); if(!wrap) return;
+  let resxDoc=rxEntry?xmlDoc(dec.decode(rxEntry.data)):null;
+  const setRes=resxDoc?makeResxSetter(resxDoc):(()=>{});
+  const U=s=>(s||'').toUpperCase();
+  [...wrap.querySelectorAll('EntityClassCategoryRuleSet')].forEach(n=>n.remove());
+  // group by entity class (preserve first-seen order)
+  const byClass=new Map();
+  RULES.forEach(r=>{ if(!byClass.has(r.entityClass)) byClass.set(r.entityClass,[]); byClass.get(r.entityClass).push(r); });
+  byClass.forEach((rows,cls)=>{
+    const ecEl=mk('EntityClassCategoryRuleSet'); ecEl.setAttribute('EntityClassName',cls); ecEl.setAttribute('ApplyToNewEntity', rows[0].applyToNew?'true':'false');
+    const crsWrap=mk('CategoryRuleSets');
+    rows.forEach(r=>{
+      const crs=mk('CategoryRuleSet'); crs.setAttribute('CategoryName',r.category);
+      const rs=mk('RuleSet'); const rsName=r.ruleSetName||r.category; rs.setAttribute('Name',rsName);
+      const rk='ID_RULESET_DISPLAYNAME_'+U(rsName); setRes(rk,rsName); rs.setAttribute('ResKey',rk);
+      const rules=mk('Rules');
+      if(r.propDef){ const rule=mk('Rule'); rule.setAttribute('PropDefName',r.propDef); rule.setAttribute('Condition',r.condition||'EqualTo'); rule.setAttribute('Value',r.value||''); rules.appendChild(rule); }
+      rs.appendChild(rules); crs.appendChild(rs); crsWrap.appendChild(crs);
+    });
+    ecEl.appendChild(crsWrap); wrap.appendChild(ecEl);
+  });
+  ent.data=reserializeXml(doc, ent.data);
+  if(resxDoc&&rxEntry) rxEntry.data=reserializeXml(resxDoc, rxEntry.data);
+}
+// Patch ContentSourcePropDefMapping.xml: rebuild losslessly from CSMAPS,
+// grouping by property then entity class (monikers preserved verbatim).
+function patchCsMapPackage(){
+  const ent=loadedCfg.entries.find(e=>e.name==='ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(!ent) return;
+  const dec=new TextDecoder();
+  const doc=xmlDoc(dec.decode(ent.data));
+  const NS=doc.documentElement.namespaceURI, mk=t=>doc.createElementNS(NS,t);
+  const wrap=doc.querySelector('CtntSrcPropDefMappings'); if(!wrap) return;
+  [...wrap.querySelectorAll('CtntSrcPropDefMapping')].forEach(n=>n.remove());
+  // group by propDef (preserve order), then by entityClass
+  const byProp=new Map();
+  CSMAPS.forEach(m=>{ if(!byProp.has(m.propDef)) byProp.set(m.propDef,new Map()); const bc=byProp.get(m.propDef); if(!bc.has(m.entityClass)) bc.set(m.entityClass,[]); bc.get(m.entityClass).push(m); });
+  byProp.forEach((byClass,propDef)=>{
+    const pm=mk('CtntSrcPropDefMapping'); pm.setAttribute('PropDefSysName',propDef);
+    byClass.forEach((rows,cls)=>{
+      const ecs=mk('EntClassToCtntSrcPropDefs'); ecs.setAttribute('EntityClass',cls);
+      rows.forEach(m=>{
+        const d=mk('EntClassToCtntSrcPropDef');
+        d.setAttribute('CanCreateNew',m.canCreateNew||'false'); d.setAttribute('Priority',String(m.priority||'1'));
+        d.setAttribute('MappingType',m.mappingType||'Constant'); d.setAttribute('MappingDirection',m.direction||'ReadAndWrite');
+        const cs=mk('ContentSourcePropDef'); cs.setAttribute('ContentSourceName',m.contentSource||''); cs.setAttribute('Moniker',m.moniker||'');
+        d.appendChild(cs); ecs.appendChild(d);
+      });
+      pm.appendChild(ecs);
+    });
+    wrap.appendChild(pm);
+  });
+  ent.data=reserializeXml(doc, ent.data);
+}
+function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); patchCategoryPackage(); patchPropertyPackage(); patchNumberingPackage(); patchRulesPackage(); patchCsMapPackage(); return zipStore(loadedCfg.entries); }
 async function exportCfg(){
   if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your lifecycle edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
   try{
@@ -2481,6 +2666,18 @@ function buildPrintDoc(){
   html+=prSection(S(),'Categories',`${CATEGORIES.length} category assignment(s).`)+`
     <table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
     ${CATEGORIES.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // CATEGORY RULES
+  if(RULES.length) html+=prSection(S(),'Category Rules',`${RULES.length} rule(s).`)+`
+    <table class="pr-tbl"><thead><tr><th>Entity Class</th><th>New?</th><th>Category</th><th>Rule Set</th><th>Property</th><th>Condition</th><th>Value</th></tr></thead><tbody>
+    ${RULES.map(r=>`<tr><td>${esc(r.entityClass)}</td><td>${r.applyToNew?'Yes':'No'}</td><td>${esc(r.category)}</td><td>${esc(r.ruleSetName||'')}</td><td>${esc(r.propDef)}</td><td>${esc(r.condition)}</td><td>${esc(r.value)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // PROPERTY MAPPING
+  if(CSMAPS.length) html+=prSection(S(),'Property Mapping',`${CSMAPS.length} content-source mapping(s).`)+`
+    <table class="pr-tbl"><thead><tr><th>Property</th><th>Entity Class</th><th>Content Source</th><th>Direction</th><th>Moniker</th></tr></thead><tbody>
+    ${CSMAPS.map(m=>`<tr><td>${esc(m.propDef)}</td><td>${esc(m.entityClass)}</td><td>${esc(m.contentSource)}</td><td>${esc(m.direction)}</td><td style="font-family:monospace;font-size:8px">${esc(m.moniker)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // PROPERTIES
