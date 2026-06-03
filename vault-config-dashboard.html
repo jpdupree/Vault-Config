@@ -166,6 +166,18 @@ input:checked+.slider:before{transform:translateX(18px);}
 .search-bar input:focus{outline:none;border-color:var(--accent);}
 .search-bar select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:.78rem;}
 
+/* ── COMPLETION BARS ── */
+.cbar-row{display:flex;align-items:center;gap:12px;margin-bottom:9px;}
+.cbar-label{width:170px;font-size:.78rem;color:var(--text-muted);flex-shrink:0;}
+.cbar-track{flex:1;height:9px;background:var(--surface2);border-radius:6px;overflow:hidden;}
+.cbar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:6px;transition:width .4s;}
+.cbar-pct{width:42px;text-align:right;font-size:.74rem;color:var(--text-muted);flex-shrink:0;}
+
+/* ── TOGGLE ROWS (settings checkboxes) ── */
+.toggle-wrap{display:flex;align-items:center;gap:10px;}
+.toggle-wrap span{font-size:.8rem;}
+.toggle-stack{margin-top:14px;display:flex;flex-direction:column;gap:11px;}
+
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:var(--surface);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -239,6 +251,14 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Overview</div>
   <div class="nav-item active" onclick="showPage('overview')" id="nav-overview"><span class="ni">🏠</span> Overview</div>
 
+  <div class="nav-section">Infrastructure</div>
+  <div class="nav-item" onclick="showPage('server')" id="nav-server"><span class="ni">🖥️</span> Server &amp; Database</div>
+
+  <div class="nav-section">Security</div>
+  <div class="nav-item" onclick="showPage('users')" id="nav-users"><span class="ni">👤</span> Users &amp; Groups</div>
+  <div class="nav-item" onclick="showPage('roles')" id="nav-roles"><span class="ni">🔐</span> Roles &amp; Permissions</div>
+  <div class="nav-item" onclick="showPage('security')" id="nav-security"><span class="ni">🛡️</span> Security Policies</div>
+
   <div class="nav-section">Behaviors</div>
   <div class="nav-item" onclick="showPage('lifecycles')" id="nav-lifecycles"><span class="ni">🔄</span> Lifecycles</div>
   <div class="nav-item" onclick="showPage('categories')" id="nav-categories"><span class="ni">🏷</span> Categories</div>
@@ -250,6 +270,15 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Structure</div>
   <div class="nav-item" onclick="showPage('folders')" id="nav-folders"><span class="ni">📁</span> Folder Structure</div>
   <div class="nav-item" onclick="showPage('items')" id="nav-items"><span class="ni">📦</span> Items</div>
+
+  <div class="nav-section">Integrations</div>
+  <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
+  <div class="nav-item" onclick="showPage('email')" id="nav-email"><span class="ni">📧</span> Email &amp; Notifications</div>
+  <div class="nav-item" onclick="showPage('api')" id="nav-api"><span class="ni">🔌</span> API &amp; Connections</div>
+
+  <div class="nav-section">Maintenance</div>
+  <div class="nav-item" onclick="showPage('backup')" id="nav-backup"><span class="ni">💾</span> Backup &amp; Restore</div>
+  <div class="nav-item" onclick="showPage('audit')" id="nav-audit"><span class="ni">📊</span> Audit Log</div>
 
   <div class="nav-section">Settings</div>
   <div class="nav-item" onclick="showPage('general')" id="nav-general"><span class="ni">⚙️</span> General Settings</div>
@@ -300,6 +329,11 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div class="metric"><div class="label">Lifecycles</div><div class="value" id="ov-lc">0</div><div class="sub">Defined workflows</div></div>
     <div class="metric"><div class="label">Categories</div><div class="value" id="ov-cats">0</div><div class="sub">Assignment rules</div></div>
     <div class="metric"><div class="label">Folders</div><div class="value" id="ov-folders">0</div><div class="sub">Tracked folders</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Configuration Completion</h3>
+    <div id="completion-bars"></div>
   </div>
 
   <div class="card">
@@ -454,6 +488,220 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
 </div>
 
+<!-- SERVER & DATABASE -->
+<div class="page" id="page-server">
+  <div class="page-title">Server &amp; Database</div>
+  <div class="page-sub">ADMS / Vault server and SQL database configuration.</div>
+  <div class="card">
+    <h3>Server Configuration</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Server Hostname / IP</label><input id="srv-host" placeholder="e.g. vault-server.company.com"></div>
+      <div class="form-group"><label>Port</label><input id="srv-port" type="number" placeholder="e.g. 25734"></div>
+      <div class="form-group"><label>Protocol</label><select id="srv-proto"><option>HTTPS</option><option>HTTP</option></select></div>
+      <div class="form-group"><label>SSL Certificate Path</label><input id="srv-ssl" placeholder="/certs/vault.crt"></div>
+      <div class="form-group"><label>File Store Path</label><input id="srv-fstore" placeholder="e.g. D:\VaultFileStore"></div>
+      <div class="form-group"><label>Temp Directory</label><input id="srv-tmp" placeholder="e.g. C:\Temp\Vault"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Database Configuration</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>DB Server</label><input id="db-host" placeholder="e.g. SQL-SERVER\AUTODESKVAULT"></div>
+      <div class="form-group"><label>DB Name</label><input id="db-name" placeholder="e.g. KnowledgeVault"></div>
+      <div class="form-group"><label>Authentication</label><select id="db-auth"><option>Windows Authentication</option><option>SQL Authentication</option></select></div>
+      <div class="form-group"><label>DB Username</label><input id="db-user" placeholder="sa or domain\user"></div>
+      <div class="form-group"><label>Connection Pool Size</label><input id="db-pool" type="number" placeholder="e.g. 50"></div>
+      <div class="form-group"><label>Query Timeout (sec)</label><input id="db-timeout" type="number" placeholder="e.g. 30"></div>
+    </div>
+  </div>
+</div>
+
+<!-- USERS & GROUPS -->
+<div class="page" id="page-users">
+  <div class="page-title">Users &amp; Groups</div>
+  <div class="page-sub">Vault user accounts and group memberships.</div>
+  <div class="card">
+    <h3>Users</h3>
+    <table class="tbl" id="users-tbl">
+      <thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+      <tbody id="users-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addUser()">+ Add User</button></div>
+  </div>
+  <div class="card">
+    <h3>Groups</h3>
+    <table class="tbl" id="groups-tbl">
+      <thead><tr><th>Group Name</th><th>Description</th><th>Members</th><th></th></tr></thead>
+      <tbody id="groups-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addGroup()">+ Add Group</button></div>
+  </div>
+</div>
+
+<!-- ROLES & PERMISSIONS -->
+<div class="page" id="page-roles">
+  <div class="page-title">Roles &amp; Permissions</div>
+  <div class="page-sub">Roles and the high-level permissions assigned to them.</div>
+  <div class="card">
+    <h3>Roles</h3>
+    <table class="tbl" id="roles-tbl">
+      <thead><tr><th>Role Name</th><th>Description</th><th>Read</th><th>Write</th><th>Delete</th><th>Admin</th><th></th></tr></thead>
+      <tbody id="roles-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRole()">+ Add Role</button></div>
+  </div>
+</div>
+
+<!-- SECURITY POLICIES -->
+<div class="page" id="page-security">
+  <div class="page-title">Security Policies</div>
+  <div class="page-sub">Password policy, authentication, and directory integration.</div>
+  <div class="card">
+    <h3>Password Policy</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Minimum Length</label><input id="sec-minlen" type="number" placeholder="e.g. 8"></div>
+      <div class="form-group"><label>Max Age (days)</label><input id="sec-maxage" type="number" placeholder="e.g. 90"></div>
+      <div class="form-group"><label>Lockout Attempts</label><input id="sec-lockout" type="number" placeholder="e.g. 5"></div>
+      <div class="form-group"><label>Session Timeout (min)</label><input id="sec-session" type="number" placeholder="e.g. 60"></div>
+    </div>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-upper"><span class="slider"></span></label><span>Require uppercase letters</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-num"><span class="slider"></span></label><span>Require numbers</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-special"><span class="slider"></span></label><span>Require special characters</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-2fa"><span class="slider"></span></label><span>Enable Two-Factor Authentication</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="sec-ad"><span class="slider"></span></label><span>Active Directory Integration</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>AD / LDAP Settings</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>LDAP Server</label><input id="sec-ldap" placeholder="ldap://dc.company.com"></div>
+      <div class="form-group"><label>Base DN</label><input id="sec-basedn" placeholder="DC=company,DC=com"></div>
+      <div class="form-group"><label>Bind User</label><input id="sec-binduser" placeholder="CN=vaultbind,OU=Service"></div>
+      <div class="form-group"><label>AD Group Filter</label><input id="sec-adgroup" placeholder="CN=VaultUsers,OU=Groups"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CAD INTEGRATION -->
+<div class="page" id="page-cad">
+  <div class="page-title">CAD Integration</div>
+  <div class="page-sub">CAD application settings and CAD↔Vault property mappings.</div>
+  <div class="card">
+    <h3>CAD Application Settings</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Primary CAD Application</label><select id="cad-app"><option>Inventor</option><option>AutoCAD</option><option>Revit</option><option>Civil 3D</option><option>Fusion</option></select></div>
+      <div class="form-group"><label>CAD Version</label><input id="cad-ver" placeholder="e.g. 2025"></div>
+      <div class="form-group"><label>Working Folder</label><input id="cad-wf" placeholder="e.g. C:\Vault\WorkingFolder"></div>
+      <div class="form-group"><label>Workspace Path</label><input id="cad-ws" placeholder="e.g. $/Designs"></div>
+    </div>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="cad-automap"><span class="slider"></span></label><span>Auto-map CAD properties to Vault properties</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="cad-checkinvis"><span class="slider"></span></label><span>Generate visualization on check-in</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="cad-bom"><span class="slider"></span></label><span>Sync BOM on check-in</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Property Mappings</h3>
+    <table class="tbl" id="propmap-tbl">
+      <thead><tr><th>CAD Property</th><th>Vault Property</th><th>Direction</th><th></th></tr></thead>
+      <tbody id="propmap-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addPropMap()">+ Add Mapping</button></div>
+  </div>
+</div>
+
+<!-- EMAIL & NOTIFICATIONS -->
+<div class="page" id="page-email">
+  <div class="page-title">Email &amp; Notifications</div>
+  <div class="page-sub">SMTP server and notification triggers.</div>
+  <div class="card">
+    <h3>SMTP Configuration</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>SMTP Server</label><input id="email-smtp" placeholder="smtp.company.com"></div>
+      <div class="form-group"><label>Port</label><input id="email-port" type="number" placeholder="587"></div>
+      <div class="form-group"><label>From Address</label><input id="email-from" type="email" placeholder="vault@company.com"></div>
+      <div class="form-group"><label>Display Name</label><input id="email-name" placeholder="Vault Notifications"></div>
+      <div class="form-group"><label>Username</label><input id="email-user" placeholder="SMTP username"></div>
+      <div class="form-group"><label>Encryption</label><select id="email-enc"><option>TLS</option><option>SSL</option><option>None</option></select></div>
+    </div>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="email-checkin"><span class="slider"></span></label><span>Notify on file check-in</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="email-lcchange"><span class="slider"></span></label><span>Notify on lifecycle state change</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="email-co"><span class="slider"></span></label><span>Notify on change order updates</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- API & CONNECTIONS -->
+<div class="page" id="page-api">
+  <div class="page-title">API &amp; Connections</div>
+  <div class="page-sub">REST API and webhook configuration.</div>
+  <div class="card">
+    <h3>API Settings</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>API Base URL</label><input id="api-url" placeholder="https://vault-server/api/v1"></div>
+      <div class="form-group"><label>API Key</label><input id="api-key" placeholder="Enter API key..."></div>
+      <div class="form-group"><label>Rate Limit (req/min)</label><input id="api-rate" type="number" placeholder="e.g. 100"></div>
+      <div class="form-group"><label>Webhook URL</label><input id="api-webhook" placeholder="https://..."></div>
+    </div>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="api-enabled"><span class="slider"></span></label><span>Enable REST API</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="api-log"><span class="slider"></span></label><span>Log all API requests</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- BACKUP & RESTORE -->
+<div class="page" id="page-backup">
+  <div class="page-title">Backup &amp; Restore</div>
+  <div class="page-sub">Backup schedule, retention, and options.</div>
+  <div class="card">
+    <h3>Backup Configuration</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Backup Path</label><input id="bk-path" placeholder="e.g. \\backup-server\vault"></div>
+      <div class="form-group"><label>Schedule</label><select id="bk-sched"><option>Daily</option><option>Weekly</option><option>Monthly</option><option>Manual</option></select></div>
+      <div class="form-group"><label>Backup Time</label><input id="bk-time" type="time" value="02:00"></div>
+      <div class="form-group"><label>Retention (days)</label><input id="bk-retain" type="number" placeholder="e.g. 30"></div>
+      <div class="form-group"><label>Last Backup</label><input id="bk-last" type="datetime-local"></div>
+      <div class="form-group"><label>Backup Type</label><select id="bk-type"><option>Full</option><option>Incremental</option><option>Differential</option></select></div>
+    </div>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="bk-compress"><span class="slider"></span></label><span>Compress backup files</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="bk-encrypt"><span class="slider"></span></label><span>Encrypt backup files</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="bk-notify"><span class="slider"></span></label><span>Email notification on backup completion</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- AUDIT LOG -->
+<div class="page" id="page-audit">
+  <div class="page-title">Audit Log</div>
+  <div class="page-sub">Audit logging policy and recent entries.</div>
+  <div class="card">
+    <h3>Audit Log Settings</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Log Retention (days)</label><input id="audit-retain" type="number" placeholder="e.g. 365"></div>
+      <div class="form-group"><label>Log Level</label><select id="audit-level"><option>Info</option><option>Warning</option><option>Error</option><option>Debug</option></select></div>
+      <div class="form-group"><label>Export Format</label><select id="audit-fmt"><option>CSV</option><option>JSON</option><option>XML</option></select></div>
+    </div>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-login"><span class="slider"></span></label><span>Log login/logout events</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-file"><span class="slider"></span></label><span>Log file operations</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-admin"><span class="slider"></span></label><span>Log admin configuration changes</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-lc"><span class="slider"></span></label><span>Log lifecycle transitions</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Recent Audit Entries</h3>
+    <table class="tbl" id="audit-tbl">
+      <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th><th></th></tr></thead>
+      <tbody id="audit-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addAuditEntry()">+ Add Entry</button></div>
+  </div>
+</div>
+
 <!-- GENERAL -->
 <div class="page" id="page-general">
   <div class="page-title">General Settings</div>
@@ -579,6 +827,49 @@ let NUMBERING=[
 
 let CHANGELOG=[];
 
+let USERS=[
+  {username:"Administrator",fullName:"Vault Administrator",email:"admin@company.com",role:"Administrator",status:"Active"},
+  {username:"jsmith",fullName:"Jane Smith",email:"jane.smith@company.com",role:"Editor",status:"Active"},
+  {username:"bdesign",fullName:"Bob Designer",email:"bob@company.com",role:"Editor",status:"Active"}
+];
+let GROUPS=[
+  {name:"Engineering",description:"Design engineers",members:"jsmith, bdesign"},
+  {name:"Administrators",description:"Vault administrators",members:"Administrator"}
+];
+let ROLES=[
+  {name:"Administrator",description:"Full control",read:true,write:true,del:true,admin:true},
+  {name:"Editor",description:"Create and edit",read:true,write:true,del:false,admin:false},
+  {name:"Viewer",description:"Read-only access",read:true,write:false,del:false,admin:false}
+];
+let PROPMAPS=[
+  {cad:"PART NUMBER",vault:"Part Number",direction:"CAD → Vault"},
+  {cad:"DESCRIPTION",vault:"Description",direction:"Both"}
+];
+let AUDITLOG=[];
+
+// Settings groups captured directly from form fields (key = element id)
+const SETTING_FIELDS={
+  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','srv-tmp','db-host','db-name','db-auth','db-user','db-pool','db-timeout'],
+  security:['sec-minlen','sec-maxage','sec-lockout','sec-session','sec-upper','sec-num','sec-special','sec-2fa','sec-ad','sec-ldap','sec-basedn','sec-binduser','sec-adgroup'],
+  cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
+  email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
+  api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
+  backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify'],
+  audit:['audit-retain','audit-level','audit-fmt','audit-login','audit-file','audit-admin','audit-lc']
+};
+// [label, id] descriptors for the printed PDF
+const PRINT_FIELDS={
+  'Server Configuration':[['Server Hostname / IP','srv-host'],['Port','srv-port'],['Protocol','srv-proto'],['SSL Certificate Path','srv-ssl'],['File Store Path','srv-fstore'],['Temp Directory','srv-tmp']],
+  'Database Configuration':[['DB Server','db-host'],['DB Name','db-name'],['Authentication','db-auth'],['DB Username','db-user'],['Connection Pool Size','db-pool'],['Query Timeout (sec)','db-timeout']],
+  'Password Policy':[['Minimum Length','sec-minlen'],['Max Age (days)','sec-maxage'],['Lockout Attempts','sec-lockout'],['Session Timeout (min)','sec-session'],['Require uppercase','sec-upper'],['Require numbers','sec-num'],['Require special chars','sec-special'],['Two-Factor Authentication','sec-2fa'],['Active Directory Integration','sec-ad']],
+  'AD / LDAP':[['LDAP Server','sec-ldap'],['Base DN','sec-basedn'],['Bind User','sec-binduser'],['AD Group Filter','sec-adgroup']],
+  'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
+  'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
+  'API & Connections':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
+  'Backup Configuration':[['Backup Path','bk-path'],['Schedule','bk-sched'],['Backup Time','bk-time'],['Retention (days)','bk-retain'],['Last Backup','bk-last'],['Backup Type','bk-type'],['Compress','bk-compress'],['Encrypt','bk-encrypt'],['Email on completion','bk-notify']],
+  'Audit Log':[['Log Retention (days)','audit-retain'],['Log Level','audit-level'],['Export Format','audit-fmt'],['Log login/logout','audit-login'],['Log file operations','audit-file'],['Log admin changes','audit-admin'],['Log lifecycle transitions','audit-lc']]
+};
+
 // Lifecycle data
 let LIFECYCLES = [
   {id:1,name:"Basic Release Process",description:"Basic manufacturing lifecycle process for release control",
@@ -664,7 +955,8 @@ function renderAll(){
   document.getElementById('folder-count-badge').textContent=FOLDERS.length;
   renderLCList(); renderFolders(); renderCategories(); renderRevisions();
   renderItems(); renderNumbering(); renderChangeLog();
-  updateMetrics(); updateBadge();
+  renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
+  updateMetrics(); updateBadge(); renderCompletionBars();
 }
 
 function updateMetrics(){
@@ -672,6 +964,7 @@ function updateMetrics(){
   document.getElementById('ov-lc').textContent=LIFECYCLES.length;
   document.getElementById('ov-cats').textContent=CATEGORIES.length;
   document.getElementById('ov-folders').textContent=FOLDERS.length;
+  renderCompletionBars();
 }
 function updateBadge(){ document.getElementById('vault-name-badge').textContent=document.getElementById('cfg-vault-name').value||'Vault'; }
 
@@ -684,6 +977,7 @@ function showPage(id){
   document.getElementById('page-'+id).classList.add('active');
   document.getElementById('nav-'+id).classList.add('active');
   if(id==='lifecycles'&&activeLCId!==null){ setTimeout(()=>{lcResizeCanvas();lcDraw();},50); }
+  if(id==='overview') renderCompletionBars();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -819,6 +1113,109 @@ function renderChangeLog(){
   });
 }
 function addChangeLog(){ CHANGELOG.push({date:new Date().toISOString().split('T')[0],author:document.getElementById('cfg-consultant').value||'',section:'',desc:''}); renderChangeLog(); }
+
+// ═══════════════════════════════════════════════════════════════
+//  USERS / GROUPS / ROLES / CAD MAPPINGS / AUDIT
+// ═══════════════════════════════════════════════════════════════
+function bindRow(tr,obj,fields){ const el=tr.querySelectorAll('input,select'); fields.forEach((f,i)=>{ if(!el[i])return; const t=el[i].type==='checkbox'; el[i].onchange=e=>{obj[f]=t?e.target.checked:e.target.value; if(f==='status')renderUsers();}; }); }
+
+function renderUsers(){
+  const tb=document.getElementById('users-tbody'); if(!tb)return; tb.innerHTML='';
+  USERS.forEach((u,i)=>{
+    const tr=document.createElement('tr');
+    const stTag=u.status==='Active'?'tag-released':'tag-obsolete';
+    tr.innerHTML=`<td><input class="inp" value="${esc(u.username)}"/></td><td><input class="inp" value="${esc(u.fullName)}"/></td>
+      <td><input class="inp" value="${esc(u.email)}"/></td><td><input class="inp" value="${esc(u.role)}"/></td>
+      <td><span class="tag ${stTag}" style="cursor:pointer" onclick="USERS[${i}].status=USERS[${i}].status==='Active'?'Inactive':'Active';renderUsers();updateMetrics()">${esc(u.status)}</span></td>
+      <td><button class="btn btn-danger btn-icon" onclick="USERS.splice(${i},1);renderUsers();updateMetrics()">✕</button></td>`;
+    bindRow(tr,u,['username','fullName','email','role']);
+    tb.appendChild(tr);
+  });
+}
+function addUser(){ USERS.push({username:'newuser',fullName:'',email:'',role:'Viewer',status:'Active'}); renderUsers(); updateMetrics(); }
+
+function renderGroups(){
+  const tb=document.getElementById('groups-tbody'); if(!tb)return; tb.innerHTML='';
+  GROUPS.forEach((g,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(g.name)}"/></td><td><input class="inp" value="${esc(g.description)}"/></td>
+      <td><input class="inp" value="${esc(g.members)}"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="GROUPS.splice(${i},1);renderGroups()">✕</button></td>`;
+    bindRow(tr,g,['name','description','members']);
+    tb.appendChild(tr);
+  });
+}
+function addGroup(){ GROUPS.push({name:'New Group',description:'',members:''}); renderGroups(); }
+
+function renderRoles(){
+  const tb=document.getElementById('roles-tbody'); if(!tb)return; tb.innerHTML='';
+  ROLES.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    const ck=(f)=>`<input type="checkbox" ${r[f]?'checked':''}/>`;
+    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}"/></td><td><input class="inp" value="${esc(r.description)}"/></td>
+      <td style="text-align:center">${ck('read')}</td><td style="text-align:center">${ck('write')}</td><td style="text-align:center">${ck('del')}</td><td style="text-align:center">${ck('admin')}</td>
+      <td><button class="btn btn-danger btn-icon" onclick="ROLES.splice(${i},1);renderRoles()">✕</button></td>`;
+    bindRow(tr,r,['name','description','read','write','del','admin']);
+    tb.appendChild(tr);
+  });
+}
+function addRole(){ ROLES.push({name:'New Role',description:'',read:true,write:false,del:false,admin:false}); renderRoles(); }
+
+function renderPropMaps(){
+  const tb=document.getElementById('propmap-tbody'); if(!tb)return; tb.innerHTML='';
+  PROPMAPS.forEach((m,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(m.cad)}"/></td><td><input class="inp" value="${esc(m.vault)}"/></td>
+      <td><select class="inp">${['CAD → Vault','Vault → CAD','Both'].map(d=>`<option ${d===m.direction?'selected':''}>${d}</option>`).join('')}</select></td>
+      <td><button class="btn btn-danger btn-icon" onclick="PROPMAPS.splice(${i},1);renderPropMaps()">✕</button></td>`;
+    bindRow(tr,m,['cad','vault','direction']);
+    tb.appendChild(tr);
+  });
+}
+function addPropMap(){ PROPMAPS.push({cad:'',vault:'',direction:'CAD → Vault'}); renderPropMaps(); }
+
+function renderAudit(){
+  const tb=document.getElementById('audit-tbody'); if(!tb)return; tb.innerHTML='';
+  AUDITLOG.forEach((a,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(a.timestamp)}"/></td><td><input class="inp" value="${esc(a.user)}"/></td>
+      <td><input class="inp" value="${esc(a.action)}"/></td><td><input class="inp" value="${esc(a.entity)}"/></td>
+      <td><input class="inp" value="${esc(a.details)}"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="AUDITLOG.splice(${i},1);renderAudit()">✕</button></td>`;
+    bindRow(tr,a,['timestamp','user','action','entity','details']);
+    tb.appendChild(tr);
+  });
+}
+function addAuditEntry(){ AUDITLOG.push({timestamp:new Date().toISOString().replace('T',' ').split('.')[0],user:'',action:'',entity:'',details:''}); renderAudit(); }
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPLETION BARS
+// ═══════════════════════════════════════════════════════════════
+function fieldsFilledPct(ids){ const f=ids.filter(id=>{const el=document.getElementById(id);return el&&String(el.value||'').trim();}).length; return Math.round((f/ids.length)*100); }
+function renderCompletionBars(){
+  const host=document.getElementById('completion-bars'); if(!host)return;
+  const sections=[
+    {label:'Vault Details',fields:['cfg-vault-name','cfg-org','cfg-version','cfg-server','cfg-admin']},
+    {label:'Server & Database',fields:['srv-host','srv-port','db-host','db-name']},
+    {label:'Users & Groups',count:()=>USERS.length,max:3},
+    {label:'Roles',count:()=>ROLES.length,max:3},
+    {label:'Lifecycles',count:()=>LIFECYCLES.length,max:2},
+    {label:'Categories',count:()=>CATEGORIES.length,max:3},
+    {label:'Properties',count:()=>PROPS.length,max:8},
+    {label:'Security Policy',fields:['sec-minlen','sec-session']},
+    {label:'CAD Integration',fields:['cad-app','cad-wf']},
+    {label:'Email / SMTP',fields:['email-smtp','email-from']},
+    {label:'Backup',fields:['bk-path','bk-sched']}
+  ];
+  host.innerHTML=sections.map(s=>{
+    let pct = s.fields ? fieldsFilledPct(s.fields) : Math.min(100,Math.round((s.count()/s.max)*100));
+    return `<div class="cbar-row"><div class="cbar-label">${s.label}</div><div class="cbar-track"><div class="cbar-fill" style="width:${pct}%"></div></div><div class="cbar-pct">${pct}%</div></div>`;
+  }).join('');
+}
+
+// Field-group helpers (settings captured by element id) ─────────
+function collectFields(ids){ const o={}; ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;o[id]=el.type==='checkbox'?el.checked:el.value;}); return o; }
+function restoreFields(obj){ if(!obj)return; Object.keys(obj).forEach(id=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=!!obj[id];else el.value=obj[id];}); }
 
 // ═══════════════════════════════════════════════════════════════
 //  LIFECYCLE LIST
@@ -1228,6 +1625,14 @@ function collectConfig(){
     lifecycles:LIFECYCLES.map(lcExportData),
     categories:CATEGORIES,revisionSchemes:REVISIONS,numberingSchemes:NUMBERING,
     properties:PROPS,folders:FOLDERS,items:ITEMS,
+    users:USERS,groups:GROUPS,roles:ROLES,
+    server:collectFields(SETTING_FIELDS.server),
+    security:collectFields(SETTING_FIELDS.security),
+    cad:{settings:collectFields(SETTING_FIELDS.cad),mappings:PROPMAPS},
+    email:collectFields(SETTING_FIELDS.email),
+    api:collectFields(SETTING_FIELDS.api),
+    backup:collectFields(SETTING_FIELDS.backup),
+    audit:{settings:collectFields(SETTING_FIELDS.audit),entries:AUDITLOG},
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes')
   };
 }
@@ -1262,6 +1667,11 @@ function normRev(r){return{name:pick(r,'name','Name','DispName')||'',format:pick
 function normNum(n){return{entity:pick(n,'entity','Entity')||'',scheme:pick(n,'scheme','Scheme')||'Sequential',prefix:pick(n,'prefix','Prefix')||'',start:String(pick(n,'start','Start','startNumber')??'1'),inc:String(pick(n,'inc','Increment','increment')??'1'),notes:pick(n,'notes','Notes')||''};}
 function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],author:pick(c,'author','Author')||'',section:pick(c,'section','Section')||'',desc:pick(c,'desc','Description','description')||''};}
 function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
+function normUser(u){return{username:pick(u,'username','Username','UserName','name')||'',fullName:pick(u,'fullName','FullName','Name')||'',email:pick(u,'email','Email')||'',role:pick(u,'role','Role')||'',status:pick(u,'status','Status')||'Active'};}
+function normGroup(g){return{name:pick(g,'name','Name')||'',description:pick(g,'description','Description')||'',members:Array.isArray(g.members)?g.members.join(', '):(pick(g,'members','Members')||'')};}
+function normRole(r){return{name:pick(r,'name','Name')||'',description:pick(r,'description','Description')||'',read:toBool(pick(r,'read','Read')),write:toBool(pick(r,'write','Write')),del:toBool(pick(r,'del','delete','Delete')),admin:toBool(pick(r,'admin','Admin'))};}
+function normMap(m){return{cad:pick(m,'cad','cadProperty','CADProperty','CadProp')||'',vault:pick(m,'vault','vaultProperty','VaultProperty')||'',direction:pick(m,'direction','Direction')||'CAD → Vault'};}
+function normAudit(a){return{timestamp:pick(a,'timestamp','Timestamp','time','Time')||'',user:pick(a,'user','User')||'',action:pick(a,'action','Action')||'',entity:pick(a,'entity','Entity')||'',details:pick(a,'details','Details')||''};}
 
 function normLifecycle(lc,idx,nid){
   const idMap=new Map();
@@ -1313,6 +1723,19 @@ function normalizeConfig(raw){
   const v=raw.vault||raw.Vault; if(v) out.vault=normVault(v);
   const g=raw.generalSettings||raw.general||raw.GeneralSettings; if(g) out.general=g;
   const gn=pick(raw,'generalNotes','GeneralNotes'); if(gn!==undefined) out.generalNotes=gn;
+  // people
+  const users=firstArr(raw,'users','Users'); if(users) out.users=users.map(normUser);
+  const groups=firstArr(raw,'groups','Groups'); if(groups) out.groups=groups.map(normGroup);
+  const roles=firstArr(raw,'roles','Roles'); if(roles) out.roles=roles.map(normRole);
+  // settings field-groups (pass-through id:value maps)
+  if(raw.server) out.serverFields=raw.server;
+  if(raw.security) out.securityFields=raw.security;
+  if(raw.email) out.emailFields=raw.email;
+  if(raw.api) out.apiFields=raw.api;
+  if(raw.backup) out.backupFields=raw.backup;
+  if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); }
+  const pm=firstArr(raw,'propMappings','propmaps','PropMaps'); if(pm&&!out.propmaps) out.propmaps=pm.map(normMap);
+  if(raw.audit){ if(!Array.isArray(raw.audit)) out.auditFields=raw.audit.settings; const ae=Array.isArray(raw.audit)?raw.audit:firstArr(raw.audit,'entries','Entries'); if(ae) out.auditlog=ae.map(normAudit); }
   return out;
 }
 
@@ -1325,6 +1748,13 @@ function applyConfig(raw){
   if(c.revisions) REVISIONS=c.revisions;
   if(c.numbering) NUMBERING=c.numbering;
   if(c.changelog) CHANGELOG=c.changelog;
+  if(c.users) USERS=c.users;
+  if(c.groups) GROUPS=c.groups;
+  if(c.roles) ROLES=c.roles;
+  if(c.propmaps) PROPMAPS=c.propmaps;
+  if(c.auditlog) AUDITLOG=c.auditlog;
+  restoreFields(c.serverFields); restoreFields(c.securityFields); restoreFields(c.cadFields);
+  restoreFields(c.emailFields); restoreFields(c.apiFields); restoreFields(c.backupFields); restoreFields(c.auditFields);
   if(c.lifecycles){ LIFECYCLES=c.lifecycles; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
   if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-docrev',v.documentRevision);setVal('cfg-notes',v.notes);}
   if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setVal('gs-workspace',g.workspace);setVal('gs-maxsize',g.maxFileSizeMB);setVal('gs-visatt',g.visualizationAttachment);setVal('gs-auth',g.authMode);setVal('gs-timeout',g.sessionTimeout);setChk('gs-autoviz',g.autoCreateViz);setChk('gs-unique',g.enforceUniqueNames);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);setChk('gs-checkout',g.requireCheckout);setChk('gs-multi',g.allowMultiCheckout);}
@@ -1397,10 +1827,14 @@ function renderLifecycleSVG(lc){
 //  PRINT / MULTIPAGE PDF
 // ═══════════════════════════════════════════════════════════════
 function pill(text,color){return `<span class="pr-pill" style="border-color:${color};color:${color}">${esc(text)}</span>`;}
+function prFieldVal(id){const el=document.getElementById(id);if(!el)return'';if(el.type==='checkbox')return el.checked?'Yes':'No';return el.value||'';}
+function prKV(desc){return `<table class="pr-kv">${desc.map(([l,id])=>`<tr><td>${esc(l)}</td><td>${esc(prFieldVal(id))||'—'}</td></tr>`).join('')}</table>`;}
+function prSection(num,title,sub){return `<div class="pr-section"><div class="pr-h2">${num} · ${esc(title)}</div>${sub?`<div class="pr-h2-sub">${esc(sub)}</div>`:''}`;}
 function buildPrintDoc(){
   const root=document.getElementById('print-root');
   const vname=val('cfg-vault-name')||'Vault';
   const today=new Date().toLocaleDateString();
+  let _S=0; const S=()=>++_S;
   let html='';
 
   // COVER
@@ -1421,24 +1855,90 @@ function buildPrintDoc(){
     ${val('cfg-notes')?`<div style="margin-top:24px"><div class="pr-h3">Summary Notes</div><div class="pr-note">${esc(val('cfg-notes'))}</div></div>`:''}
   </div>`;
 
-  // CONTENTS
-  html+=`<div class="pr-section"><div class="pr-h2">1 · Configuration Summary</div><div class="pr-h2-sub">High-level metrics for this Vault instance.</div>
+  // SUMMARY
+  html+=prSection(S(),'Configuration Summary','High-level metrics for this Vault instance.')+`
     <table class="pr-kv">
       <tr><td>Property Definitions</td><td>${PROPS.length}</td></tr>
       <tr><td>Lifecycle Definitions</td><td>${LIFECYCLES.length}</td></tr>
       <tr><td>Categories</td><td>${CATEGORIES.length}</td></tr>
       <tr><td>Revision Schemes</td><td>${REVISIONS.length}</td></tr>
+      <tr><td>Users / Roles</td><td>${USERS.length} users · ${ROLES.length} roles</td></tr>
       <tr><td>Folders Documented</td><td>${FOLDERS.length}</td></tr>
       <tr><td>Items Documented</td><td>${ITEMS.length}</td></tr>
     </table>
-    <div class="pr-foot">${esc(vname)} configuration · page generated ${today}</div>
-  </div>`;
+    <div class="pr-foot">${esc(vname)} configuration · page generated ${today}</div></div>`;
 
-  // LIFECYCLES — diagram + tables each
-  html+=`<div class="pr-section"><div class="pr-h2">2 · Lifecycle Definitions</div><div class="pr-h2-sub">${LIFECYCLES.length} workflow(s). Each includes a state diagram, state detail table, and a transition matrix.</div></div>`;
+  // GENERAL SETTINGS
+  const g=collectGeneral();
+  html+=prSection(S(),'General Settings')+`
+    <div class="pr-h3">File Handling</div>
+    <table class="pr-kv">
+      <tr><td>Working Folder</td><td>${esc(g.workingFolder||'—')}</td></tr>
+      <tr><td>Workspace</td><td>${esc(g.workspace||'—')}</td></tr>
+      <tr><td>Max File Size (MB)</td><td>${esc(g.maxFileSizeMB||'—')}</td></tr>
+      <tr><td>Visualization Attachment</td><td>${esc(g.visualizationAttachment)}</td></tr>
+      <tr><td>Auto-create Visualization Attachments</td><td>${g.autoCreateViz?'Yes':'No'}</td></tr>
+      <tr><td>Enforce Unique File Names</td><td>${g.enforceUniqueNames?'Yes':'No'}</td></tr>
+      <tr><td>Enable Change Orders</td><td>${g.enableChangeOrders?'Yes':'No'}</td></tr>
+      <tr><td>Enable Item Master</td><td>${g.enableItemMaster?'Yes':'No'}</td></tr>
+    </table>
+    <div class="pr-h3">Security &amp; Access (general)</div>
+    <table class="pr-kv">
+      <tr><td>Authentication Mode</td><td>${esc(g.authMode)}</td></tr>
+      <tr><td>Session Timeout (min)</td><td>${esc(g.sessionTimeout||'—')}</td></tr>
+      <tr><td>Require Check-out to Edit</td><td>${g.requireCheckout?'Yes':'No'}</td></tr>
+      <tr><td>Allow Multiple Check-outs</td><td>${g.allowMultiCheckout?'Yes':'No'}</td></tr>
+    </table>
+    <div class="pr-h3">Numbering Schemes</div>
+    <table class="pr-tbl"><thead><tr><th>Entity</th><th>Scheme</th><th>Prefix</th><th>Start</th><th>Increment</th><th>Notes</th></tr></thead><tbody>
+    ${NUMBERING.map(n=>`<tr><td>${esc(n.entity)}</td><td>${esc(n.scheme)}</td><td>${esc(n.prefix||'—')}</td><td>${esc(n.start)}</td><td>${esc(n.inc)}</td><td>${esc(n.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // SERVER & DATABASE
+  html+=prSection(S(),'Server & Database')+`
+    <div class="pr-h3">Server Configuration</div>${prKV(PRINT_FIELDS['Server Configuration'])}
+    <div class="pr-h3">Database Configuration</div>${prKV(PRINT_FIELDS['Database Configuration'])}</div>`;
+
+  // USERS & GROUPS
+  html+=prSection(S(),'Users & Groups',`${USERS.length} user(s), ${GROUPS.length} group(s).`)+`
+    <div class="pr-h3">Users</div>
+    <table class="pr-tbl"><thead><tr><th>Username</th><th>Full Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody>
+    ${USERS.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.fullName)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="pr-h3">Groups</div>
+    <table class="pr-tbl"><thead><tr><th>Group</th><th>Description</th><th>Members</th></tr></thead><tbody>
+    ${GROUPS.map(gr=>`<tr><td>${esc(gr.name)}</td><td>${esc(gr.description)}</td><td>${esc(gr.members)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // ROLES
+  html+=prSection(S(),'Roles & Permissions')+`
+    <table class="pr-tbl"><thead><tr><th>Role</th><th>Description</th><th>Read</th><th>Write</th><th>Delete</th><th>Admin</th></tr></thead><tbody>
+    ${ROLES.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.description)}</td><td>${r.read?'✓':''}</td><td>${r.write?'✓':''}</td><td>${r.del?'✓':''}</td><td>${r.admin?'✓':''}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // SECURITY POLICIES
+  html+=prSection(S(),'Security Policies')+`
+    <div class="pr-h3">Password Policy</div>${prKV(PRINT_FIELDS['Password Policy'])}
+    <div class="pr-h3">AD / LDAP</div>${prKV(PRINT_FIELDS['AD / LDAP'])}</div>`;
+
+  // CATEGORIES
+  html+=prSection(S(),'Categories',`${CATEGORIES.length} category assignment(s).`)+`
+    <table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
+    ${CATEGORIES.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // PROPERTIES
+  html+=prSection(S(),'Property Definitions',`${PROPS.length} properties (system & custom).`)+`
+    <table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Type</th><th>Source</th><th>Active</th></tr></thead><tbody>
+    ${PROPS.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace">${esc(p.SystemName)}</td><td>${esc(p.DataType)}</td><td>${p.IsSystem?'System':'Custom'}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // LIFECYCLES
+  const lcSec=S();
+  html+=prSection(lcSec,'Lifecycle Definitions',`${LIFECYCLES.length} workflow(s). Each includes a state diagram, state detail table, and a transition matrix.`)+`</div>`;
   LIFECYCLES.forEach((lc,idx)=>{
     html+=`<div class="pr-lc">
-      <div class="pr-lc-head">2.${idx+1} · ${esc(lc.name)}</div>
+      <div class="pr-lc-head">${lcSec}.${idx+1} · ${esc(lc.name)}</div>
       <div class="pr-lc-desc">${esc(lc.description||'')} &nbsp;·&nbsp; ${lc.states.length} states · ${lc.transitions.length} transitions</div>
       ${renderLifecycleSVG(lc)}
       <div class="pr-h3">States</div>
@@ -1451,64 +1951,50 @@ function buildPrintDoc(){
     </div>`;
   });
 
-  // PROPERTIES
-  html+=`<div class="pr-section"><div class="pr-h2">3 · Property Definitions</div><div class="pr-h2-sub">${PROPS.length} properties (system &amp; custom).</div>
-    <table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Type</th><th>Source</th><th>Active</th></tr></thead><tbody>
-    ${PROPS.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace">${esc(p.SystemName)}</td><td>${esc(p.DataType)}</td><td>${p.IsSystem?'System':'Custom'}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
-    </tbody></table></div>`;
-
-  // CATEGORIES
-  html+=`<div class="pr-section"><div class="pr-h2">4 · Categories</div><div class="pr-h2-sub">${CATEGORIES.length} category assignment(s).</div>
-    <table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
-    ${CATEGORIES.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
-    </tbody></table></div>`;
-
   // REVISIONS
-  html+=`<div class="pr-section"><div class="pr-h2">5 · Revision Schemes</div>
+  html+=prSection(S(),'Revision Schemes')+`
     <table class="pr-tbl"><thead><tr><th>Name</th><th>Format</th><th>Primary</th><th>Secondary</th><th>Notes</th></tr></thead><tbody>
     ${REVISIONS.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.format)}</td><td>${esc(r.primary)}</td><td>${esc(r.secondary||'—')}</td><td>${esc(r.notes||'')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // FOLDERS
-  html+=`<div class="pr-section"><div class="pr-h2">6 · Folder Structure</div><div class="pr-h2-sub">${FOLDERS.length} folder(s).</div>
+  html+=prSection(S(),'Folder Structure',`${FOLDERS.length} folder(s).`)+`
     <table class="pr-tbl"><thead><tr><th>ID</th><th>Name</th><th>Created By</th><th>Created Date</th><th>Notes</th></tr></thead><tbody>
     ${FOLDERS.map(f=>`<tr><td>${esc(f.id)}</td><td>${esc(f.name)}</td><td>${esc(f.createUserName||'')}</td><td>${esc(f.createDate||'')}</td><td>${esc(f.notes||'')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // ITEMS
-  html+=`<div class="pr-section"><div class="pr-h2">7 · Items</div>
+  html+=prSection(S(),'Items')+`
     <table class="pr-tbl"><thead><tr><th>ID</th><th>Name</th><th>Entity Type</th><th>Notes</th></tr></thead><tbody>
     ${ITEMS.map(it=>`<tr><td>${esc(it.id)}</td><td>${esc(it.name)}</td><td>${esc(it.entity)}</td><td>${esc(it.notes||'')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
-  // GENERAL SETTINGS
-  const g=collectGeneral();
-  html+=`<div class="pr-section"><div class="pr-h2">8 · General Settings</div>
-    <div class="pr-h3">File Handling</div>
-    <table class="pr-kv">
-      <tr><td>Working Folder</td><td>${esc(g.workingFolder||'—')}</td></tr>
-      <tr><td>Workspace</td><td>${esc(g.workspace||'—')}</td></tr>
-      <tr><td>Max File Size (MB)</td><td>${esc(g.maxFileSizeMB||'—')}</td></tr>
-      <tr><td>Visualization Attachment</td><td>${esc(g.visualizationAttachment)}</td></tr>
-      <tr><td>Auto-create Visualization Attachments</td><td>${g.autoCreateViz?'Yes':'No'}</td></tr>
-      <tr><td>Enforce Unique File Names</td><td>${g.enforceUniqueNames?'Yes':'No'}</td></tr>
-      <tr><td>Enable Change Orders</td><td>${g.enableChangeOrders?'Yes':'No'}</td></tr>
-      <tr><td>Enable Item Master</td><td>${g.enableItemMaster?'Yes':'No'}</td></tr>
-    </table>
-    <div class="pr-h3">Security &amp; Access</div>
-    <table class="pr-kv">
-      <tr><td>Authentication Mode</td><td>${esc(g.authMode)}</td></tr>
-      <tr><td>Session Timeout (min)</td><td>${esc(g.sessionTimeout||'—')}</td></tr>
-      <tr><td>Require Check-out to Edit</td><td>${g.requireCheckout?'Yes':'No'}</td></tr>
-      <tr><td>Allow Multiple Check-outs</td><td>${g.allowMultiCheckout?'Yes':'No'}</td></tr>
-    </table>
-    <div class="pr-h3">Numbering Schemes</div>
-    <table class="pr-tbl"><thead><tr><th>Entity</th><th>Scheme</th><th>Prefix</th><th>Start</th><th>Increment</th><th>Notes</th></tr></thead><tbody>
-    ${NUMBERING.map(n=>`<tr><td>${esc(n.entity)}</td><td>${esc(n.scheme)}</td><td>${esc(n.prefix||'—')}</td><td>${esc(n.start)}</td><td>${esc(n.inc)}</td><td>${esc(n.notes||'')}</td></tr>`).join('')}
+  // CAD INTEGRATION
+  html+=prSection(S(),'CAD Integration')+`
+    <div class="pr-h3">CAD Application</div>${prKV(PRINT_FIELDS['CAD Application'])}
+    <div class="pr-h3">Property Mappings</div>
+    <table class="pr-tbl"><thead><tr><th>CAD Property</th><th>Vault Property</th><th>Direction</th></tr></thead><tbody>
+    ${PROPMAPS.map(m=>`<tr><td>${esc(m.cad)}</td><td>${esc(m.vault)}</td><td>${esc(m.direction)}</td></tr>`).join('')||'<tr><td colspan="3">None</td></tr>'}
     </tbody></table></div>`;
 
+  // EMAIL
+  html+=prSection(S(),'Email & Notifications')+prKV(PRINT_FIELDS['SMTP / Email'])+`</div>`;
+
+  // API
+  html+=prSection(S(),'API & Connections')+prKV(PRINT_FIELDS['API & Connections'])+`</div>`;
+
+  // BACKUP
+  html+=prSection(S(),'Backup & Restore')+prKV(PRINT_FIELDS['Backup Configuration'])+`</div>`;
+
+  // AUDIT
+  html+=prSection(S(),'Audit Log')+`
+    <div class="pr-h3">Audit Settings</div>${prKV(PRINT_FIELDS['Audit Log'])}
+    <div class="pr-h3">Recent Entries</div>
+    ${AUDITLOG.length?`<table class="pr-tbl"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>
+      ${AUDITLOG.map(a=>`<tr><td>${esc(a.timestamp)}</td><td>${esc(a.user)}</td><td>${esc(a.action)}</td><td>${esc(a.entity)}</td><td>${esc(a.details)}</td></tr>`).join('')}</tbody></table>`:'<div class="pr-note">No audit entries recorded.</div>'}</div>`;
+
   // NOTES & CHANGE LOG
-  html+=`<div class="pr-section"><div class="pr-h2">9 · Notes &amp; Change Log</div>
+  html+=prSection(S(),'Notes & Change Log')+`
     <div class="pr-h3">Change Log</div>
     ${CHANGELOG.length?`<table class="pr-tbl"><thead><tr><th>Date</th><th>Author</th><th>Section</th><th>Description</th></tr></thead><tbody>
       ${CHANGELOG.map(c=>`<tr><td>${esc(c.date)}</td><td>${esc(c.author)}</td><td>${esc(c.section)}</td><td>${esc(c.desc)}</td></tr>`).join('')}</tbody></table>`:'<div class="pr-note">No change log entries.</div>'}
