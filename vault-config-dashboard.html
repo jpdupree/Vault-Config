@@ -445,11 +445,21 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="page-sub">Revision numbering schemes used across lifecycle and category definitions.</div>
   <div class="card">
     <h3>Revision Schemes</h3>
+    <p style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 12px">A scheme = a delimiter plus Primary/Secondary/Tertiary <b>formats</b>, each pointing at a value list (sequence) below.</p>
     <table class="tbl" id="rev-tbl">
-      <thead><tr><th>Name</th><th>Format</th><th>Primary Sequence</th><th>Secondary Sequence</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Delimiter</th><th>Primary</th><th>Secondary</th><th>Tertiary</th><th>Description</th><th></th></tr></thead>
       <tbody id="rev-tbody"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRevision()">+ Add Scheme</button></div>
+  </div>
+  <div class="card">
+    <h3>Revision Sequences (value lists)</h3>
+    <p style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 12px">The ordered values a format steps through. The first value is the default. Edit as a space- or comma-separated list.</p>
+    <table class="tbl" id="revseq-tbl">
+      <thead><tr><th style="width:18%">Name</th><th style="width:8%">Default</th><th style="width:8%">Count</th><th>Values</th><th></th></tr></thead>
+      <tbody id="revseq-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRevSeq()">+ Add Sequence</button></div>
   </div>
 </div>
 
@@ -829,10 +839,17 @@ let CATEGORIES=[
   {name:"Item",entity:"Item",lifecycle:"Item Release Process",revision:"Numeric",notes:""}
 ];
 
+// Revision value lists (sequences). First label is the default.
+let REVSEQS=[
+  {name:"Alphabetic",displayName:"Alphabetic",system:true,labels:"A B C D E F G H I J K L M N O P Q R S T U V W X Y Z".split(" ")},
+  {name:"Numeric",displayName:"Numeric",system:true,labels:Array.from({length:20},(_,i)=>String(i+1))},
+  {name:"ASME Y14.35M",displayName:"Default ASME Y14.35M",system:true,labels:"A B C D E F G H J K L M N P R T U V W Y".split(" ")}
+];
+// Revision schemes (definitions): delimiter + primary/secondary/tertiary formats referencing sequences above.
 let REVISIONS=[
-  {name:"Numeric",format:"Sequential",primary:"1,2,3...",secondary:"",notes:"Default numeric scheme"},
-  {name:"Alphabetic",format:"Sequential",primary:"A,B,C...",secondary:"",notes:""},
-  {name:"Alpha-Numeric",format:"Combined",primary:"A,B,C...",secondary:"1,2,3...",notes:""}
+  {name:"Standard Alphabetic Format",description:"Only characters are permitted within the primary format",separator:".",primary:"Alphabetic",secondary:"Numeric",tertiary:"Numeric",system:true,comments:["Standard Alphabetic Format"]},
+  {name:"Standard Numeric Format",description:"Sequential numbering starting from 1",separator:".",primary:"Numeric",secondary:"Numeric",tertiary:"Numeric",system:true,comments:["Standard Numeric Format"]},
+  {name:"Default ASME Y14.35M Format",description:"Only ASME Y14.35M characters are permitted within the primary format",separator:".",primary:"ASME Y14.35M",secondary:"Numeric",tertiary:"Numeric",system:true,comments:["Default ASME Y14.35M Format"]}
 ];
 
 let NUMBERING=[
@@ -949,11 +966,13 @@ let lcReadOnly=false; // true when the active lifecycle is a system/default (loc
 const NW=148, NH=46, NR=10;
 // Names that ship with a fresh Vault — treated as system/locked (duplicate to edit)
 const SYSTEM_LC_NAMES=new Set(["Basic Release Process","Flexible Release Process","Simple Release Process","Long Lead Time Release Process","Design Representation Process","Long Lead Time Release Process with Change Order","Item Release Process"]);
-const SYSTEM_REV_NAMES=new Set(["Alphabetic","Numeric","Alpha-numeric","Alpha-Numeric"]);
+const SYSTEM_REV_NAMES=new Set(["Standard Alphabetic Format","Standard Numeric Format","Default ASME Y14.35M Format"]);
+const SYSTEM_SEQ_NAMES=new Set(["Alphabetic","Numeric","ASME Y14.35M"]);
 const SYSTEM_CAT_NAMES=new Set(["Base","Folder"]);
 function markSystemDefaults(){
   LIFECYCLES.forEach(l=>{ if(l.system===undefined) l.system=SYSTEM_LC_NAMES.has(l.name); });
   REVISIONS.forEach(r=>{ if(r.system===undefined) r.system=SYSTEM_REV_NAMES.has(r.name); });
+  if(typeof REVSEQS!=='undefined') REVSEQS.forEach(s=>{ if(s.system===undefined) s.system=SYSTEM_SEQ_NAMES.has(s.name); });
   CATEGORIES.forEach(c=>{ if(c.system===undefined) c.system=SYSTEM_CAT_NAMES.has(c.name); });
 }
 const SVGNS='http://www.w3.org/2000/svg';
@@ -979,7 +998,7 @@ function renderAll(){
   renderPropsTable('prop-tbody',PROPS,false);
   document.getElementById('prop-count-badge').textContent=PROPS.length;
   document.getElementById('folder-count-badge').textContent=FOLDERS.length;
-  renderLCList(); renderFolders(); renderCategories(); renderRevisions();
+  renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderItems(); renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
@@ -1098,7 +1117,7 @@ function renderCategories(){
     tr.innerHTML=`<td><input class="inp" value="${esc(c.name)}" ${ro}/>${lockName}</td>
       <td><select class="inp" ${ro}>${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
       <td><select class="inp" ${ro}>${lcOptions(c.lifecycle)}</select></td>
-      <td><input class="inp" value="${esc(c.revision)}" placeholder="e.g. Numeric" ${ro}/></td>
+      <td><select class="inp" ${ro}>${revOptions(c.revision)}</select></td>
       <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..." ${ro}/></td>
       <td style="white-space:nowrap">${actions}</td>`;
     if(!c.system){const el=tr.querySelectorAll('input,select');
@@ -1109,6 +1128,8 @@ function renderCategories(){
 function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:"",system:false}); renderCategories(); updateMetrics(); }
 function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,system:false}); renderCategories(); updateMetrics(); notify('Category duplicated (editable)'); }
 
+function seqOptions(sel){ return '<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${s.name===sel?'selected':''}>${esc(s.name)}</option>`).join(''); }
+function revOptions(sel){ return '<option value="">— None —</option>'+REVISIONS.map(r=>`<option ${r.name===sel?'selected':''}>${esc(r.name)}</option>`).join(''); }
 function renderRevisions(){
   markSystemDefaults();
   const tb=document.getElementById('rev-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1119,17 +1140,50 @@ function renderRevisions(){
     const actions=r.system
       ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRevision(${i})">⎘</button>`
       :`<button class="btn btn-danger btn-icon" onclick="REVISIONS.splice(${i},1);renderRevisions()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRevision(${i})">⎘</button>`;
-    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}" ${ro}/>${lockName}</td><td><input class="inp" value="${esc(r.format)}" ${ro}/></td>
-      <td><input class="inp" value="${esc(r.primary)}" ${ro}/></td><td><input class="inp" value="${esc(r.secondary)}" ${ro}/></td>
-      <td><input class="inp" value="${esc(r.notes)}" placeholder="Notes..." ${ro}/></td>
+    tr.innerHTML=`<td><input class="inp" value="${esc(r.name)}" ${ro}/>${lockName}</td>
+      <td><input class="inp" style="width:54px;text-align:center" value="${esc(r.separator||'.')}" ${ro}/></td>
+      <td><select class="inp" ${ro}>${seqOptions(r.primary)}</select></td>
+      <td><select class="inp" ${ro}>${seqOptions(r.secondary)}</select></td>
+      <td><select class="inp" ${ro}>${seqOptions(r.tertiary)}</select></td>
+      <td><input class="inp" value="${esc(r.description||'')}" placeholder="Description..." ${ro}/></td>
       <td style="white-space:nowrap">${actions}</td>`;
-    if(!r.system){const el=tr.querySelectorAll('input');
-      el[0].onchange=e=>r.name=e.target.value; el[1].onchange=e=>r.format=e.target.value; el[2].onchange=e=>r.primary=e.target.value; el[3].onchange=e=>r.secondary=e.target.value; el[4].onchange=e=>r.notes=e.target.value;}
+    if(!r.system){const el=tr.querySelectorAll('input,select');
+      el[0].onchange=e=>{r.name=e.target.value;renderCategories();}; el[1].onchange=e=>r.separator=e.target.value; el[2].onchange=e=>r.primary=e.target.value; el[3].onchange=e=>r.secondary=e.target.value; el[4].onchange=e=>r.tertiary=e.target.value; el[5].onchange=e=>r.description=e.target.value;}
     tb.appendChild(tr);
   });
 }
-function addRevision(){ REVISIONS.push({name:"New Scheme",format:"",primary:"",secondary:"",notes:"",system:false}); renderRevisions(); }
-function duplicateRevision(i){ const s=REVISIONS[i]; if(!s)return; REVISIONS.splice(i+1,0,{name:'Copy of '+s.name,format:s.format,primary:s.primary,secondary:s.secondary,notes:s.notes,system:false}); renderRevisions(); notify('Revision scheme duplicated (editable)'); }
+function addRevision(){ REVISIONS.push({name:"New Scheme",description:"",separator:".",primary:(REVSEQS[0]&&REVSEQS[0].name)||"",secondary:"",tertiary:"",system:false,comments:[]}); renderRevisions(); }
+function duplicateRevision(i){ const s=REVISIONS[i]; if(!s)return; REVISIONS.splice(i+1,0,{name:'Copy of '+s.name,description:s.description,separator:s.separator,primary:s.primary,secondary:s.secondary,tertiary:s.tertiary,system:false,comments:[...(s.comments||[])]}); renderRevisions(); notify('Revision scheme duplicated (editable)'); }
+
+function renderRevSeqs(){
+  markSystemDefaults();
+  const tb=document.getElementById('revseq-tbody'); if(!tb)return; tb.innerHTML='';
+  REVSEQS.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    const ro=s.system?'disabled':'';
+    const lockName=s.system?' 🔒':'';
+    const actions=s.system
+      ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateRevSeq(${i})">⎘</button>`
+      :`<button class="btn btn-danger btn-icon" onclick="deleteRevSeq(${i})">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRevSeq(${i})">⎘</button>`;
+    tr.innerHTML=`<td><input class="inp" value="${esc(s.name)}" ${ro}/>${lockName}</td>
+      <td style="text-align:center;font-weight:600">${esc((s.labels&&s.labels[0])||'')}</td>
+      <td style="text-align:center;color:var(--text-muted)">${(s.labels||[]).length}</td>
+      <td><input class="inp" style="font-family:monospace;font-size:.74rem" value="${esc((s.labels||[]).join(' '))}" placeholder="A B C …" ${ro}/></td>
+      <td style="white-space:nowrap">${actions}</td>`;
+    if(!s.system){const el=tr.querySelectorAll('input');
+      el[0].onchange=e=>{const old=s.name;s.name=e.target.value;REVISIONS.forEach(r=>{['primary','secondary','tertiary'].forEach(k=>{if(r[k]===old)r[k]=s.name;});});renderRevisions();};
+      el[1].onchange=e=>{s.labels=e.target.value.split(/[\s,]+/).filter(Boolean);renderRevSeqs();};}
+    tb.appendChild(tr);
+  });
+}
+function addRevSeq(){ REVSEQS.push({name:"New Sequence",displayName:"New Sequence",system:false,labels:["A","B","C"]}); renderRevSeqs(); renderRevisions(); }
+function duplicateRevSeq(i){ const s=REVSEQS[i]; if(!s)return; REVSEQS.splice(i+1,0,{name:'Copy of '+s.name,displayName:'Copy of '+(s.displayName||s.name),system:false,labels:[...(s.labels||[])]}); renderRevSeqs(); renderRevisions(); notify('Sequence duplicated (editable)'); }
+function deleteRevSeq(i){
+  const s=REVSEQS[i]; if(!s)return;
+  const used=REVISIONS.filter(r=>r.primary===s.name||r.secondary===s.name||r.tertiary===s.name).map(r=>r.name);
+  if(used.length && !confirm('Sequence "'+s.name+'" is still used by scheme(s): '+used.join(', ')+'.\nDelete anyway? Those schemes will reference a missing sequence.')) return;
+  REVSEQS.splice(i,1); renderRevSeqs(); renderRevisions();
+}
 
 function renderNumbering(){
   const tb=document.getElementById('num-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1711,7 +1765,7 @@ function collectConfig(){
     schema:"vault-config-dashboard/1",
     vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),documentRevision:val('cfg-docrev'),notes:val('cfg-notes')},
     lifecycles:LIFECYCLES.map(lcExportData),
-    categories:CATEGORIES,revisionSchemes:REVISIONS,numberingSchemes:NUMBERING,
+    categories:CATEGORIES,revisionSchemes:REVISIONS,revisionSequences:REVSEQS,numberingSchemes:NUMBERING,
     properties:PROPS,folders:FOLDERS,items:ITEMS,
     users:USERS,groups:GROUPS,roles:ROLES,
     server:collectFields(SETTING_FIELDS.server),
@@ -1755,7 +1809,8 @@ function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayNa
 function normFolder(f){return{id:String(pick(f,'id','Id','ObjectId','FldId')??'—'),name:pick(f,'name','Name','Label','FullName')||'(unnamed)',createUserName:pick(f,'createUserName','CreateUserName','createdBy','CreatedBy')||'',createDate:String(pick(f,'createDate','CreateDate','created','Created')||'').split('T')[0],notes:pick(f,'notes','Notes')||''};}
 function normItem(it){return{id:String(pick(it,'id','Id','ItemNum','Number')??'—'),name:pick(it,'name','Name','Title')||'(unnamed)',entity:pick(it,'entity','Entity','EntityType','entityType')||'ItemVersion',notes:pick(it,'notes','Notes')||''};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
-function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,format:pick(r,'format','Format')||'',primary:pick(r,'primary','Primary','primarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence')||'',notes:pick(r,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
+function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
+function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
 function normNum(n){return{entity:pick(n,'entity','Entity')||'',scheme:pick(n,'scheme','Scheme')||'Sequential',prefix:pick(n,'prefix','Prefix')||'',start:String(pick(n,'start','Start','startNumber')??'1'),inc:String(pick(n,'inc','Increment','increment')??'1'),notes:pick(n,'notes','Notes')||''};}
 function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],author:pick(c,'author','Author')||'',section:pick(c,'section','Section')||'',desc:pick(c,'desc','Description','description')||''};}
 function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
@@ -1811,6 +1866,7 @@ function normalizeConfig(raw){
   const items=firstArr(raw,'items','Items');                                                                if(items) out.items=items.map(normItem);
   const cats=firstArr(raw,'categories','Categories');                                                       if(cats) out.categories=cats.map(normCat);
   const revs=firstArr(raw,'revisionSchemes','revisions','RevisionSchemes','Revisions');                     if(revs) out.revisions=revs.map(normRev);
+  const seqs=firstArr(raw,'revisionSequences','RevisionSequences');                                         if(seqs) out.revseqs=seqs.map(normRevSeq);
   const nums=firstArr(raw,'numberingSchemes','numbering','NumberingSchemes');                               if(nums) out.numbering=nums.map(normNum);
   const cl=firstArr(raw,'changeLog','changelog','ChangeLog');                                               if(cl) out.changelog=cl.map(normCL);
   const lcs=firstArr(raw,'lifecycles','Lifecycles','lifeCycleDefinitions','LifeCycleDefinitions');          if(lcs) out.lifecycles=lcs.map((l,i)=>normLifecycle(l,i,nid));
@@ -1844,7 +1900,7 @@ function applyConfig(raw,replace){
   // Arrays: present → replace; absent → keep (merge) unless replace mode → empty
   const arr=(key,set)=>{ if(c[key]!==undefined) set(c[key]); else if(replace) set([]); };
   arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v); arr('items',v=>ITEMS=v);
-  arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('numbering',v=>NUMBERING=v);
+  arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   arr('changelog',v=>CHANGELOG=v); arr('users',v=>USERS=v); arr('groups',v=>GROUPS=v);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
   // Settings field-groups: present → restore; absent + replace → clear
@@ -2018,14 +2074,19 @@ function cfgParseProps(text,RES){
   return out;
 }
 function cfgParseRevisions(text,RES){
-  const doc=xmlDoc(text), out=[];
-  doc.querySelectorAll('RevisionSequence').forEach(r=>{
-    const labels=[...r.querySelectorAll('RevisionLabel')].map(l=>xAttr(l,'Label'));
-    const primary=labels.length>6?labels.slice(0,6).join(',')+'…':labels.join(',');
-    const sys=xAttr(r,'IsSystem')==='true';
-    out.push({name:xAttr(r,'DisplayName')||xAttr(r,'Name')||'',format:sys?'System (Sequential)':'Sequential',primary,secondary:'',notes:'',system:sys});
-  });
-  return out;
+  const doc=xmlDoc(text);
+  const sequences=[...doc.querySelectorAll('RevisionSequences > RevisionSequence')].map(r=>({
+    name:xAttr(r,'Name')||'', displayName:xAttr(r,'DisplayName')||xAttr(r,'Name')||'',
+    system:xAttr(r,'IsSystem')==='true',
+    labels:[...r.querySelectorAll('RevisionLabels > RevisionLabel')].map(l=>xAttr(l,'Label'))
+  }));
+  const schemes=[...doc.querySelectorAll('RevisionDefinitions > RevisionDefinition')].map(d=>({
+    name:xAttr(d,'Name')||'', description:xAttr(d,'Description')||RES.get(xAttr(d,'DescriptionResource'))||'',
+    separator:xAttr(d,'Separator')||'.', primary:xAttr(d,'PrimarySequence')||'', secondary:xAttr(d,'SecondarySequence')||'', tertiary:xAttr(d,'TertiarySequence')||'',
+    comments:[...d.querySelectorAll('RevisionComments > RevisionComment')].map(c=>xAttr(c,'Value')||RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean),
+    system:xAttr(d,'IsSystem')==='true'
+  }));
+  return {schemes,sequences};
 }
 function cfgParseNumbering(text,RES){
   const doc=xmlDoc(text), out=[];
@@ -2057,7 +2118,7 @@ async function applyCfgPackage(ab, replace, sourceName){
   const cfg={};
   const lcT=entryText(entries,'Lifecycle/Lifecycle.xml'); if(lcT) cfg.lifecycles=cfgParseLifecycles(lcT,RES);
   const udpT=entryText(entries,'UDP/UDP.xml'); if(udpT) cfg.properties=cfgParseProps(udpT,RES);
-  const revT=entryText(entries,'Revision/Revision.xml'); if(revT) cfg.revisionSchemes=cfgParseRevisions(revT,RES);
+  const revT=entryText(entries,'Revision/Revision.xml'); if(revT){ const rv=cfgParseRevisions(revT,RES); cfg.revisionSchemes=rv.schemes; cfg.revisionSequences=rv.sequences; }
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
   const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES);
   applyConfig(cfg, replace);
@@ -2125,7 +2186,61 @@ function patchLifecyclePackage(){
   lcEntry.data=reserializeXml(doc, lcEntry.data);
   if(resxDoc&&rxEntry) rxEntry.data=reserializeXml(resxDoc, rxEntry.data);
 }
-function buildCfgBytes(){ patchLifecyclePackage(); return zipStore(loadedCfg.entries); }
+
+// resx setter shared by section patchers
+function makeResxSetter(resxDoc){
+  const keys=new Set([...resxDoc.querySelectorAll('data')].map(d=>d.getAttribute('name')));
+  return (key,text)=>{ if(!resxDoc||!key)return;
+    let el=[...resxDoc.querySelectorAll('data')].find(d=>d.getAttribute('name')===key);
+    if(!el){ el=resxDoc.createElementNS(resxDoc.documentElement.namespaceURI,'data'); el.setAttribute('name',key); el.setAttributeNS('http://www.w3.org/XML/1998/namespace','xml:space','preserve'); resxDoc.documentElement.appendChild(el); keys.add(key); }
+    let v=el.querySelector('value'); if(!v){ v=resxDoc.createElementNS(resxDoc.documentElement.namespaceURI,'value'); el.appendChild(v); } v.textContent=text==null?'':text; };
+}
+// Patch Revision.xml (+resx): regenerate sequences (value lists) and scheme
+// definitions from the current model, preserving original attributes where the
+// item still exists and cloning a template for new/duplicated ones.
+function patchRevisionPackage(){
+  const revEntry=loadedCfg.entries.find(e=>e.name==='Revision/Revision.xml'); if(!revEntry) return;
+  const rxEntry=loadedCfg.entries.find(e=>e.name==='Revision/RevisionResources.resx');
+  const dec=new TextDecoder();
+  const doc=xmlDoc(dec.decode(revEntry.data));
+  const NS=doc.documentElement.namespaceURI, mk=t=>doc.createElementNS(NS,t);
+  const seqWrap=doc.querySelector('RevisionSequences'), defWrap=doc.querySelector('RevisionDefinitions');
+  if(!seqWrap||!defWrap) return;
+  const origSeq={}; [...doc.querySelectorAll('RevisionSequence')].forEach(s=>origSeq[xAttr(s,'Name')]=s);
+  const origDef={}; [...doc.querySelectorAll('RevisionDefinition')].forEach(d=>origDef[xAttr(d,'Name')]=d);
+  const tmplSeq=doc.querySelector('RevisionSequence'), tmplDef=doc.querySelector('RevisionDefinition');
+  let resxDoc=rxEntry?xmlDoc(dec.decode(rxEntry.data)):null;
+  const setRes=resxDoc?makeResxSetter(resxDoc):(()=>{});
+  const U=s=>(s||'').toUpperCase();
+  // sequences
+  [...seqWrap.querySelectorAll('RevisionSequence')].forEach(n=>n.remove());
+  REVSEQS.forEach(s=>{
+    let el=origSeq[s.name]; el=el?el.cloneNode(true):(tmplSeq?tmplSeq.cloneNode(true):mk('RevisionSequence'));
+    el.setAttribute('Name',s.name); el.setAttribute('DisplayName',s.displayName||s.name); el.setAttribute('IsSystem',s.system?'true':'false');
+    const dnk='REVISION_SEQ_DISPNAME_'+U(s.displayName||s.name)+'_DEF'; setRes(dnk,s.displayName||s.name); el.setAttribute('DisplayNameResource',dnk);
+    [...el.querySelectorAll('RevisionLabels')].forEach(e=>e.remove());
+    const lw=mk('RevisionLabels');
+    (s.labels&&s.labels.length?s.labels:['A']).forEach((lab,li)=>{ const le=mk('RevisionLabel'); le.setAttribute('Label',lab); le.setAttribute('IsDefault',li===0?'true':'false'); lw.appendChild(le); });
+    el.appendChild(lw); seqWrap.appendChild(el);
+  });
+  // scheme definitions
+  [...defWrap.querySelectorAll('RevisionDefinition')].forEach(n=>n.remove());
+  REVISIONS.forEach(r=>{
+    let el=origDef[r.name]; el=el?el.cloneNode(true):(tmplDef?tmplDef.cloneNode(true):mk('RevisionDefinition'));
+    el.setAttribute('Name',r.name); el.setAttribute('DisplayName',r.name); el.setAttribute('Description',r.description||'');
+    el.setAttribute('PrimarySequence',r.primary||''); el.setAttribute('SecondarySequence',r.secondary||r.primary||''); el.setAttribute('TertiarySequence',r.tertiary||r.secondary||r.primary||'');
+    el.setAttribute('Separator',r.separator||'.'); el.setAttribute('IsSystem',r.system?'true':'false');
+    const dnk='REVISION_SCHEME_DISPNAME_'+U(r.name)+'_DEF'; setRes(dnk,r.name); el.setAttribute('DisplayNameResource',dnk);
+    const ddk='DESCR_'+U(r.name)+'_DEF'; setRes(ddk,r.description||''); el.setAttribute('DescriptionResource',ddk);
+    [...el.querySelectorAll('RevisionComments')].forEach(e=>e.remove());
+    const cw=mk('RevisionComments'); const cs=(r.comments&&r.comments.length)?r.comments:[r.name];
+    cs.forEach((c,ci)=>{ const ck='COMMENT_'+U(r.name)+'_DEF'+ci; setRes(ck,c); const ce=mk('RevisionComment'); ce.setAttribute('Value',c); ce.setAttribute('ValueResource',ck); ce.setAttribute('IsDefault',ci===0?'true':'false'); cw.appendChild(ce); });
+    el.appendChild(cw); defWrap.appendChild(el);
+  });
+  revEntry.data=reserializeXml(doc, revEntry.data);
+  if(resxDoc&&rxEntry) rxEntry.data=reserializeXml(resxDoc, rxEntry.data);
+}
+function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); return zipStore(loadedCfg.entries); }
 async function exportCfg(){
   if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your lifecycle edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
   try{
@@ -2310,8 +2425,13 @@ function buildPrintDoc(){
 
   // REVISIONS
   html+=prSection(S(),'Revision Schemes')+`
-    <table class="pr-tbl"><thead><tr><th>Name</th><th>Format</th><th>Primary</th><th>Secondary</th><th>Notes</th></tr></thead><tbody>
-    ${REVISIONS.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.format)}</td><td>${esc(r.primary)}</td><td>${esc(r.secondary||'—')}</td><td>${esc(r.notes||'')}</td></tr>`).join('')}
+    <div class="pr-h3">Schemes</div>
+    <table class="pr-tbl"><thead><tr><th>Name</th><th>Delimiter</th><th>Primary</th><th>Secondary</th><th>Tertiary</th><th>Description</th></tr></thead><tbody>
+    ${REVISIONS.map(r=>`<tr><td>${esc(r.name)}${r.system?' (system)':''}</td><td style="text-align:center">${esc(r.separator||'.')}</td><td>${esc(r.primary||'—')}</td><td>${esc(r.secondary||'—')}</td><td>${esc(r.tertiary||'—')}</td><td>${esc(r.description||'')}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="pr-h3">Sequences (value lists)</div>
+    <table class="pr-tbl"><thead><tr><th>Name</th><th>Default</th><th>Count</th><th>Values</th></tr></thead><tbody>
+    ${REVSEQS.map(s=>`<tr><td>${esc(s.name)}${s.system?' (system)':''}</td><td style="text-align:center">${esc((s.labels&&s.labels[0])||'')}</td><td style="text-align:center">${(s.labels||[]).length}</td><td style="font-family:monospace;font-size:9px">${esc((s.labels||[]).join(' '))}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // FOLDERS
