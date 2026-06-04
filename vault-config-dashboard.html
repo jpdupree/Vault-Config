@@ -292,7 +292,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Integrations</div>
   <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
   <div class="nav-item" onclick="showPage('email')" id="nav-email"><span class="ni">📧</span> Email &amp; Notifications</div>
-  <div class="nav-item" onclick="showPage('api')" id="nav-api"><span class="ni">🔌</span> API &amp; Connections</div>
+  <div class="nav-item" onclick="showPage('api')" id="nav-api"><span class="ni">🔌</span> Connections &amp; Integrations</div>
   <div class="nav-item" onclick="showPage('fusion')" id="nav-fusion"><span class="ni">🔄</span> Vault Connector (Fusion)</div>
 
   <div class="nav-section">Maintenance</div>
@@ -710,7 +710,7 @@ input:checked+.slider:before{transform:translateX(18px);}
 <!-- EMAIL & NOTIFICATIONS -->
 <div class="page" id="page-email">
   <div class="page-title">Email &amp; Notifications</div>
-  <div class="page-sub">SMTP server and notification triggers.</div>
+  <div class="page-sub">SMTP server settings.</div>
   <div class="card">
     <h3>SMTP Configuration</h3>
     <div class="form-grid">
@@ -721,17 +721,12 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div class="form-group"><label>Username</label><input id="email-user" placeholder="SMTP username"></div>
       <div class="form-group"><label>Encryption</label><select id="email-enc"><option>TLS</option><option>SSL</option><option>None</option></select></div>
     </div>
-    <div class="toggle-stack">
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="email-checkin"><span class="slider"></span></label><span>Notify on file check-in</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="email-lcchange"><span class="slider"></span></label><span>Notify on lifecycle state change</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="email-co"><span class="slider"></span></label><span>Notify on change order updates</span></div>
-    </div>
   </div>
 </div>
 
 <!-- API & CONNECTIONS -->
 <div class="page" id="page-api">
-  <div class="page-title">API &amp; Connections</div>
+  <div class="page-title">Connections &amp; Integrations</div>
   <div class="page-sub">REST API and webhook configuration.</div>
   <div class="card">
     <h3>API Settings</h3>
@@ -785,7 +780,7 @@ input:checked+.slider:before{transform:translateX(18px);}
       <thead><tr><th>Mapping Name</th><th>Change Workspace</th><th>Fusion Transition (From → To)</th><th>Vault Action</th><th>Item Lifecycle</th><th>Files Lifecycle</th><th>Description</th><th></th></tr></thead>
       <tbody id="fmstate-tbody"></tbody>
     </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addFmState()">+ Add Mapping</button></div>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addFmState()">+ Add Mapping</button> <button class="btn btn-ghost btn-sm" onclick="loadDefaultFmStates()">⤓ Load Defaults</button></div>
   </div>
 </div>
 
@@ -1253,7 +1248,7 @@ const SETTING_FIELDS={
   server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','db-host','db-auth','db-user','jp-account','jp-adsk-account','jp-machine','jp-count','thin-client-url'],
   security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special'],
   cad:[],
-  email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
+  email:['email-smtp','email-port','email-from','email-name','email-user','email-enc'],
   api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
   backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify','bk-script'],
   audit:['audit-retain','audit-level','audit-fmt','audit-login','audit-file','audit-admin','audit-lc']
@@ -1264,8 +1259,8 @@ const PRINT_FIELDS={
   'Database Configuration':[['DB Server','db-host'],['Authentication','db-auth'],['DB Username','db-user']],
   'Job Processor & Thin Client':[['Vault Username','jp-account'],['Autodesk Account','jp-adsk-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
-  'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
-  'API & Connections':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
+  'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc']],
+  'Connections & Integrations':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
   'Backup Configuration':[['Backup Path','bk-path'],['Schedule','bk-sched'],['Backup Time','bk-time'],['Retention (days)','bk-retain'],['Last Backup','bk-last'],['Backup Type','bk-type'],['Compress','bk-compress'],['Encrypt','bk-encrypt'],['Email on completion','bk-notify']],
   'Audit Log':[['Log Retention (days)','audit-retain'],['Log Level','audit-level'],['Export Format','audit-fmt'],['Log login/logout','audit-login'],['Log file operations','audit-file'],['Log admin changes','audit-admin'],['Log lifecycle transitions','audit-lc']]
 };
@@ -1841,6 +1836,17 @@ function renderFmStates(){
   });
 }
 function addFmState(){ FMSTATEMAPS.push({name:"New Mapping",description:"",workspace:"",fromState:"",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}); renderFmStates(); }
+const DEFAULT_FMSTATEMAPS=[
+  {name:"Submit for Review",description:"Change order submitted for review",workspace:"Change Orders",fromState:"Open",toState:"In Review",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
+  {name:"Approve Change Order",description:"Change order approved — release affected items",workspace:"Change Orders",fromState:"In Review",toState:"Approved",action:"Release Item",itemLifecycle:"",filesLifecycle:""},
+  {name:"Reject Change Order",description:"Change order rejected — return to Open",workspace:"Change Orders",fromState:"In Review",toState:"Open",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
+  {name:"Close Change Order",description:"Change order closed",workspace:"Change Orders",fromState:"Approved",toState:"Closed",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}
+];
+function loadDefaultFmStates(){
+  if(FMSTATEMAPS.length && !confirm('Replace the current state mappings with the defaults?')) return;
+  FMSTATEMAPS=DEFAULT_FMSTATEMAPS.map(m=>({...m}));
+  renderFmStates(); notify('Default state mappings loaded');
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  COMPLETION BARS
@@ -1856,7 +1862,7 @@ function renderCompletionBars(){
     {label:'Job Processor & Clients',fields:['jp-account','jp-machine','thin-client-url']},
     {label:'CAD Integration',count:()=>CADAPPS.filter(a=>String(a.app||'').trim()).length,max:1},
     {label:'Email / SMTP',fields:['email-smtp','email-from','email-user']},
-    {label:'API & Connections',fields:['api-url','api-key']},
+    {label:'Connections & Integrations',fields:['api-url','api-key']},
     {label:'Backup',fields:['bk-path','bk-retain']},
     {label:'Fusion Connector',fields:['fm-tenant']}
   ];
@@ -3521,7 +3527,7 @@ function buildPrintDoc(){
   html+=prSection(S(),'Email & Notifications')+prKV(PRINT_FIELDS['SMTP / Email'])+`</div>`;
 
   // API
-  html+=prSection(S(),'API & Connections')+prKV(PRINT_FIELDS['API & Connections'])+`</div>`;
+  html+=prSection(S(),'Connections & Integrations')+prKV(PRINT_FIELDS['Connections & Integrations'])+`</div>`;
 
   // VAULT CONNECTOR (FUSION MANAGE)
   html+=prSection(S(),'Vault Connector — Fusion Manage',`Tenant: ${esc(val('fm-tenant')||'—')}`)+`
