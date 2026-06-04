@@ -568,11 +568,12 @@ input:checked+.slider:before{transform:translateX(18px);}
     </div>
   </div>
   <div class="card">
-    <h3>Job Processor &amp; Web Client</h3>
+    <h3>Job Processor &amp; Thin Client</h3>
     <div class="form-grid">
-      <div class="form-group"><label>Job Processor Account</label><input id="jp-account" placeholder="e.g. JobProcessor"></div>
+      <div class="form-group"><label>Vault Username</label><input id="jp-account" placeholder="e.g. JobProcessor"></div>
+      <div class="form-group"><label>Autodesk Account</label><input id="jp-adsk-account" placeholder="e.g. user@company.com"></div>
       <div class="form-group"><label>Job Processor Machine(s)</label><input id="jp-machine" placeholder="e.g. VAULT-JP01, VAULT-JP02"></div>
-      <div class="form-group"><label>Number of Job Processors</label><input id="jp-count" type="number" placeholder="e.g. 2"></div>
+      <div class="form-group"><label>Number of Job Processors</label><input id="jp-count" type="number" value="1" placeholder="e.g. 2"></div>
       <div class="form-group"><label>Thin Client (Web Client) Address</label><input id="thin-client-url" placeholder="https://vault-server/AutodeskDM/Webserver"></div>
     </div>
   </div>
@@ -1198,7 +1199,7 @@ const FM_FIELDS=['fm-tenant','fm-att-designrep','fm-att-designrep-primary','fm-a
 
 // Settings groups captured directly from form fields (key = element id)
 const SETTING_FIELDS={
-  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','db-host','db-auth','db-user','jp-account','jp-machine','jp-count','thin-client-url'],
+  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','db-host','db-auth','db-user','jp-account','jp-adsk-account','jp-machine','jp-count','thin-client-url'],
   security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special'],
   cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
@@ -1210,7 +1211,7 @@ const SETTING_FIELDS={
 const PRINT_FIELDS={
   'Server Configuration':[['Server Hostname / IP','srv-host'],['Port','srv-port'],['Protocol','srv-proto'],['SSL Certificate Path','srv-ssl'],['File Store Path','srv-fstore']],
   'Database Configuration':[['DB Server','db-host'],['Authentication','db-auth'],['DB Username','db-user']],
-  'Job Processor & Web Client':[['Job Processor Account','jp-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
+  'Job Processor & Thin Client':[['Vault Username','jp-account'],['Autodesk Account','jp-adsk-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
   'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
   'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
@@ -3223,7 +3224,7 @@ function buildPrintDoc(){
   html+=prSection(S(),'Server & Database')+`
     <div class="pr-h3">Server Configuration</div>${prKV(PRINT_FIELDS['Server Configuration'])}
     <div class="pr-h3">Database Configuration</div>${prKV(PRINT_FIELDS['Database Configuration'])}
-    <div class="pr-h3">Job Processor &amp; Web Client</div>${prKV(PRINT_FIELDS['Job Processor & Web Client'])}</div>`;
+    <div class="pr-h3">Job Processor &amp; Thin Client</div>${prKV(PRINT_FIELDS['Job Processor & Thin Client'])}</div>`;
 
   // USERS & GROUPS
   html+=prSection(S(),'Users & Groups',`${USERS.length} user(s), ${GROUPS.length} group(s).`)+`
