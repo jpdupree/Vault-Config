@@ -3338,11 +3338,14 @@ function buildPrintDoc(){
   html+=prSection(S(),'Security Policies')+`
     <div class="pr-h3">Password Policy</div>${prKV(PRINT_FIELDS['Password Policy'])}</div>`;
 
-  // CATEGORIES (custom only)
-  html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+
-    (pCats.length?`<table class="pr-tbl"><thead><tr><th>Name</th><th>Entity</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
-    ${pCats.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.entity)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
-    </tbody></table>`:OMIT)+`</div>`;
+  // CATEGORIES (custom only) — grouped by entity type
+  const catGroups=[['File','File Categories'],['Folder','Folder Categories'],['Item','Item Categories'],['Custom','Custom Object Categories']];
+  const catMatch=(c,k)=>k==='Custom'?(c.entity!=='File'&&c.entity!=='Folder'&&c.entity!=='Item'):c.entity===k;
+  const catTbl=rows=>`<table class="pr-tbl"><thead><tr><th style="width:60px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
+    ${rows.map(c=>`<tr><td style="text-align:center">${c.isDefault?'✓':''}</td><td>${esc(c.name)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
+    </tbody></table>`;
+  const catBody=catGroups.map(([k,label])=>{const rows=pCats.filter(c=>catMatch(c,k));return rows.length?`<div class="pr-h3">${label}</div>`+catTbl(rows):'';}).join('');
+  html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+(catBody||OMIT)+`</div>`;
 
   // CATEGORY RULES
   if(RULES.length) html+=prSection(S(),'Category Rules',`${RULES.length} rule(s).`)+`
