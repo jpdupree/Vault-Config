@@ -1455,7 +1455,22 @@ const CSMAP_ENTITY=[['FileIteration','File'],['ItemIteration','Item'],['ItemRefD
 function csmapEntityLabel(v){ const m=CSMAP_ENTITY.find(x=>x[0]===v); return m?m[1]:(v||''); }
 function csmapEntityOptions(sel){ let o=CSMAP_ENTITY.slice(); if(sel&&!o.some(x=>x[0]===sel))o.push([sel,sel]); return o.map(([v,l])=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(l)}</option>`).join(''); }
 // The "File Property" is the first segment of the moniker (Name!{GUID}!type).
-function csmapFileProp(m){ const mn=m.moniker||''; return mn.includes('!')?mn.slice(0,mn.indexOf('!')):mn; }
+// In the standard OLE Summary/DocumentSummary property sets, properties are
+// identified by a numeric ID rather than a name; resolve those to readable names.
+const OLE_PID_NAMES={
+  'F29F85E0-4FF9-1068-AB91-08002B27B3D9':{ // SummaryInformation
+    '2':'Title','3':'Subject','4':'Author','5':'Keywords','6':'Comments','7':'Template','8':'Last Saved By','9':'Revision Number','10':'Total Editing Time','11':'Last Printed','12':'Create Date','13':'Last Saved Date','14':'Page Count','15':'Word Count','16':'Character Count','17':'Thumbnail','18':'Application Name','19':'Security'},
+  'D5CDD502-2E9C-101B-9397-08002B2CF9AE':{ // DocumentSummaryInformation
+    '2':'Category','3':'Presentation Target','4':'Bytes','5':'Lines','6':'Paragraphs','7':'Slides','8':'Notes','9':'Hidden Slides','10':'Multimedia Clips','11':'Scale/Crop','12':'Heading Pairs','13':'Titles of Parts','14':'Manager','15':'Company','16':'Links Up To Date','17':'Character Count (with spaces)'}
+};
+function csmapMonikerGuid(mn){ const m=(mn||'').match(/\{([^}]*)\}/); return m?m[1].toUpperCase():''; }
+function csmapFilePropRaw(m){ const mn=m.moniker||''; return mn.includes('!')?mn.slice(0,mn.indexOf('!')):mn; }
+function csmapFilePropIsPid(m){ return /^\d+$/.test(csmapFilePropRaw(m)); }
+function csmapFilePropLabel(m){
+  const raw=csmapFilePropRaw(m);
+  if(/^\d+$/.test(raw)){ const set=OLE_PID_NAMES[csmapMonikerGuid(m.moniker)]; if(set&&set[raw]) return set[raw]; }
+  return raw;
+}
 function csmapSetFileProp(idx,val){ const m=CSMAPS[idx]; if(!m)return; const mn=m.moniker||''; const rest=mn.includes('!')?mn.slice(mn.indexOf('!')):''; m.moniker=val+rest; }
 function propMappingHTML(p){
   const sys=p.SystemName;
@@ -1463,7 +1478,9 @@ function propMappingHTML(p){
   const body=rows.length?rows.map(({m,idx})=>`<tr>
       <td><select class="inp" onchange="csmapSet(${idx},'entityClass',this.value)">${csmapEntityOptions(m.entityClass)}</select></td>
       <td><input class="inp" value="${esc(m.contentSource)}" onchange="csmapSet(${idx},'contentSource',this.value)"/></td>
-      <td><input class="inp" value="${esc(csmapFileProp(m))}" onchange="csmapSetFileProp(${idx},this.value)"/></td>
+      <td>${csmapFilePropIsPid(m)
+        ? `<span title="OLE property ID ${esc(csmapFilePropRaw(m))} in property set {${esc(csmapMonikerGuid(m.moniker))}}">${esc(csmapFilePropLabel(m))}</span>`
+        : `<input class="inp" value="${esc(csmapFilePropLabel(m))}" onchange="csmapSetFileProp(${idx},this.value)"/>`}</td>
       <td><select class="inp" onchange="csmapSet(${idx},'classification',this.value)">${['Standard','Custom'].map(x=>`<option ${x===(m.classification||'Standard')?'selected':''}>${x}</option>`).join('')}</select></td>
       <td><select class="inp" onchange="csmapSet(${idx},'direction',this.value)">${['Read','Write','ReadAndWrite'].map(x=>`<option ${x===m.direction?'selected':''}>${x}</option>`).join('')}</select></td>
       <td style="text-align:center"><input type="checkbox" ${(m.canCreateNew==='true'||m.canCreateNew===true)?'checked':''} onchange="csmapSet(${idx},'canCreateNew',this.checked?'true':'false')"/></td>
@@ -3440,7 +3457,7 @@ function buildPrintDoc(){
   // PROPERTY MAPPING
   if(CSMAPS.length) html+=prSection(S(),'Property Mapping',`${CSMAPS.length} content-source mapping(s).`)+`
     <table class="pr-tbl"><thead><tr><th>Property</th><th>Entity</th><th>Content Source</th><th>File Property</th><th>Classification</th><th>Direction</th></tr></thead><tbody>
-    ${CSMAPS.map(m=>`<tr><td>${esc(m.propDef)}</td><td>${esc(csmapEntityLabel(m.entityClass))}</td><td>${esc(m.contentSource)}</td><td>${esc(csmapFileProp(m))}</td><td>${esc(m.classification||'Standard')}</td><td>${esc(m.direction)}</td></tr>`).join('')}
+    ${CSMAPS.map(m=>`<tr><td>${esc(m.propDef)}</td><td>${esc(csmapEntityLabel(m.entityClass))}</td><td>${esc(m.contentSource)}</td><td>${esc(csmapFilePropLabel(m))}</td><td>${esc(m.classification||'Standard')}</td><td>${esc(m.direction)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // PROPERTIES (custom only)
