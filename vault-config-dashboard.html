@@ -1445,6 +1445,11 @@ function renderPropsTable(tbodyId,data,compact){
 }
 let selectedPropSys=null;
 function toggleProp(sys){ selectedPropSys=(selectedPropSys===sys)?null:sys; renderPropsTable('prop-tbody',PROPS,false); }
+// Custom iProperties live in the OLE/Inventor User-Defined property set; standard
+// (out-of-the-box) iProperties live in the built-in property sets. Classify from the
+// moniker's property-set GUID.
+const CUSTOM_PROPSET_GUID='D5CDD505-2E9C-101B-9397-08002B2CF9AE';
+function csmapClassify(moniker){ return (moniker||'').toUpperCase().includes(CUSTOM_PROPSET_GUID) ? 'Custom':'Standard'; }
 // Content-source mapping entity classes: [cfg value, friendly label].
 const CSMAP_ENTITY=[['FileIteration','File'],['ItemIteration','Item'],['ItemRefDesIteration','Item (Ref Des)']];
 function csmapEntityLabel(v){ const m=CSMAP_ENTITY.find(x=>x[0]===v); return m?m[1]:(v||''); }
@@ -2888,8 +2893,9 @@ function cfgParseCsMap(text){
       const ec=xAttr(ecs,'EntityClass')||'';
       ecs.querySelectorAll('EntClassToCtntSrcPropDef').forEach(d=>{
         const cs=d.querySelector('ContentSourcePropDef');
-        out.push({propDef,entityClass:ec,contentSource:cs?xAttr(cs,'ContentSourceName')||'':'',moniker:cs?xAttr(cs,'Moniker')||'':'',
-          direction:xAttr(d,'MappingDirection')||'ReadAndWrite',mappingType:xAttr(d,'MappingType')||'Constant',priority:xAttr(d,'Priority')||'1',canCreateNew:xAttr(d,'CanCreateNew')||'false',classification:'Standard'});
+        const moniker=cs?xAttr(cs,'Moniker')||'':'';
+        out.push({propDef,entityClass:ec,contentSource:cs?xAttr(cs,'ContentSourceName')||'':'',moniker,
+          direction:xAttr(d,'MappingDirection')||'ReadAndWrite',mappingType:xAttr(d,'MappingType')||'Constant',priority:xAttr(d,'Priority')||'1',canCreateNew:xAttr(d,'CanCreateNew')||'false',classification:csmapClassify(moniker)});
       });
     });
   });
