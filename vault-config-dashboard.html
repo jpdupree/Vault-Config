@@ -569,7 +569,7 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div class="search-bar">
       <input placeholder="🔍 Filter by name or type..." oninput="filterProps(this.value,'prop-tbl')"/>
       <select id="prop-filter-type" onchange="reFilterProps()">
-        <option value="">All Types</option><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option><option>Image</option>
+        <option value="">All Types</option><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option>
       </select>
       <select id="prop-filter-src" onchange="reFilterProps()">
         <option value="">All Sources</option><option>System</option><option>UDP</option>
@@ -584,7 +584,7 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div style="font-weight:700;font-size:.85rem;margin-bottom:8px">New Property</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-group" style="margin:0;flex:2;min-width:180px"><label>Display Name</label><input id="np-name" class="inp" placeholder="e.g. Project Number" onkeydown="if(event.key==='Enter')submitAddProp();if(event.key==='Escape')cancelAddProp()"></div>
-        <div class="form-group" style="margin:0;min-width:130px"><label>Data Type</label><select id="np-type" class="inp"><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option><option>Image</option></select></div>
+        <div class="form-group" style="margin:0;min-width:130px"><label>Data Type</label><select id="np-type" class="inp"><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option></select></div>
         <div class="form-group" style="margin:0;flex:2;min-width:160px"><label>Notes</label><input id="np-notes" class="inp" placeholder="Notes..."></div>
         <button class="btn btn-primary btn-sm" onclick="submitAddProp()">✓ Add</button>
         <button class="btn btn-ghost btn-sm" onclick="cancelAddProp()">Cancel</button>
@@ -1413,7 +1413,7 @@ function showPage(id){
 // ═══════════════════════════════════════════════════════════════
 //  PROPERTIES
 // ═══════════════════════════════════════════════════════════════
-const PROP_TYPES=['String','Numeric','Bool','DateTime','Image'];
+const PROP_TYPES=['String','Numeric','Bool','DateTime'];
 function renderPropsTable(tbodyId,data,compact){
   const tb=document.getElementById(tbodyId); if(!tb)return; tb.innerHTML='';
   const rows=data.slice().sort((a,b)=>String(a.DisplayName||'').localeCompare(String(b.DisplayName||''),undefined,{sensitivity:'base'}));
@@ -1431,7 +1431,7 @@ function renderPropsTable(tbodyId,data,compact){
     if(expanded) tr.style.background='rgba(79,142,247,.12)';
     tr.style.cursor='pointer';
     tr.innerHTML=`<td style="white-space:nowrap;cursor:pointer"><span style="color:var(--text-muted)">${expanded?'▾':'▸'}</span> <input class="inp" value="${esc(p.DisplayName)}" data-f="DisplayName" style="display:inline-block;width:calc(100% - 18px)"/></td>
-      <td><select class="inp" data-f="DataType">${PROP_TYPES.map(x=>`<option ${x===p.DataType?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td><select class="inp" data-f="DataType">${(PROP_TYPES.includes(p.DataType)?PROP_TYPES:PROP_TYPES.concat(p.DataType)).map(x=>`<option ${x===p.DataType?'selected':''}>${esc(x)}</option>`).join('')}</select></td>
       <td>${src}</td>
       <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}" data-act="1" style="cursor:pointer">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}</td>
       <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}" data-f="notes"/></td>
