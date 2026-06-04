@@ -2266,7 +2266,9 @@ function lcUpdateStateField(id,field,val){if(lcReadOnly)return;const lc=activeLC
 function lcStateSecGet(id){const lc=activeLC();const s=lc&&lc.states.find(x=>x.id===id);if(!s)return null;if(!s.security)s.security={useStateBased:false,entries:[]};return s;}
 function lcStateSecToggle(id,on){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=on;lcShowStateSecPanel(s);}
 function lcStateSec(id,i,k,v){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s||!s.security.entries[i])return;s.security.entries[i][k]=v;}
-function lcStateAddSec(id){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=true;s.security.entries.push({name:'',isGroup:false,allowed:true});lcShowStateSecPanel(s);}
+const ACL_PERMS=[{key:'read',label:'Read'},{key:'modify',label:'Modify'},{key:'delete',label:'Delete'},{key:'download',label:'Download'}];
+const ACL_LEVELS=['','Allow','Deny'];
+function lcStateAddSec(id){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=true;s.security.entries.push({name:'',read:'',modify:'',delete:'',download:''});lcShowStateSecPanel(s);}
 function lcStateDelSec(id,i){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.entries.splice(i,1);lcShowStateSecPanel(s);}
 function lcCloseStateSecPanel(){const p=document.getElementById('lc-state-sec-panel');if(p)p.style.display='none';}
 function lcShowStateSecPanel(s){
@@ -2276,11 +2278,10 @@ function lcShowStateSecPanel(s){
   const body=document.getElementById('lc-state-sec-body');
   body.innerHTML=`
     <label class="toggle-wrap" style="gap:8px;margin-bottom:8px"><input type="checkbox" ${sec.useStateBased?'checked':''} onchange="lcStateSecToggle(${s.id},this.checked)"><span>Use state-based security</span></label>
-    ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th><th style="width:90px;text-align:center">Group</th><th style="width:90px;text-align:center">Allowed</th><th style="width:48px"></th></tr></thead><tbody>
+    ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th>${ACL_PERMS.map(pm=>`<th style="width:96px;text-align:center">${pm.label}</th>`).join('')}<th style="width:48px"></th></tr></thead><tbody>
       ${sec.entries.map((e,i)=>`<tr><td><input class="inp" value="${esc(e.name)}" onchange="lcStateSec(${s.id},${i},'name',this.value)"></td>
-        <td style="text-align:center"><input type="checkbox" ${e.isGroup?'checked':''} onchange="lcStateSec(${s.id},${i},'isGroup',this.checked)"></td>
-        <td style="text-align:center"><input type="checkbox" ${e.allowed!==false?'checked':''} onchange="lcStateSec(${s.id},${i},'allowed',this.checked)"></td>
-        <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--text-muted)">No entries.</td></tr>'}
+        ${ACL_PERMS.map(pm=>`<td style="text-align:center"><select class="inp" onchange="lcStateSec(${s.id},${i},'${pm.key}',this.value)">${ACL_LEVELS.map(lv=>`<option value="${lv}" ${((e[pm.key]||'')===lv)?'selected':''}>${lv||'—'}</option>`).join('')}</select></td>`).join('')}
+        <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||`<tr><td colspan="${ACL_PERMS.length+2}" style="color:var(--text-muted)">No entries.</td></tr>`}
       </tbody></table><div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcStateAddSec(${s.id})">+ Add User/Group</button></div>`
       :'<div style="color:var(--text-muted);font-size:.78rem">Object-based (folder) security applies while in this state. Enable state-based security to grant or restrict specific users and groups.</div>'}
     <div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">Documented in the dashboard/JSON. The default .cfg lifecycle export has no state ACL element, so this is not written back to the .cfg.</div>`;
