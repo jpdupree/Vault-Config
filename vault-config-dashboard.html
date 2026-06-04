@@ -584,6 +584,7 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div style="font-weight:700;font-size:.85rem;margin-bottom:8px">New Property</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-group" style="margin:0;flex:2;min-width:180px"><label>Display Name</label><input id="np-name" class="inp" placeholder="e.g. Project Number" onkeydown="if(event.key==='Enter')submitAddProp();if(event.key==='Escape')cancelAddProp()"></div>
+        <div class="form-group" style="margin:0;min-width:130px"><label>Data Type</label><select id="np-type" class="inp"><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option><option>Image</option></select></div>
         <div class="form-group" style="margin:0;flex:2;min-width:160px"><label>Notes</label><input id="np-notes" class="inp" placeholder="Notes..."></div>
         <button class="btn btn-primary btn-sm" onclick="submitAddProp()">✓ Add</button>
         <button class="btn btn-ghost btn-sm" onclick="cancelAddProp()">Cancel</button>
@@ -1467,7 +1468,7 @@ function addMappingForSelected(){ if(!selectedPropSys)return; CSMAPS.push({propD
 function showAddProp(){
   document.getElementById('prop-add-bar').style.display='none';
   const f=document.getElementById('prop-add-form'); f.style.display='block';
-  document.getElementById('np-name').value=''; document.getElementById('np-notes').value='';
+  document.getElementById('np-name').value=''; document.getElementById('np-type').value='String'; document.getElementById('np-notes').value='';
   document.getElementById('np-name').focus();
 }
 function cancelAddProp(){ document.getElementById('prop-add-form').style.display='none'; document.getElementById('prop-add-bar').style.display='block'; }
@@ -1475,7 +1476,7 @@ function submitAddProp(){
   const name=(document.getElementById('np-name').value||'').trim();
   if(!name){ notify('Enter a display name'); document.getElementById('np-name').focus(); return; }
   const sn='Prop_'+Math.random().toString(36).slice(2,8);
-  PROPS.push({Id:'—',DisplayName:name,SystemName:sn,DataType:'String',
+  PROPS.push({Id:'—',DisplayName:name,SystemName:sn,DataType:document.getElementById('np-type').value,
     IsSystem:false,Active:true,
     notes:(document.getElementById('np-notes').value||'').trim()});
   cancelAddProp(); selectedPropSys=null; renderAll(); notify('Property added');
