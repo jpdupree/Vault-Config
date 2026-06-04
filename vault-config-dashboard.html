@@ -1339,9 +1339,10 @@ const SYSTEM_REV_NAMES=new Set(["Standard Alphabetic Format","Standard Numeric F
 const SYSTEM_SEQ_NAMES=new Set(["Alphabetic","Numeric","ASME Y14.35M"]);
 const SYSTEM_CAT_NAMES=new Set(["Base","Folder"]);
 const SYSTEM_ROLE_NAMES=new Set(["Administrator","Change Order Editor (Level 1)","Change Order Editor (Level 2)","Configuration Administrator","Content Center Administrator","Content Center Editor","Custom Object Consumer","Custom Object Editor (Level 1)","Custom Object Editor (Level 2)","Custom Object Manager (Level 1)","Custom Object Manager (Level 2)","Document Consumer","Document Editor (Level 1)","Document Editor (Level 2)","Document Manager (Level 1)","Document Manager (Level 2)","ERP Manager","Item Editor (Level 1)","Item Editor (Level 2)","Item Reviewer","Project Administrator","Security Administrator"]);
-// Built-in Vault system property internal names. Anything not in this set that
-// appears in UDP.xml is a user-created UDP (custom property).
-const SYSTEM_PROP_NAMES=new Set(["ApplicationVersion","ApproveDeadline","ArchiveStatus","ArchiveStatus(Ver)","Author","CategoryGlyph","CategoryGlyph(Ver)","CategoryName","CategoryName(Ver)","ChangeOrderState","CheckInDate","CheckedBy","CheckoutDate","CheckoutLocalSpec","CheckoutMachine","CheckoutUserName","Classification","ClientFileName","ClientFileName(Ver)","Comment","Comments","Company","Compliance","Compliance(Ver)","ControlledByChangeOrder","Cost","CostCenter","CreateDate","CreateUserName","CreationDate","CreationDate(CO)","CustomEntityName","CustomEntitySystemName","DWGCreatorName","DWGCreatorVersion","DateVersionCreated","Description","Description(Item,CO)","Designer","DwgType","Engineer","EngrApprovedBy","EquivalenceValue","Extension","FMLinkState","FMSyncDate","FMSyncStatus","FileLinkState","FileReplicated","FileSize","FolderPath","ForumMessageCreateDate","ForumMessageSubject","ForumMessageText","GeoRss","HasDrawing","HasMarkup","HasMarkup(Ver)","HasModelState","HasParentRelationship","Hidden","InitApprover","InitReleaseDate","Installation","IsTableDriven","IsTrueModelState","ItemAssignable","ItemClass","ItemEffectivity","ItemEffectivityEnd","ItemEffectivityStart","ItemLinked","Keywords","LastModifiedUserName","LatestApprover","LatestReleaseDate","LatestReleasedRevision","LatestVersion","LifeCycleDefinition","LifeCycleDefinition(Ver)","Location","Manager","Material","MfgApprovedBy","ModDate","Name","NumFileAttachments","NumItems","NumManualAttachments","Number","Obsolete","OrigCreateDate","Originator","ParentEntityClass","PartNumber","Project","Provider","ReleasedRevision","RevNumber","Revision","RevisionDefinition","RevisionDefinition(Ver)","SharePath","State","State(Ver)","StateGlyph","StateGlyph(Ver)","StockNumber","Subject","SubmitDate","SubmitUser","Tag","TargetEntityClass","Thumbnail","Title","Title(Item,CO)","TypeTag","Units","UserStatus","VersionNumber","VisualizationAttachment","iLogicRuleStatus"]);
+// Vault's authoritative system-property internal names (from the Property
+// Definitions ▸ Property Type column). Anything in UDP.xml not in this set is a
+// user-defined property (UDP).
+const SYSTEM_PROP_NAMES=new Set(["ApproveDeadline","ArchiveStatus","ArchiveStatus(Ver)","CategoryGlyph","CategoryGlyph(Ver)","CategoryName","CategoryName(Ver)","ChangeOrderState","CheckInDate","CheckoutDate","CheckoutLocalSpec","CheckoutMachine","CheckoutUserName","Classification","ClientFileName","ClientFileName(Ver)","Comment","Compliance","Compliance(Ver)","ControlledByChangeOrder","CreateDate","CreateUserName","CreationDate(CO)","CustomEntityName","CustomEntitySystemName","DateVersionCreated","Description(Item,CO)","Extension","FMLinkState","FMSyncDate","FMSyncStatus","FileLinkState","FileReplicated","FileSize","FolderPath","HasDrawing","HasMarkup","HasMarkup(Ver)","HasModelState","HasParentRelationship","Hidden","InitApprover","InitReleaseDate","Installation","IsTableDriven","IsTrueModelState","ItemAssignable","ItemLinked","LastModifiedUserName","LatestApprover","LatestReleaseDate","LatestReleasedRevision","LatestVersion","LifeCycleDefinition","LifeCycleDefinition(Ver)","Location","ModDate","Name","NumFileAttachments","NumItems","NumManualAttachments","Number","Obsolete","OrigCreateDate","Originator","Provider","ReleasedRevision","Revision","RevisionDefinition","RevisionDefinition(Ver)","State","State(Ver)","StateGlyph","StateGlyph(Ver)","SubmitDate","SubmitUser","Tag","Thumbnail","Title(Item,CO)","Units","VersionNumber","VisualizationAttachment","iLogicRuleStatus"]);
 function markSystemDefaults(){
   LIFECYCLES.forEach(l=>{ if(l.system===undefined) l.system=SYSTEM_LC_NAMES.has(l.name); });
   REVISIONS.forEach(r=>{ if(r.system===undefined) r.system=SYSTEM_REV_NAMES.has(r.name); });
@@ -2766,15 +2767,14 @@ function cfgParseLifecycles(text,RES){
   });
   return out;
 }
-function cfgParseProps(text,RES,mappedProps){
+function cfgParseProps(text,RES){
   const doc=xmlDoc(text), out=[]; let id=1;
   doc.querySelectorAll('UserDefinedProperty').forEach(p=>{
     const sys=xAttr(p,'Name')||'';
     const resKey=xAttr(p,'ResKey')||'';
-    // A property is System only if it's a known Vault built-in AND is not mapped from a
-    // content source. Built-in iProperties (Author, Title, Part Number…) that pull from
-    // CAD/Office files, and any admin-created property, are user-defined (UDP).
-    const isSystem=SYSTEM_PROP_NAMES.has(sys) && !(mappedProps&&mappedProps.has(sys));
+    // Match Vault's Property Type: System if the internal name is in Vault's
+    // system-property set, otherwise a user-defined property (UDP).
+    const isSystem=SYSTEM_PROP_NAMES.has(sys);
     out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(resKey)||sys,DataType:xAttr(p,'DataType')||'String',
       IsSystem:isSystem,Active:xAttr(p,'Active')!=='false'});
   });
@@ -2871,16 +2871,13 @@ async function applyCfgPackage(ab, replace, sourceName){
   entries.forEach(e=>{ if(/\.resx$/i.test(e.name)){ const t=new TextDecoder().decode(e.data); parseResx(t).forEach((v,k)=>{ if(!RES.has(k))RES.set(k,v); }); } });
   const cfg={};
   const lcT=entryText(entries,'Lifecycle/Lifecycle.xml'); if(lcT) cfg.lifecycles=cfgParseLifecycles(lcT,RES);
-  // Properties mapped from a content source (CAD/Office iProperties) are user-facing UDPs.
-  const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml');
-  const mappedProps=new Set();
-  if(csmT){ cfg.contentSourceMappings=cfgParseCsMap(csmT); try{ xmlDoc(csmT).querySelectorAll('CtntSrcPropDefMapping').forEach(m=>{const n=xAttr(m,'PropDefSysName'); if(n)mappedProps.add(n);}); }catch(e){} }
-  const udpT=entryText(entries,'UDP/UDP.xml'); if(udpT) cfg.properties=cfgParseProps(udpT,RES,mappedProps);
+  const udpT=entryText(entries,'UDP/UDP.xml'); if(udpT) cfg.properties=cfgParseProps(udpT,RES);
   const revT=entryText(entries,'Revision/Revision.xml'); if(revT){ const rv=cfgParseRevisions(revT,RES); cfg.revisionSchemes=rv.schemes; cfg.revisionSequences=rv.sequences; }
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
   const rulT=entryText(entries,'EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml');
   const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT);
   if(rulT) cfg.categoryRules=cfgParseRules(rulT);
+  const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(csmT) cfg.contentSourceMappings=cfgParseCsMap(csmT);
   applyConfig(cfg, replace);
   // stash the original package AFTER applyConfig (which may reset loadedCfg)
   loadedCfg={entries,rawB64,sourceName:sourceName||'loaded .cfg'};
