@@ -550,14 +550,6 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('Folder')">+ Add Folder Rule</button></div>
   </div>
   <div class="card">
-    <h3>Change Order Rules</h3>
-    <table class="tbl">
-      <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
-      <tbody id="rules-tbody-ChangeOrder"></tbody>
-    </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('ChangeOrder')">+ Add Change Order Rule</button></div>
-  </div>
-  <div class="card">
     <h3>Custom Object Rules</h3>
     <table class="tbl">
       <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
@@ -1723,8 +1715,7 @@ const RULE_SECTIONS=[
   {key:'FileMaster',match:c=>c==='FileMaster'},
   {key:'ItemMaster',match:c=>c==='ItemMaster'},
   {key:'Folder',match:c=>c==='Folder'},
-  {key:'ChangeOrder',match:c=>c==='ChangeOrder'},
-  {key:'CustomEntity',match:c=>c!=='FileMaster'&&c!=='ItemMaster'&&c!=='Folder'&&c!=='ChangeOrder'}
+  {key:'CustomEntity',match:c=>c!=='FileMaster'&&c!=='ItemMaster'&&c!=='Folder'}
 ];
 function renderRules(){
   RULE_SECTIONS.forEach(sec=>{const tb=document.getElementById('rules-tbody-'+sec.key);if(tb)tb.innerHTML='';});
@@ -3393,8 +3384,8 @@ function buildPrintDoc(){
 
   // CATEGORY RULES — grouped by entity class
   if(RULES.length){
-    const ruleGroups=[['FileMaster','File Rules'],['ItemMaster','Item Rules'],['Folder','Folder Rules'],['ChangeOrder','Change Order Rules'],['CustomEntity','Custom Object Rules']];
-    const ruleMatch=(r,k)=>k==='CustomEntity'?(r.entityClass!=='FileMaster'&&r.entityClass!=='ItemMaster'&&r.entityClass!=='Folder'&&r.entityClass!=='ChangeOrder'):r.entityClass===k;
+    const ruleGroups=[['FileMaster','File Rules'],['ItemMaster','Item Rules'],['Folder','Folder Rules'],['CustomEntity','Custom Object Rules']];
+    const ruleMatch=(r,k)=>k==='CustomEntity'?(r.entityClass!=='FileMaster'&&r.entityClass!=='ItemMaster'&&r.entityClass!=='Folder'):r.entityClass===k;
     const ruleTbl=rows=>`<table class="pr-tbl"><thead><tr><th>New?</th><th>Category</th><th>Rule Set</th><th>Property</th><th>Condition</th><th>Value</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${r.applyToNew?'Yes':'No'}</td><td>${esc(r.category)}</td><td>${esc(r.ruleSetName||'')}</td><td>${esc(r.propDef)}</td><td>${esc(r.condition)}</td><td>${esc(r.value)}</td></tr>`).join('')}
       </tbody></table>`;
