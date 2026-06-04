@@ -557,18 +557,14 @@ input:checked+.slider:before{transform:translateX(18px);}
       <div class="form-group"><label>Protocol</label><select id="srv-proto"><option>HTTPS</option><option>HTTP</option></select></div>
       <div class="form-group"><label>SSL Certificate Path</label><input id="srv-ssl" placeholder="/certs/vault.crt"></div>
       <div class="form-group"><label>File Store Path</label><input id="srv-fstore" placeholder="e.g. D:\VaultFileStore"></div>
-      <div class="form-group"><label>Temp Directory</label><input id="srv-tmp" placeholder="e.g. C:\Temp\Vault"></div>
     </div>
   </div>
   <div class="card">
     <h3>Database Configuration</h3>
     <div class="form-grid">
       <div class="form-group"><label>DB Server</label><input id="db-host" placeholder="e.g. SQL-SERVER\AUTODESKVAULT"></div>
-      <div class="form-group"><label>DB Name</label><input id="db-name" placeholder="e.g. KnowledgeVault"></div>
-      <div class="form-group"><label>Authentication</label><select id="db-auth"><option>Windows Authentication</option><option>SQL Authentication</option></select></div>
+      <div class="form-group"><label>Authentication</label><select id="db-auth"><option>SQL Authentication</option><option>Windows Authentication</option></select></div>
       <div class="form-group"><label>DB Username</label><input id="db-user" placeholder="sa or domain\user"></div>
-      <div class="form-group"><label>Connection Pool Size</label><input id="db-pool" type="number" placeholder="e.g. 50"></div>
-      <div class="form-group"><label>Query Timeout (sec)</label><input id="db-timeout" type="number" placeholder="e.g. 30"></div>
     </div>
   </div>
   <div class="card">
@@ -1202,7 +1198,7 @@ const FM_FIELDS=['fm-tenant','fm-att-designrep','fm-att-designrep-primary','fm-a
 
 // Settings groups captured directly from form fields (key = element id)
 const SETTING_FIELDS={
-  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','srv-tmp','db-host','db-name','db-auth','db-user','db-pool','db-timeout','jp-account','jp-machine','jp-count','thin-client-url'],
+  server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','db-host','db-auth','db-user','jp-account','jp-machine','jp-count','thin-client-url'],
   security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special'],
   cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
@@ -1212,8 +1208,8 @@ const SETTING_FIELDS={
 };
 // [label, id] descriptors for the printed PDF
 const PRINT_FIELDS={
-  'Server Configuration':[['Server Hostname / IP','srv-host'],['Port','srv-port'],['Protocol','srv-proto'],['SSL Certificate Path','srv-ssl'],['File Store Path','srv-fstore'],['Temp Directory','srv-tmp']],
-  'Database Configuration':[['DB Server','db-host'],['DB Name','db-name'],['Authentication','db-auth'],['DB Username','db-user'],['Connection Pool Size','db-pool'],['Query Timeout (sec)','db-timeout']],
+  'Server Configuration':[['Server Hostname / IP','srv-host'],['Port','srv-port'],['Protocol','srv-proto'],['SSL Certificate Path','srv-ssl'],['File Store Path','srv-fstore']],
+  'Database Configuration':[['DB Server','db-host'],['Authentication','db-auth'],['DB Username','db-user']],
   'Job Processor & Web Client':[['Job Processor Account','jp-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
   'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
@@ -1718,7 +1714,7 @@ function renderCompletionBars(){
   // so every bar starts at 0% and fills in as the configuration is documented.
   const sections=[
     {label:'Vault Details',fields:['cfg-org','cfg-version','cfg-consultant']},
-    {label:'Server & Database',fields:['srv-host','srv-port','srv-fstore','db-host','db-name']},
+    {label:'Server & Database',fields:['srv-host','srv-port','srv-fstore','db-host','db-auth']},
     {label:'Job Processor & Clients',fields:['jp-account','jp-machine','thin-client-url']},
     {label:'CAD Integration',fields:['cad-ver','cad-wf','cad-ws']},
     {label:'Email / SMTP',fields:['email-smtp','email-from','email-user']},
