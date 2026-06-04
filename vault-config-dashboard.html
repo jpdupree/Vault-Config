@@ -462,14 +462,38 @@ input:checked+.slider:before{transform:translateX(18px);}
 <!-- CATEGORIES -->
 <div class="page" id="page-categories">
   <div class="page-title">Categories</div>
-  <div class="page-sub">File, folder, item, and change order categories and their assigned lifecycle / revision schemes.</div>
+  <div class="page-sub">File, folder, item, and custom object categories and their assigned lifecycle / revision schemes.</div>
   <div class="card">
-    <h3>Category Definitions</h3>
-    <table class="tbl" id="cat-tbl">
-      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Entity Type</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
-      <tbody id="cat-tbody"></tbody>
+    <h3>File Categories</h3>
+    <table class="tbl">
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="cat-tbody-File"></tbody>
     </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add Category</button></div>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('File')">+ Add File Category</button></div>
+  </div>
+  <div class="card">
+    <h3>Folder Categories</h3>
+    <table class="tbl">
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="cat-tbody-Folder"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('Folder')">+ Add Folder Category</button></div>
+  </div>
+  <div class="card">
+    <h3>Item Categories</h3>
+    <table class="tbl">
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="cat-tbody-Item"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('Item')">+ Add Item Category</button></div>
+  </div>
+  <div class="card">
+    <h3>Custom Object Categories</h3>
+    <table class="tbl">
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="cat-tbody-Custom"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('Custom')">+ Add Custom Object Category</button></div>
   </div>
 </div>
 
@@ -1458,25 +1482,32 @@ function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolde
 //  CATEGORIES / REVISIONS / NUMBERING / CHANGELOG
 // ═══════════════════════════════════════════════════════════════
 function lcOptions(sel){ return '<option value="">— None —</option>'+LIFECYCLES.map(l=>`<option ${l.name===sel?'selected':''}>${esc(l.name)}</option>`).join(''); }
+const CAT_SECTIONS=[
+  {key:'File',match:e=>e==='File'},
+  {key:'Folder',match:e=>e==='Folder'},
+  {key:'Item',match:e=>e==='Item'},
+  {key:'Custom',match:e=>e!=='File'&&e!=='Folder'&&e!=='Item'}
+];
 function renderCategories(){
-  const tb=document.getElementById('cat-tbody'); if(!tb)return; tb.innerHTML='';
+  CAT_SECTIONS.forEach(sec=>{const tb=document.getElementById('cat-tbody-'+sec.key);if(tb)tb.innerHTML='';});
   CATEGORIES.forEach((c,i)=>{
+    const sec=CAT_SECTIONS.find(s=>s.match(c.entity))||CAT_SECTIONS[0];
+    const tb=document.getElementById('cat-tbody-'+sec.key); if(!tb)return;
     const tr=document.createElement('tr');
     const actions=`<button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
     tr.innerHTML=`<td style="text-align:center"><input type="checkbox" ${c.isDefault?'checked':''}/></td>
       <td><input class="inp" value="${esc(c.name)}"/></td>
-      <td><select class="inp">${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
       <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
       <td><select class="inp">${revOptions(c.revision)}</select></td>
       <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..."/></td>
       <td style="white-space:nowrap">${actions}</td>`;
     const cb=tr.querySelector('input[type=checkbox]'); cb.onchange=e=>c.isDefault=e.target.checked;
     const el=tr.querySelectorAll('td input.inp, select');
-    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.entity=e.target.value; el[2].onchange=e=>c.lifecycle=e.target.value; el[3].onchange=e=>c.revision=e.target.value; el[4].onchange=e=>c.notes=e.target.value;
+    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.lifecycle=e.target.value; el[2].onchange=e=>c.revision=e.target.value; el[3].onchange=e=>c.notes=e.target.value;
     tb.appendChild(tr);
   });
 }
-function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:"",isDefault:false,system:false}); renderCategories(); updateMetrics(); }
+function addCategory(entity){ CATEGORIES.push({name:"New Category",entity:entity||'File',lifecycle:"",revision:"",notes:"",isDefault:false,system:false}); renderCategories(); updateMetrics(); }
 function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,isDefault:false,system:false}); renderCategories(); updateMetrics(); notify('Category duplicated'); }
 
 function seqOptions(sel){ return '<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${s.name===sel?'selected':''}>${esc(s.name)}</option>`).join(''); }
@@ -2737,9 +2768,9 @@ function cfgParseNumbering(text,RES){
   return out;
 }
 // Map an EntityClassCategoryRuleSet class name to one of our entity types.
-const ENTITY_CLASS_TO_TYPE={FileMaster:'File',ItemMaster:'Item',Folder:'Folder',ChangeOrder:'Change Order',CustomEntity:'File',CustomEntityBase:'File'};
+const ENTITY_CLASS_TO_TYPE={FileMaster:'File',ItemMaster:'Item',Folder:'Folder',ChangeOrder:'Custom',CustomEntity:'Custom',CustomEntityBase:'Custom'};
 // Categories whose entity type is known by name even when no rule set references them.
-const CAT_NAME_TO_ENTITY={Folder:'Folder',Project:'Folder',ChangeOrder:'Change Order'};
+const CAT_NAME_TO_ENTITY={Folder:'Folder',Project:'Folder',ChangeOrder:'Custom',CustomEntityBase:'Custom'};
 function cfgParseCategories(text,RES,rulText){
   const doc=xmlDoc(text), out=[];
   // Build CategoryName -> entity type from the rule sets (which class each category lives under).
