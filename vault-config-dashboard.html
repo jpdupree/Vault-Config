@@ -1445,26 +1445,34 @@ function renderPropsTable(tbodyId,data,compact){
 }
 let selectedPropSys=null;
 function toggleProp(sys){ selectedPropSys=(selectedPropSys===sys)?null:sys; renderPropsTable('prop-tbody',PROPS,false); }
+// Content-source mapping entity classes: [cfg value, friendly label].
+const CSMAP_ENTITY=[['FileIteration','File'],['ItemIteration','Item'],['ItemRefDesIteration','Item (Ref Des)']];
+function csmapEntityLabel(v){ const m=CSMAP_ENTITY.find(x=>x[0]===v); return m?m[1]:(v||''); }
+function csmapEntityOptions(sel){ let o=CSMAP_ENTITY.slice(); if(sel&&!o.some(x=>x[0]===sel))o.push([sel,sel]); return o.map(([v,l])=>`<option value="${esc(v)}" ${v===sel?'selected':''}>${esc(l)}</option>`).join(''); }
+// The "File Property" is the first segment of the moniker (Name!{GUID}!type).
+function csmapFileProp(m){ const mn=m.moniker||''; return mn.includes('!')?mn.slice(0,mn.indexOf('!')):mn; }
+function csmapSetFileProp(idx,val){ const m=CSMAPS[idx]; if(!m)return; const mn=m.moniker||''; const rest=mn.includes('!')?mn.slice(mn.indexOf('!')):''; m.moniker=val+rest; }
 function propMappingHTML(p){
   const sys=p.SystemName;
   const rows=CSMAPS.map((m,idx)=>({m,idx})).filter(o=>o.m.propDef===sys);
   const body=rows.length?rows.map(({m,idx})=>`<tr>
-      <td><input class="inp" style="width:120px" value="${esc(m.entityClass)}" onchange="csmapSet(${idx},'entityClass',this.value)"/></td>
+      <td><select class="inp" onchange="csmapSet(${idx},'entityClass',this.value)">${csmapEntityOptions(m.entityClass)}</select></td>
       <td><input class="inp" value="${esc(m.contentSource)}" onchange="csmapSet(${idx},'contentSource',this.value)"/></td>
+      <td><input class="inp" value="${esc(csmapFileProp(m))}" onchange="csmapSetFileProp(${idx},this.value)"/></td>
+      <td><select class="inp" onchange="csmapSet(${idx},'classification',this.value)">${['Standard','Custom'].map(x=>`<option ${x===(m.classification||'Standard')?'selected':''}>${x}</option>`).join('')}</select></td>
       <td><select class="inp" onchange="csmapSet(${idx},'direction',this.value)">${['Read','Write','ReadAndWrite'].map(x=>`<option ${x===m.direction?'selected':''}>${x}</option>`).join('')}</select></td>
       <td style="text-align:center"><input type="checkbox" ${(m.canCreateNew==='true'||m.canCreateNew===true)?'checked':''} onchange="csmapSet(${idx},'canCreateNew',this.checked?'true':'false')"/></td>
-      <td><input class="inp" style="font-family:monospace;font-size:.7rem" value="${esc(m.moniker)}" onchange="csmapSet(${idx},'moniker',this.value)"/></td>
       <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="csmapDel(${idx})">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="csmapDup(${idx})">⎘</button></td>
-    </tr>`).join(''):`<tr><td colspan="6" style="color:var(--text-muted)">No mappings for this property. Use + Add Mapping.</td></tr>`;
+    </tr>`).join(''):`<tr><td colspan="7" style="color:var(--text-muted)">No mappings for this property. Use + Add Mapping.</td></tr>`;
   return `<div style="font-weight:600;font-size:.82rem;margin-bottom:8px">Content-Source Mappings — ${esc(p.DisplayName)}</div>
-    <table class="tbl"><thead><tr><th>Entity</th><th>Provider (Content Source)</th><th>Direction</th><th>Create</th><th>Moniker</th><th></th></tr></thead>
+    <table class="tbl"><thead><tr><th>Entity</th><th>Content Source</th><th>File Property</th><th>Classification</th><th>Direction</th><th>Create</th><th></th></tr></thead>
     <tbody>${body}</tbody></table>
     <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="addMappingForSelected()">+ Add Mapping</button></div>`;
 }
 function csmapSet(idx,f,v){ if(CSMAPS[idx]) CSMAPS[idx][f]=v; }
 function csmapDel(idx){ CSMAPS.splice(idx,1); renderPropsTable('prop-tbody',PROPS,false); }
 function csmapDup(idx){ CSMAPS.splice(idx+1,0,{...CSMAPS[idx]}); renderPropsTable('prop-tbody',PROPS,false); }
-function addMappingForSelected(){ if(!selectedPropSys)return; CSMAPS.push({propDef:selectedPropSys,entityClass:'File',contentSource:'Inventor',moniker:'',direction:'ReadAndWrite',mappingType:'Constant',priority:'1',canCreateNew:'false'}); renderPropsTable('prop-tbody',PROPS,false); }
+function addMappingForSelected(){ if(!selectedPropSys)return; CSMAPS.push({propDef:selectedPropSys,entityClass:'FileIteration',contentSource:'Inventor',moniker:'',direction:'ReadAndWrite',mappingType:'Constant',priority:'1',canCreateNew:'false',classification:'Custom'}); renderPropsTable('prop-tbody',PROPS,false); }
 function showAddProp(){
   document.getElementById('prop-add-bar').style.display='none';
   const f=document.getElementById('prop-add-form'); f.style.display='block';
@@ -2881,7 +2889,7 @@ function cfgParseCsMap(text){
       ecs.querySelectorAll('EntClassToCtntSrcPropDef').forEach(d=>{
         const cs=d.querySelector('ContentSourcePropDef');
         out.push({propDef,entityClass:ec,contentSource:cs?xAttr(cs,'ContentSourceName')||'':'',moniker:cs?xAttr(cs,'Moniker')||'':'',
-          direction:xAttr(d,'MappingDirection')||'ReadAndWrite',mappingType:xAttr(d,'MappingType')||'Constant',priority:xAttr(d,'Priority')||'1',canCreateNew:xAttr(d,'CanCreateNew')||'false'});
+          direction:xAttr(d,'MappingDirection')||'ReadAndWrite',mappingType:xAttr(d,'MappingType')||'Constant',priority:xAttr(d,'Priority')||'1',canCreateNew:xAttr(d,'CanCreateNew')||'false',classification:'Standard'});
       });
     });
   });
@@ -3425,8 +3433,8 @@ function buildPrintDoc(){
 
   // PROPERTY MAPPING
   if(CSMAPS.length) html+=prSection(S(),'Property Mapping',`${CSMAPS.length} content-source mapping(s).`)+`
-    <table class="pr-tbl"><thead><tr><th>Property</th><th>Entity Class</th><th>Content Source</th><th>Direction</th><th>Moniker</th></tr></thead><tbody>
-    ${CSMAPS.map(m=>`<tr><td>${esc(m.propDef)}</td><td>${esc(m.entityClass)}</td><td>${esc(m.contentSource)}</td><td>${esc(m.direction)}</td><td style="font-family:monospace;font-size:8px">${esc(m.moniker)}</td></tr>`).join('')}
+    <table class="pr-tbl"><thead><tr><th>Property</th><th>Entity</th><th>Content Source</th><th>File Property</th><th>Classification</th><th>Direction</th></tr></thead><tbody>
+    ${CSMAPS.map(m=>`<tr><td>${esc(m.propDef)}</td><td>${esc(csmapEntityLabel(m.entityClass))}</td><td>${esc(m.contentSource)}</td><td>${esc(csmapFileProp(m))}</td><td>${esc(m.classification||'Standard')}</td><td>${esc(m.direction)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // PROPERTIES (custom only)
