@@ -696,28 +696,20 @@ input:checked+.slider:before{transform:translateX(18px);}
 <!-- CAD INTEGRATION -->
 <div class="page" id="page-cad">
   <div class="page-title">CAD Integration</div>
-  <div class="page-sub">CAD application settings and CAD↔Vault property mappings.</div>
+  <div class="page-sub">CAD applications and integration settings.</div>
   <div class="card">
-    <h3>CAD Application Settings</h3>
-    <div class="form-grid">
-      <div class="form-group"><label>Primary CAD Application</label><select id="cad-app"><option>Inventor</option><option>AutoCAD</option><option>Revit</option><option>Civil 3D</option><option>Fusion</option></select></div>
-      <div class="form-group"><label>CAD Version</label><input id="cad-ver" placeholder="e.g. 2025"></div>
-      <div class="form-group"><label>Working Folder</label><input id="cad-wf" placeholder="e.g. C:\Vault\WorkingFolder"></div>
-      <div class="form-group"><label>Workspace Path</label><input id="cad-ws" placeholder="e.g. $/Designs"></div>
-    </div>
-    <div class="toggle-stack">
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="cad-automap"><span class="slider"></span></label><span>Auto-map CAD properties to Vault properties</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="cad-checkinvis"><span class="slider"></span></label><span>Generate visualization on check-in</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="cad-bom"><span class="slider"></span></label><span>Sync BOM on check-in</span></div>
-    </div>
+    <h3>CAD Applications</h3>
+    <table class="tbl" id="cadapp-tbl">
+      <thead><tr><th>Application</th><th>Version</th><th></th></tr></thead>
+      <tbody id="cadapp-tbody"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCadApp()">+ Add CAD Application</button></div>
   </div>
   <div class="card">
-    <h3>Property Mappings</h3>
-    <table class="tbl" id="propmap-tbl">
-      <thead><tr><th>CAD Property</th><th>Vault Property</th><th>Direction</th><th></th></tr></thead>
-      <tbody id="propmap-tbody"></tbody>
-    </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addPropMap()">+ Add Mapping</button></div>
+    <h3>Settings</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Workspace Path</label><input id="cad-ws" placeholder="e.g. $/Designs"></div>
+    </div>
   </div>
 </div>
 
@@ -1100,6 +1092,8 @@ let PROPMAPS=[
 let AUDITLOG=[];
 // Category assignment rules (EntityClassCategoryRuleSet)
 let RULES=[];
+// CAD applications used with this Vault (documentation only).
+let CADAPPS=[{app:"Inventor",version:""}];
 // Content-source property mappings (ContentSourcePropDefMapping). Each row keeps
 // the full attribute set so write-back is lossless.
 let CSMAPS=[
@@ -1264,7 +1258,7 @@ const FM_FIELDS=['fm-tenant','fm-att-designrep','fm-att-designrep-primary','fm-a
 const SETTING_FIELDS={
   server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','db-host','db-auth','db-user','jp-account','jp-adsk-account','jp-machine','jp-count','thin-client-url'],
   security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special'],
-  cad:['cad-app','cad-ver','cad-wf','cad-ws','cad-automap','cad-checkinvis','cad-bom'],
+  cad:['cad-ws'],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
   api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
   backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify','bk-script'],
@@ -1276,7 +1270,7 @@ const PRINT_FIELDS={
   'Database Configuration':[['DB Server','db-host'],['Authentication','db-auth'],['DB Username','db-user']],
   'Job Processor & Thin Client':[['Vault Username','jp-account'],['Autodesk Account','jp-adsk-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
-  'CAD Application':[['Primary CAD Application','cad-app'],['CAD Version','cad-ver'],['Working Folder','cad-wf'],['Workspace Path','cad-ws'],['Auto-map CAD properties','cad-automap'],['Generate visualization on check-in','cad-checkinvis'],['Sync BOM on check-in','cad-bom']],
+  'CAD Application':[['Workspace Path','cad-ws']],
   'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
   'API & Connections':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
   'Backup Configuration':[['Backup Path','bk-path'],['Schedule','bk-sched'],['Backup Time','bk-time'],['Retention (days)','bk-retain'],['Last Backup','bk-last'],['Backup Type','bk-type'],['Compress','bk-compress'],['Encrypt','bk-encrypt'],['Email on completion','bk-notify']],
@@ -1386,7 +1380,7 @@ function renderAll(){
   document.getElementById('folder-count-badge').textContent=countFolders(FOLDERS);
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
-  renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
+  renderUsers(); renderGroups(); renderRoles(); renderCadApps(); renderAudit();
   renderRules(); renderFmProps(); renderFmStates();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
 }
@@ -1755,6 +1749,21 @@ function renderPropMaps(){
 }
 function addPropMap(){ PROPMAPS.push({cad:'',vault:'',direction:'CAD → Vault'}); renderPropMaps(); }
 
+function renderCadApps(){
+  const tb=document.getElementById('cadapp-tbody'); if(!tb)return; tb.innerHTML='';
+  CADAPPS.forEach((a,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(a.app||'')}" placeholder="e.g. Inventor"/></td>
+      <td><input class="inp" value="${esc(a.version||'')}" placeholder="e.g. 2025"/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="CADAPPS.splice(${i},1);renderCadApps()">✕</button></td>`;
+    const el=tr.querySelectorAll('input');
+    el[0].onchange=e=>a.app=e.target.value; el[1].onchange=e=>a.version=e.target.value;
+    tb.appendChild(tr);
+  });
+  if(!CADAPPS.length) tb.innerHTML='<tr><td colspan="3" style="color:var(--text-muted)">No CAD applications. Use + Add CAD Application.</td></tr>';
+}
+function addCadApp(){ CADAPPS.push({app:'',version:''}); renderCadApps(); }
+
 function renderAudit(){
   const tb=document.getElementById('audit-tbody'); if(!tb)return; tb.innerHTML='';
   AUDITLOG.forEach((a,i)=>{
@@ -1851,7 +1860,7 @@ function renderCompletionBars(){
     {label:'Vault Details',fields:['cfg-org','cfg-version','cfg-consultant']},
     {label:'Server & Database',fields:['srv-host','srv-port','srv-fstore','db-host','db-auth']},
     {label:'Job Processor & Clients',fields:['jp-account','jp-machine','thin-client-url']},
-    {label:'CAD Integration',fields:['cad-ver','cad-wf','cad-ws']},
+    {label:'CAD Integration',fields:['cad-ws']},
     {label:'Email / SMTP',fields:['email-smtp','email-from','email-user']},
     {label:'API & Connections',fields:['api-url','api-key']},
     {label:'Backup',fields:['bk-path','bk-retain']},
@@ -2502,7 +2511,7 @@ function collectConfig(){
     users:USERS,groups:GROUPS,roles:ROLES,
     server:collectFields(SETTING_FIELDS.server),
     security:collectFields(SETTING_FIELDS.security),
-    cad:{settings:collectFields(SETTING_FIELDS.cad),mappings:PROPMAPS},
+    cad:{settings:collectFields(SETTING_FIELDS.cad),applications:CADAPPS},
     email:collectFields(SETTING_FIELDS.email),
     api:collectFields(SETTING_FIELDS.api),
     backup:collectFields(SETTING_FIELDS.backup),
@@ -2620,7 +2629,7 @@ function normalizeConfig(raw){
   if(raw.email) out.emailFields=raw.email;
   if(raw.api) out.apiFields=raw.api;
   if(raw.backup) out.backupFields=raw.backup;
-  if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); }
+  if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); const ap=firstArr(raw.cad,'applications','Applications','apps'); if(ap) out.cadapps=ap.map(a=>({app:pick(a,'app','application','name','App')||'',version:String(pick(a,'version','Version','ver')??'')})); }
   const pm=firstArr(raw,'propMappings','propmaps','PropMaps'); if(pm&&!out.propmaps) out.propmaps=pm.map(normMap);
   if(raw.audit){ if(!Array.isArray(raw.audit)) out.auditFields=raw.audit.settings; const ae=Array.isArray(raw.audit)?raw.audit:firstArr(raw.audit,'entries','Entries'); if(ae) out.auditlog=ae.map(normAudit); }
   const rules=firstArr(raw,'categoryRules','CategoryRules'); if(rules) out.rules=rules.map(normRule);
@@ -2645,7 +2654,7 @@ function applyConfig(raw,replace){
   arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v);
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   arr('changelog',v=>CHANGELOG=v); arrKeep('users',v=>USERS=v); arrKeep('groups',v=>GROUPS=v);
-  arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
+  arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('cadapps',v=>CADAPPS=v); arr('auditlog',v=>AUDITLOG=v);
   arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
   arr('fmpropmaps',v=>FMPROPMAPS=v); arr('fmstatemaps',v=>FMSTATEMAPS=v);
   if(c.fmFields) restoreFields(c.fmFields);
@@ -3509,11 +3518,11 @@ function buildPrintDoc(){
 
   // CAD INTEGRATION
   html+=prSection(S(),'CAD Integration')+`
-    <div class="pr-h3">CAD Application</div>${prKV(PRINT_FIELDS['CAD Application'])}
-    <div class="pr-h3">Property Mappings</div>
-    <table class="pr-tbl"><thead><tr><th>CAD Property</th><th>Vault Property</th><th>Direction</th></tr></thead><tbody>
-    ${PROPMAPS.map(m=>`<tr><td>${esc(m.cad)}</td><td>${esc(m.vault)}</td><td>${esc(m.direction)}</td></tr>`).join('')||'<tr><td colspan="3">None</td></tr>'}
-    </tbody></table></div>`;
+    <div class="pr-h3">CAD Applications</div>
+    <table class="pr-tbl"><thead><tr><th>Application</th><th>Version</th></tr></thead><tbody>
+    ${CADAPPS.map(a=>`<tr><td>${esc(a.app)}</td><td>${esc(a.version||'')}</td></tr>`).join('')||'<tr><td colspan="2">None</td></tr>'}
+    </tbody></table>
+    <div class="pr-h3">Settings</div>${prKV(PRINT_FIELDS['CAD Application'])}</div>`;
 
   // EMAIL
   html+=prSection(S(),'Email & Notifications')+prKV(PRINT_FIELDS['SMTP / Email'])+`</div>`;
