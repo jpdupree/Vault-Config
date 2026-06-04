@@ -437,6 +437,7 @@ input:checked+.slider:before{transform:translateX(18px);}
         <button class="tool-btn" id="lc-txtab-jobs" onclick="lcTxTab('jobs')">Custom Job Types</button>
         <button class="tool-btn" id="lc-txtab-security" onclick="lcTxTab('security')">Security</button>
         <button class="tool-btn" id="lc-txtab-peer" onclick="lcTxTab('peer')">Peer Review</button>
+        <button class="tool-btn" id="lc-txtab-email" onclick="lcTxTab('email')">Email Notifications</button>
       </div>
       <div id="lc-tx-body" style="padding:4px 2px;font-size:.8rem"></div>
     </div>
@@ -2052,6 +2053,7 @@ function lcShowStateDetail(s){
   const lc=activeLC(); lcCloseTxPanel();
   document.getElementById('lc-right-empty').style.display='none';document.getElementById('lc-right-trans').style.display='none';
   const d=document.getElementById('lc-right-detail'); d.style.display='block';
+  const sec = s.security || (s.security={useStateBased:!!s.useStateBasedSecurity,entries:[]});
   const outgoing=lc.transitions.filter(t=>t.from===s.id), incoming=lc.transitions.filter(t=>t.to===s.id);
   const row=(t,otherId)=>{const o=lc.states.find(x=>x.id===otherId);return `<div class="trans-row"><span style="color:${o?.color||'#888'};font-weight:600;flex:1">${esc(o?.name||'?')}</span><button class="btn btn-danger btn-icon" onclick="lcDeleteTransition(${t.id})">✕</button></div>`;};
   const outRows=outgoing.map(t=>row(t,t.to)).join('')||'<div style="color:var(--text-muted);font-size:.74rem">None</div>';
@@ -2080,6 +2082,16 @@ function lcShowStateDetail(s){
       </div>
     </div>
     <div class="section-card"><h5>Incoming ←</h5>${inRows}</div>
+    <div class="section-card"><h5>Security</h5>
+      <label class="toggle-wrap" style="gap:8px;margin-bottom:6px"><input type="checkbox" ${sec.useStateBased?'checked':''} onchange="lcStateSecToggle(${s.id},this.checked)"><span>Use state-based security</span></label>
+      ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th><th>Group</th><th>Allowed</th><th></th></tr></thead><tbody>
+        ${sec.entries.map((e,i)=>`<tr><td><input class="inp" value="${esc(e.name)}" onchange="lcStateSec(${s.id},${i},'name',this.value)"></td>
+          <td style="text-align:center"><input type="checkbox" ${e.isGroup?'checked':''} onchange="lcStateSec(${s.id},${i},'isGroup',this.checked)"></td>
+          <td style="text-align:center"><input type="checkbox" ${e.allowed!==false?'checked':''} onchange="lcStateSec(${s.id},${i},'allowed',this.checked)"></td>
+          <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--text-muted)">No entries.</td></tr>'}
+        </tbody></table><div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcStateAddSec(${s.id})">+ Add User/Group</button></div>`
+        :'<div style="color:var(--text-muted);font-size:.74rem">Object-based (folder) security applies while in this state.</div>'}
+    </div>
     <button class="btn btn-danger" style="width:100%" onclick="lcDeleteState(${s.id})">🗑 Delete State</button>`;
   lcLockPanel(d);
 }
@@ -2138,6 +2150,7 @@ function lcTxEnsure(t){
   if(!t.security) t.security={restrict:false,entries:[]};
   if(!t.customJobTypes) t.customJobTypes=[];
   if(!t.peerReview) t.peerReview={rules:[]};
+  if(!t.email) t.email={template:'',recipients:''};
 }
 function lcCurTx(){ const lc=activeLC(); if(!lc)return null; return lc.transitions.find(x=>x.id===lcSelectedTransId)||null; }
 function lcCloseTxPanel(){ const p=document.getElementById('lc-tx-panel'); if(p)p.style.display='none'; }
@@ -2151,12 +2164,12 @@ function lcOpenTxPanel(t){
 }
 function lcTxTab(name){
   lcTxCurTab=name;
-  ['criteria','actions','jobs','security','peer'].forEach(k=>document.getElementById('lc-txtab-'+k)?.classList.toggle('active',k===name));
+  ['criteria','actions','jobs','security','peer','email'].forEach(k=>document.getElementById('lc-txtab-'+k)?.classList.toggle('active',k===name));
   lcTxRender();
 }
 function lcTxRender(){
   const t=lcCurTx(); const body=document.getElementById('lc-tx-body'); if(!t||!body)return; lcTxEnsure(t);
-  const b={criteria:lcTxCriteria,actions:lcTxActions,jobs:lcTxJobs,security:lcTxSecurity,peer:lcTxPeer}[lcTxCurTab];
+  const b={criteria:lcTxCriteria,actions:lcTxActions,jobs:lcTxJobs,security:lcTxSecurity,peer:lcTxPeer,email:lcTxEmail}[lcTxCurTab];
   body.innerHTML=b(t);
   if(lcReadOnly){ body.querySelectorAll('input,select,textarea').forEach(x=>x.disabled=true); body.querySelectorAll('button').forEach(x=>x.style.display='none'); }
 }
@@ -2221,7 +2234,14 @@ function lcTxPeer(t){
     <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcTxAddPeer()">+ Add Rule</button></div>
     ${TX_NOTE('Documented in the dashboard/JSON; not present in the default .cfg export, so not written back.')}`;
 }
+function lcTxEmail(t){
+  const e=t.email;
+  return `<div class="fg" style="max-width:440px"><label>Template</label><input class="inp" value="${esc(e.template)}" onchange="lcTxEmailSet('template',this.value)" placeholder="e.g. Release Notification"></div>
+    <div class="fg" style="max-width:440px"><label>Recipients</label><input class="inp" value="${esc(e.recipients)}" onchange="lcTxEmailSet('recipients',this.value)" placeholder="comma-separated users / groups / email addresses"></div>
+    ${TX_NOTE('Documented in the dashboard/JSON; the default .cfg export has no email-notification element, so this is not written back.')}`;
+}
 // ── tx mutators (all guard read-only; re-render after change) ──
+function lcTxEmailSet(k,v){ lcTxMut(t=>t.email[k]=v); }
 function lcTxMut(fn){ if(lcReadOnly)return; const t=lcCurTx(); if(!t)return; lcTxEnsure(t); fn(t); lcTxRender(); }
 function lcTxAct(k,v){ lcTxMut(t=>t.actions[k]=v); }
 function lcTxCheck(k,v){ lcTxMut(t=>t.actions.checks[k]=v); }
@@ -2243,6 +2263,11 @@ function lcTxDelPeer(i){ lcTxMut(t=>t.peerReview.rules.splice(i,1)); }
 
 // ── STATE CRUD ──
 function lcUpdateStateField(id,field,val){if(lcReadOnly)return;const lc=activeLC();const s=lc.states.find(x=>x.id===id);if(s){s[field]=val;if(field==='name'){renderLCList();if(lcSelectedStateId===id)lcShowStateDetail(s);}}}
+function lcStateSecGet(id){const lc=activeLC();const s=lc&&lc.states.find(x=>x.id===id);if(!s)return null;if(!s.security)s.security={useStateBased:false,entries:[]};return s;}
+function lcStateSecToggle(id,on){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=on;lcShowStateDetail(s);}
+function lcStateSec(id,i,k,v){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s||!s.security.entries[i])return;s.security.entries[i][k]=v;}
+function lcStateAddSec(id){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=true;s.security.entries.push({name:'',isGroup:false,allowed:true});lcShowStateDetail(s);}
+function lcStateDelSec(id,i){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.entries.splice(i,1);lcShowStateDetail(s);}
 function lcSetDefault(id,checked){if(lcReadOnly)return;const lc=activeLC();if(checked)lc.states.forEach(s=>s.isDefault=false);const s=lc.states.find(x=>x.id===id);if(s)s.isDefault=checked;lcRenderSidebar();lcDraw();}
 function lcDeleteState(id){
   if(lcReadOnly)return;
