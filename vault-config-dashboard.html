@@ -572,7 +572,7 @@ input:checked+.slider:before{transform:translateX(18px);}
         <option value="">All Types</option><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option><option>Image</option>
       </select>
       <select id="prop-filter-src" onchange="reFilterProps()">
-        <option value="">All Sources</option><option>System</option><option>Custom</option>
+        <option value="">All Sources</option><option>System</option><option>UDP</option>
       </select>
     </div>
     <table class="tbl" id="prop-tbl">
@@ -1404,7 +1404,7 @@ function renderPropsTable(tbodyId,data,compact){
   const tb=document.getElementById(tbodyId); if(!tb)return; tb.innerHTML='';
   data.forEach(p=>{
     const dt=`<span class="tag tag-${p.DataType.toLowerCase()}">${esc(p.DataType)}</span>`;
-    const src=p.IsSystem?'<span class="tag tag-system">System</span>':'<span class="tag tag-custom">Custom</span>';
+    const src=p.IsSystem?'<span class="tag tag-system">System</span>':'<span class="tag tag-custom">UDP</span>';
     const tr=document.createElement('tr');
     if(compact){
       tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td>${dt}</td><td>${src}</td>`;
@@ -2767,8 +2767,13 @@ function cfgParseProps(text,RES){
   const doc=xmlDoc(text), out=[]; let id=1;
   doc.querySelectorAll('UserDefinedProperty').forEach(p=>{
     const sys=xAttr(p,'Name')||'';
-    out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(xAttr(p,'ResKey'))||sys,DataType:xAttr(p,'DataType')||'String',
-      IsSystem:false,Active:xAttr(p,'Active')!=='false'});
+    const resKey=xAttr(p,'ResKey')||'';
+    // System properties are Vault built-ins: readable Name + a system resource key
+    // (ID_UDPDEF_*). User-created UDPs have a GUID Name and/or a non-system ResKey.
+    const isGuid=/^\{?[0-9a-f]{8}-[0-9a-f]{4}-/i.test(sys);
+    const isSystem=!isGuid && /^ID_UDPDEF_/i.test(resKey);
+    out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(resKey)||sys,DataType:xAttr(p,'DataType')||'String',
+      IsSystem:isSystem,Active:xAttr(p,'Active')!=='false'});
   });
   return out;
 }
