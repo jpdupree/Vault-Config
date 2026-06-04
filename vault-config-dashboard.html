@@ -466,7 +466,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>File Categories</h3>
     <table class="tbl">
-      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th></th></tr></thead>
       <tbody id="cat-tbody-File"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('File')">+ Add File Category</button></div>
@@ -474,7 +474,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Folder Categories</h3>
     <table class="tbl">
-      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th></th></tr></thead>
       <tbody id="cat-tbody-Folder"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('Folder')">+ Add Folder Category</button></div>
@@ -482,7 +482,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Item Categories</h3>
     <table class="tbl">
-      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th></th></tr></thead>
       <tbody id="cat-tbody-Item"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('Item')">+ Add Item Category</button></div>
@@ -490,7 +490,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Custom Object Categories</h3>
     <table class="tbl">
-      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th></th></tr></thead>
       <tbody id="cat-tbody-Custom"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory('Custom')">+ Add Custom Object Category</button></div>
@@ -1499,11 +1499,10 @@ function renderCategories(){
       <td><input class="inp" value="${esc(c.name)}"/></td>
       <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
       <td><select class="inp">${revOptions(c.revision)}</select></td>
-      <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..."/></td>
       <td style="white-space:nowrap">${actions}</td>`;
     const cb=tr.querySelector('input[type=checkbox]'); cb.onchange=e=>c.isDefault=e.target.checked;
     const el=tr.querySelectorAll('td input.inp, select');
-    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.lifecycle=e.target.value; el[2].onchange=e=>c.revision=e.target.value; el[3].onchange=e=>c.notes=e.target.value;
+    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.lifecycle=e.target.value; el[2].onchange=e=>c.revision=e.target.value;
     tb.appendChild(tr);
   });
 }
@@ -1692,7 +1691,7 @@ function renderRules(){
   const tb=document.getElementById('rules-tbody'); if(!tb)return; tb.innerHTML='';
   RULES.forEach((r,i)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input class="inp" value="${esc(r.entityClass)}" placeholder="e.g. FileMaster"/></td>
+    tr.innerHTML=`<td><select class="inp">${ruleClassOptions(r.entityClass)}</select></td>
       <td style="text-align:center"><input type="checkbox" ${r.applyToNew?'checked':''}/></td>
       <td><select class="inp">${catOptions(r.category)}</select></td>
       <td><input class="inp" value="${esc(r.ruleSetName||r.category)}"/></td>
@@ -1705,6 +1704,11 @@ function renderRules(){
     tb.appendChild(tr);
   });
 }
+// Category-rule entity classes: [cfg class name, friendly label]. Friendly label is shown
+// in the UI/PDF; the cfg class name is what is stored and written back to the .cfg.
+const RULE_ENTITY_CLASSES=[['FileMaster','File'],['ItemMaster','Item'],['Folder','Folder'],['ChangeOrder','Change Order'],['CustomEntity','Custom Object']];
+function ruleClassLabel(cls){ const m=RULE_ENTITY_CLASSES.find(x=>x[0]===cls); return m?m[1]:cls; }
+function ruleClassOptions(sel){ let opts=RULE_ENTITY_CLASSES.slice(); if(sel&&!opts.some(x=>x[0]===sel))opts.push([sel,sel]); return opts.map(([c,l])=>`<option value="${esc(c)}" ${c===sel?'selected':''}>${esc(l)}</option>`).join(''); }
 function catOptions(sel){ return '<option value="">—</option>'+CATEGORIES.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join(''); }
 function propOptions(sel){ const names=[...new Set(PROPS.map(p=>p.SystemName))]; if(sel&&!names.includes(sel))names.push(sel); names.sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})); return names.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join(''); }
 function addRule(){ RULES.push({entityClass:"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
@@ -3341,8 +3345,8 @@ function buildPrintDoc(){
   // CATEGORIES (custom only) — grouped by entity type
   const catGroups=[['File','File Categories'],['Folder','Folder Categories'],['Item','Item Categories'],['Custom','Custom Object Categories']];
   const catMatch=(c,k)=>k==='Custom'?(c.entity!=='File'&&c.entity!=='Folder'&&c.entity!=='Item'):c.entity===k;
-  const catTbl=rows=>`<table class="pr-tbl"><thead><tr><th style="width:60px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th></tr></thead><tbody>
-    ${rows.map(c=>`<tr><td style="text-align:center">${c.isDefault?'✓':''}</td><td>${esc(c.name)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td>${esc(c.notes||'')}</td></tr>`).join('')}
+  const catTbl=rows=>`<table class="pr-tbl"><thead><tr><th style="width:60px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th></tr></thead><tbody>
+    ${rows.map(c=>`<tr><td style="text-align:center">${c.isDefault?'✓':''}</td><td>${esc(c.name)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td></tr>`).join('')}
     </tbody></table>`;
   const catBody=catGroups.map(([k,label])=>{const rows=pCats.filter(c=>catMatch(c,k));return rows.length?`<div class="pr-h3">${label}</div>`+catTbl(rows):'';}).join('');
   html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+(catBody||OMIT)+`</div>`;
@@ -3350,7 +3354,7 @@ function buildPrintDoc(){
   // CATEGORY RULES
   if(RULES.length) html+=prSection(S(),'Category Rules',`${RULES.length} rule(s).`)+`
     <table class="pr-tbl"><thead><tr><th>Entity Class</th><th>New?</th><th>Category</th><th>Rule Set</th><th>Property</th><th>Condition</th><th>Value</th></tr></thead><tbody>
-    ${RULES.map(r=>`<tr><td>${esc(r.entityClass)}</td><td>${r.applyToNew?'Yes':'No'}</td><td>${esc(r.category)}</td><td>${esc(r.ruleSetName||'')}</td><td>${esc(r.propDef)}</td><td>${esc(r.condition)}</td><td>${esc(r.value)}</td></tr>`).join('')}
+    ${RULES.map(r=>`<tr><td>${esc(ruleClassLabel(r.entityClass))}</td><td>${r.applyToNew?'Yes':'No'}</td><td>${esc(r.category)}</td><td>${esc(r.ruleSetName||'')}</td><td>${esc(r.propDef)}</td><td>${esc(r.condition)}</td><td>${esc(r.value)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // PROPERTY MAPPING
