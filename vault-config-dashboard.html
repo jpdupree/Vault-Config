@@ -594,7 +594,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Groups</h3>
     <table class="tbl" id="groups-tbl">
-      <thead><tr><th>Group Name</th><th>Description</th><th>Members</th><th></th></tr></thead>
+      <thead><tr><th>Group Name</th><th>Description</th><th>Role</th><th>Members</th><th></th></tr></thead>
       <tbody id="groups-tbody"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addGroup()">+ Add Group</button></div>
@@ -995,14 +995,14 @@ let NUMBERING=[
 let CHANGELOG=[];
 
 let USERS=[
-  {username:"Administrator",fullName:"Vault Administrator",email:"admin@company.com",role:"Administrator",status:"Active"},
+  {username:"Administrator",fullName:"Vault Administrator",email:"admin@company.com",role:"",status:"Active"},
   {username:"JobProcessor",fullName:"Job Processor",email:"",role:"Administrator",status:"Active"},
   {username:"ACServiceUser",fullName:"AC Service User",email:"",role:"Administrator",status:"Active"},
   {username:"SymetriTech",fullName:"Symetri Tech",email:"",role:"Administrator",status:"Active"}
 ];
 let GROUPS=[
-  {name:"Engineering",description:"Design engineers",members:""},
-  {name:"Administrators",description:"Vault administrators",members:"Administrator"}
+  {name:"Engineering",description:"Design engineers",role:"",members:""},
+  {name:"Administrators",description:"Vault administrators",role:"",members:"Administrator"}
 ];
 // Default Vault roles (duplicate one to create a custom role). Each role carries
 // many granular permissions in Vault; here it's name + description + your notes.
@@ -1589,13 +1589,14 @@ function renderGroups(){
   GROUPS.forEach((g,i)=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><input class="inp" value="${esc(g.name)}"/></td><td><input class="inp" value="${esc(g.description)}"/></td>
+      <td><input class="inp" value="${esc(g.role||'')}"/></td>
       <td><input class="inp" value="${esc(g.members)}"/></td>
       <td><button class="btn btn-danger btn-icon" onclick="GROUPS.splice(${i},1);renderGroups()">✕</button></td>`;
-    bindRow(tr,g,['name','description','members']);
+    bindRow(tr,g,['name','description','role','members']);
     tb.appendChild(tr);
   });
 }
-function addGroup(){ GROUPS.push({name:'New Group',description:'',members:''}); renderGroups(); }
+function addGroup(){ GROUPS.push({name:'New Group',description:'',role:'',members:''}); renderGroups(); }
 
 function renderRoles(){
   markSystemDefaults();
@@ -2470,9 +2471,12 @@ function applyConfig(raw,replace){
   const c=normalizeConfig(raw);
   // Arrays: present → replace; absent → keep (merge) unless replace mode → empty
   const arr=(key,set)=>{ if(c[key]!==undefined) set(c[key]); else if(replace) set([]); };
+  // Users/Groups are environment-specific and not carried in the .cfg, so never
+  // clear them on replace — only overwrite when the import explicitly provides them.
+  const arrKeep=(key,set)=>{ if(c[key]!==undefined) set(c[key]); };
   arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v);
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
-  arr('changelog',v=>CHANGELOG=v); arr('users',v=>USERS=v); arr('groups',v=>GROUPS=v);
+  arr('changelog',v=>CHANGELOG=v); arrKeep('users',v=>USERS=v); arrKeep('groups',v=>GROUPS=v);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('auditlog',v=>AUDITLOG=v);
   arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
   arr('fmpropmaps',v=>FMPROPMAPS=v); arr('fmstatemaps',v=>FMSTATEMAPS=v);
@@ -3233,8 +3237,8 @@ function buildPrintDoc(){
     ${USERS.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.fullName)}</td><td>${esc(u.email)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td></tr>`).join('')}
     </tbody></table>
     <div class="pr-h3">Groups</div>
-    <table class="pr-tbl"><thead><tr><th>Group</th><th>Description</th><th>Members</th></tr></thead><tbody>
-    ${GROUPS.map(gr=>`<tr><td>${esc(gr.name)}</td><td>${esc(gr.description)}</td><td>${esc(gr.members)}</td></tr>`).join('')}
+    <table class="pr-tbl"><thead><tr><th>Group</th><th>Description</th><th>Role</th><th>Members</th></tr></thead><tbody>
+    ${GROUPS.map(gr=>`<tr><td>${esc(gr.name)}</td><td>${esc(gr.description)}</td><td>${esc(gr.role||'')}</td><td>${esc(gr.members)}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // ROLES (custom only)
