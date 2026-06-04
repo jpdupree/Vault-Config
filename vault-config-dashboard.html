@@ -700,16 +700,10 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>CAD Applications</h3>
     <table class="tbl" id="cadapp-tbl">
-      <thead><tr><th>Application</th><th>Version</th><th></th></tr></thead>
+      <thead><tr><th>Application</th><th>Version</th><th>Workspace Path</th><th></th></tr></thead>
       <tbody id="cadapp-tbody"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCadApp()">+ Add CAD Application</button></div>
-  </div>
-  <div class="card">
-    <h3>Settings</h3>
-    <div class="form-grid">
-      <div class="form-group"><label>Workspace Path</label><input id="cad-ws" placeholder="e.g. $/Designs"></div>
-    </div>
   </div>
 </div>
 
@@ -1093,7 +1087,7 @@ let AUDITLOG=[];
 // Category assignment rules (EntityClassCategoryRuleSet)
 let RULES=[];
 // CAD applications used with this Vault (documentation only).
-let CADAPPS=[{app:"Inventor",version:""}];
+let CADAPPS=[{app:"Inventor",version:"",workspace:""}];
 // Content-source property mappings (ContentSourcePropDefMapping). Each row keeps
 // the full attribute set so write-back is lossless.
 let CSMAPS=[
@@ -1258,7 +1252,7 @@ const FM_FIELDS=['fm-tenant','fm-att-designrep','fm-att-designrep-primary','fm-a
 const SETTING_FIELDS={
   server:['srv-host','srv-port','srv-proto','srv-ssl','srv-fstore','db-host','db-auth','db-user','jp-account','jp-adsk-account','jp-machine','jp-count','thin-client-url'],
   security:['sec-minlen-en','sec-minlen','sec-lower','sec-upper','sec-num','sec-special'],
-  cad:['cad-ws'],
+  cad:[],
   email:['email-smtp','email-port','email-from','email-name','email-user','email-enc','email-checkin','email-lcchange','email-co'],
   api:['api-url','api-key','api-rate','api-webhook','api-enabled','api-log'],
   backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify','bk-script'],
@@ -1270,7 +1264,6 @@ const PRINT_FIELDS={
   'Database Configuration':[['DB Server','db-host'],['Authentication','db-auth'],['DB Username','db-user']],
   'Job Processor & Thin Client':[['Vault Username','jp-account'],['Autodesk Account','jp-adsk-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
-  'CAD Application':[['Workspace Path','cad-ws']],
   'SMTP / Email':[['SMTP Server','email-smtp'],['Port','email-port'],['From Address','email-from'],['Display Name','email-name'],['Username','email-user'],['Encryption','email-enc'],['Notify on check-in','email-checkin'],['Notify on lifecycle change','email-lcchange'],['Notify on change order','email-co']],
   'API & Connections':[['API Base URL','api-url'],['API Key','api-key'],['Rate Limit (req/min)','api-rate'],['Webhook URL','api-webhook'],['REST API enabled','api-enabled'],['Log all API requests','api-log']],
   'Backup Configuration':[['Backup Path','bk-path'],['Schedule','bk-sched'],['Backup Time','bk-time'],['Retention (days)','bk-retain'],['Last Backup','bk-last'],['Backup Type','bk-type'],['Compress','bk-compress'],['Encrypt','bk-encrypt'],['Email on completion','bk-notify']],
@@ -1755,14 +1748,15 @@ function renderCadApps(){
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><input class="inp" value="${esc(a.app||'')}" placeholder="e.g. Inventor"/></td>
       <td><input class="inp" value="${esc(a.version||'')}" placeholder="e.g. 2025"/></td>
+      <td><input class="inp" value="${esc(a.workspace||'')}" placeholder="e.g. $/Designs"/></td>
       <td><button class="btn btn-danger btn-icon" onclick="CADAPPS.splice(${i},1);renderCadApps()">✕</button></td>`;
     const el=tr.querySelectorAll('input');
-    el[0].onchange=e=>a.app=e.target.value; el[1].onchange=e=>a.version=e.target.value;
+    el[0].onchange=e=>a.app=e.target.value; el[1].onchange=e=>a.version=e.target.value; el[2].onchange=e=>a.workspace=e.target.value;
     tb.appendChild(tr);
   });
-  if(!CADAPPS.length) tb.innerHTML='<tr><td colspan="3" style="color:var(--text-muted)">No CAD applications. Use + Add CAD Application.</td></tr>';
+  if(!CADAPPS.length) tb.innerHTML='<tr><td colspan="4" style="color:var(--text-muted)">No CAD applications. Use + Add CAD Application.</td></tr>';
 }
-function addCadApp(){ CADAPPS.push({app:'',version:''}); renderCadApps(); }
+function addCadApp(){ CADAPPS.push({app:'',version:'',workspace:''}); renderCadApps(); }
 
 function renderAudit(){
   const tb=document.getElementById('audit-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1860,7 +1854,7 @@ function renderCompletionBars(){
     {label:'Vault Details',fields:['cfg-org','cfg-version','cfg-consultant']},
     {label:'Server & Database',fields:['srv-host','srv-port','srv-fstore','db-host','db-auth']},
     {label:'Job Processor & Clients',fields:['jp-account','jp-machine','thin-client-url']},
-    {label:'CAD Integration',fields:['cad-ws']},
+    {label:'CAD Integration',count:()=>CADAPPS.filter(a=>String(a.app||'').trim()).length,max:1},
     {label:'Email / SMTP',fields:['email-smtp','email-from','email-user']},
     {label:'API & Connections',fields:['api-url','api-key']},
     {label:'Backup',fields:['bk-path','bk-retain']},
@@ -2629,7 +2623,7 @@ function normalizeConfig(raw){
   if(raw.email) out.emailFields=raw.email;
   if(raw.api) out.apiFields=raw.api;
   if(raw.backup) out.backupFields=raw.backup;
-  if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); const ap=firstArr(raw.cad,'applications','Applications','apps'); if(ap) out.cadapps=ap.map(a=>({app:pick(a,'app','application','name','App')||'',version:String(pick(a,'version','Version','ver')??'')})); }
+  if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); const ap=firstArr(raw.cad,'applications','Applications','apps'); if(ap) out.cadapps=ap.map(a=>({app:pick(a,'app','application','name','App')||'',version:String(pick(a,'version','Version','ver')??''),workspace:pick(a,'workspace','Workspace','workspacePath')||''})); }
   const pm=firstArr(raw,'propMappings','propmaps','PropMaps'); if(pm&&!out.propmaps) out.propmaps=pm.map(normMap);
   if(raw.audit){ if(!Array.isArray(raw.audit)) out.auditFields=raw.audit.settings; const ae=Array.isArray(raw.audit)?raw.audit:firstArr(raw.audit,'entries','Entries'); if(ae) out.auditlog=ae.map(normAudit); }
   const rules=firstArr(raw,'categoryRules','CategoryRules'); if(rules) out.rules=rules.map(normRule);
@@ -3519,10 +3513,9 @@ function buildPrintDoc(){
   // CAD INTEGRATION
   html+=prSection(S(),'CAD Integration')+`
     <div class="pr-h3">CAD Applications</div>
-    <table class="pr-tbl"><thead><tr><th>Application</th><th>Version</th></tr></thead><tbody>
-    ${CADAPPS.map(a=>`<tr><td>${esc(a.app)}</td><td>${esc(a.version||'')}</td></tr>`).join('')||'<tr><td colspan="2">None</td></tr>'}
-    </tbody></table>
-    <div class="pr-h3">Settings</div>${prKV(PRINT_FIELDS['CAD Application'])}</div>`;
+    <table class="pr-tbl"><thead><tr><th>Application</th><th>Version</th><th>Workspace Path</th></tr></thead><tbody>
+    ${CADAPPS.map(a=>`<tr><td>${esc(a.app)}</td><td>${esc(a.version||'')}</td><td>${esc(a.workspace||'')}</td></tr>`).join('')||'<tr><td colspan="3">None</td></tr>'}
+    </tbody></table></div>`;
 
   // EMAIL
   html+=prSection(S(),'Email & Notifications')+prKV(PRINT_FIELDS['SMTP / Email'])+`</div>`;
