@@ -526,12 +526,44 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="page-title">Category Rules</div>
   <div class="page-sub">Rules that auto-assign a category to an entity when a property condition is met (EntityClassCategoryRuleSet).</div>
   <div class="card">
-    <h3>Category Assignment Rules</h3>
-    <table class="tbl" id="rules-tbl">
-      <thead><tr><th>Entity Class</th><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
-      <tbody id="rules-tbody"></tbody>
+    <h3>File Rules</h3>
+    <table class="tbl">
+      <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
+      <tbody id="rules-tbody-FileMaster"></tbody>
     </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule()">+ Add Rule</button></div>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('FileMaster')">+ Add File Rule</button></div>
+  </div>
+  <div class="card">
+    <h3>Item Rules</h3>
+    <table class="tbl">
+      <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
+      <tbody id="rules-tbody-ItemMaster"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('ItemMaster')">+ Add Item Rule</button></div>
+  </div>
+  <div class="card">
+    <h3>Folder Rules</h3>
+    <table class="tbl">
+      <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
+      <tbody id="rules-tbody-Folder"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('Folder')">+ Add Folder Rule</button></div>
+  </div>
+  <div class="card">
+    <h3>Change Order Rules</h3>
+    <table class="tbl">
+      <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
+      <tbody id="rules-tbody-ChangeOrder"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('ChangeOrder')">+ Add Change Order Rule</button></div>
+  </div>
+  <div class="card">
+    <h3>Custom Object Rules</h3>
+    <table class="tbl">
+      <thead><tr><th>Apply to New</th><th>Category</th><th>Rule Set Name</th><th>Property</th><th>Condition</th><th>Value</th><th></th></tr></thead>
+      <tbody id="rules-tbody-CustomEntity"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRule('CustomEntity')">+ Add Custom Object Rule</button></div>
   </div>
 </div>
 
@@ -1687,12 +1719,20 @@ function addAuditEntry(){ AUDITLOG.push({timestamp:new Date().toISOString().repl
 
 // ── CATEGORY RULES ──
 const RULE_CONDITIONS=['EqualTo','NotEqualTo','Contains','DoesNotContain','GreaterThan','LessThan','IsEmpty','IsNotEmpty'];
+const RULE_SECTIONS=[
+  {key:'FileMaster',match:c=>c==='FileMaster'},
+  {key:'ItemMaster',match:c=>c==='ItemMaster'},
+  {key:'Folder',match:c=>c==='Folder'},
+  {key:'ChangeOrder',match:c=>c==='ChangeOrder'},
+  {key:'CustomEntity',match:c=>c!=='FileMaster'&&c!=='ItemMaster'&&c!=='Folder'&&c!=='ChangeOrder'}
+];
 function renderRules(){
-  const tb=document.getElementById('rules-tbody'); if(!tb)return; tb.innerHTML='';
+  RULE_SECTIONS.forEach(sec=>{const tb=document.getElementById('rules-tbody-'+sec.key);if(tb)tb.innerHTML='';});
   RULES.forEach((r,i)=>{
+    const sec=RULE_SECTIONS.find(s=>s.match(r.entityClass))||RULE_SECTIONS[0];
+    const tb=document.getElementById('rules-tbody-'+sec.key); if(!tb)return;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><select class="inp">${ruleClassOptions(r.entityClass)}</select></td>
-      <td style="text-align:center"><input type="checkbox" ${r.applyToNew?'checked':''}/></td>
+    tr.innerHTML=`<td style="text-align:center"><input type="checkbox" ${r.applyToNew?'checked':''}/></td>
       <td><select class="inp">${catOptions(r.category)}</select></td>
       <td><input class="inp" value="${esc(r.ruleSetName||r.category)}"/></td>
       <td><select class="inp">${propOptions(r.propDef)}</select></td>
@@ -1700,7 +1740,7 @@ function renderRules(){
       <td><input class="inp" value="${esc(r.value)}"/></td>
       <td><button class="btn btn-danger btn-icon" onclick="RULES.splice(${i},1);renderRules()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateRule(${i})">⎘</button></td>`;
     const el=tr.querySelectorAll('input,select');
-    el[0].onchange=e=>r.entityClass=e.target.value; el[1].onchange=e=>r.applyToNew=e.target.checked; el[2].onchange=e=>r.category=e.target.value; el[3].onchange=e=>r.ruleSetName=e.target.value; el[4].onchange=e=>r.propDef=e.target.value; el[5].onchange=e=>r.condition=e.target.value; el[6].onchange=e=>r.value=e.target.value;
+    el[0].onchange=e=>r.applyToNew=e.target.checked; el[1].onchange=e=>r.category=e.target.value; el[2].onchange=e=>r.ruleSetName=e.target.value; el[3].onchange=e=>r.propDef=e.target.value; el[4].onchange=e=>r.condition=e.target.value; el[5].onchange=e=>r.value=e.target.value;
     tb.appendChild(tr);
   });
 }
@@ -1711,7 +1751,7 @@ function ruleClassLabel(cls){ const m=RULE_ENTITY_CLASSES.find(x=>x[0]===cls); r
 function ruleClassOptions(sel){ let opts=RULE_ENTITY_CLASSES.slice(); if(sel&&!opts.some(x=>x[0]===sel))opts.push([sel,sel]); return opts.map(([c,l])=>`<option value="${esc(c)}" ${c===sel?'selected':''}>${esc(l)}</option>`).join(''); }
 function catOptions(sel){ return '<option value="">—</option>'+CATEGORIES.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join(''); }
 function propOptions(sel){ const names=[...new Set(PROPS.map(p=>p.SystemName))]; if(sel&&!names.includes(sel))names.push(sel); names.sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})); return names.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join(''); }
-function addRule(){ RULES.push({entityClass:"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
+function addRule(entityClass){ RULES.push({entityClass:entityClass||"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
 function duplicateRule(i){ const s=RULES[i]; if(!s)return; RULES.splice(i+1,0,{...s,ruleSetName:(s.ruleSetName||s.category)+' Copy'}); renderRules(); notify('Rule duplicated'); }
 
 // ── FUSION MANAGE CONNECTOR ──
@@ -3351,11 +3391,16 @@ function buildPrintDoc(){
   const catBody=catGroups.map(([k,label])=>{const rows=pCats.filter(c=>catMatch(c,k));return rows.length?`<div class="pr-h3">${label}</div>`+catTbl(rows):'';}).join('');
   html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+(catBody||OMIT)+`</div>`;
 
-  // CATEGORY RULES
-  if(RULES.length) html+=prSection(S(),'Category Rules',`${RULES.length} rule(s).`)+`
-    <table class="pr-tbl"><thead><tr><th>Entity Class</th><th>New?</th><th>Category</th><th>Rule Set</th><th>Property</th><th>Condition</th><th>Value</th></tr></thead><tbody>
-    ${RULES.map(r=>`<tr><td>${esc(ruleClassLabel(r.entityClass))}</td><td>${r.applyToNew?'Yes':'No'}</td><td>${esc(r.category)}</td><td>${esc(r.ruleSetName||'')}</td><td>${esc(r.propDef)}</td><td>${esc(r.condition)}</td><td>${esc(r.value)}</td></tr>`).join('')}
-    </tbody></table></div>`;
+  // CATEGORY RULES — grouped by entity class
+  if(RULES.length){
+    const ruleGroups=[['FileMaster','File Rules'],['ItemMaster','Item Rules'],['Folder','Folder Rules'],['ChangeOrder','Change Order Rules'],['CustomEntity','Custom Object Rules']];
+    const ruleMatch=(r,k)=>k==='CustomEntity'?(r.entityClass!=='FileMaster'&&r.entityClass!=='ItemMaster'&&r.entityClass!=='Folder'&&r.entityClass!=='ChangeOrder'):r.entityClass===k;
+    const ruleTbl=rows=>`<table class="pr-tbl"><thead><tr><th>New?</th><th>Category</th><th>Rule Set</th><th>Property</th><th>Condition</th><th>Value</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${r.applyToNew?'Yes':'No'}</td><td>${esc(r.category)}</td><td>${esc(r.ruleSetName||'')}</td><td>${esc(r.propDef)}</td><td>${esc(r.condition)}</td><td>${esc(r.value)}</td></tr>`).join('')}
+      </tbody></table>`;
+    const ruleBody=ruleGroups.map(([k,label])=>{const rows=RULES.filter(r=>ruleMatch(r,k));return rows.length?`<div class="pr-h3">${label}</div>`+ruleTbl(rows):'';}).join('');
+    html+=prSection(S(),'Category Rules',`${RULES.length} rule(s).`)+ruleBody+`</div>`;
+  }
 
   // PROPERTY MAPPING
   if(CSMAPS.length) html+=prSection(S(),'Property Mapping',`${CSMAPS.length} content-source mapping(s).`)+`
