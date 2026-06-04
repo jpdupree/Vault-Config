@@ -563,11 +563,11 @@ input:checked+.slider:before{transform:translateX(18px);}
 <!-- PROPERTIES -->
 <div class="page" id="page-properties">
   <div class="page-title">Property Definitions</div>
-  <div class="page-sub">Select a property to view and edit its content-source mappings below (like Vault's Property Definitions ▸ Mapping).</div>
+  <div class="page-sub">Click a property to expand its content-source mappings (like Vault's Property Definitions ▸ Mapping).</div>
   <div class="card">
     <h3>All Properties <span class="badge" id="prop-count-badge">0</span></h3>
     <div class="search-bar">
-      <input placeholder="🔍 Filter by name, system name, or type..." oninput="filterProps(this.value,'prop-tbl')"/>
+      <input placeholder="🔍 Filter by name or type..." oninput="filterProps(this.value,'prop-tbl')"/>
       <select id="prop-filter-type" onchange="reFilterProps()">
         <option value="">All Types</option><option>String</option><option>Numeric</option><option>Bool</option><option>DateTime</option><option>Image</option>
       </select>
@@ -576,17 +576,10 @@ input:checked+.slider:before{transform:translateX(18px);}
       </select>
     </div>
     <table class="tbl" id="prop-tbl">
-      <thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:70px">ID</th><th>Display Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th><th></th></tr></thead>
       <tbody id="prop-tbody"></tbody>
     </table>
-  </div>
-  <div class="card" id="prop-map-card" style="display:none">
-    <h3 id="prop-map-title">Mapping</h3>
-    <table class="tbl" id="prop-map-tbl">
-      <thead><tr><th>Entity</th><th>Provider (Content Source)</th><th>Direction</th><th>Create</th><th>Moniker</th><th></th></tr></thead>
-      <tbody id="prop-map-tbody"></tbody>
-    </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addMappingForSelected()">+ Add Mapping</button></div>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addProperty()">+ Add Property</button></div>
   </div>
 </div>
 
@@ -1378,7 +1371,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderPropMaps(); renderAudit();
-  renderRules(); renderPropMapping(); renderFmProps(); renderFmStates();
+  renderRules(); renderFmProps(); renderFmStates();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator();
 }
 
@@ -1406,60 +1399,63 @@ function showPage(id){
 // ═══════════════════════════════════════════════════════════════
 //  PROPERTIES
 // ═══════════════════════════════════════════════════════════════
+const PROP_TYPES=['String','Numeric','Bool','DateTime','Image'];
 function renderPropsTable(tbodyId,data,compact){
   const tb=document.getElementById(tbodyId); if(!tb)return; tb.innerHTML='';
   data.forEach(p=>{
-    const tr=document.createElement('tr');
     const dt=`<span class="tag tag-${p.DataType.toLowerCase()}">${esc(p.DataType)}</span>`;
     const src=p.IsSystem?'<span class="tag tag-system">System</span>':'<span class="tag tag-custom">Custom</span>';
+    const tr=document.createElement('tr');
     if(compact){
-      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>`;
-    }else{
-      const idx=PROPS.indexOf(p);
-      const mapN=CSMAPS.filter(m=>m.propDef===p.SystemName).length;
-      if(p.SystemName===selectedPropSys) tr.style.background='rgba(79,142,247,.12)';
-      tr.style.cursor='pointer';
-      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}${p.IsSystem?' 🔒':''}</td><td style="font-family:monospace;font-size:.73rem">${esc(p.SystemName)}</td><td>${dt}</td><td>${src}</td>
-        <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}</td>
-        <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}"/></td>
-        <td style="white-space:nowrap">${p.IsSystem?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable custom property" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button>`:`<button class="btn btn-danger btn-icon" onclick="event.stopPropagation();PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button>`}</td>`;
-      const inp=tr.querySelector('input');
-      inp.onchange=()=>{p.notes=inp.value;};
-      inp.onclick=e=>e.stopPropagation();
-      tr.onclick=()=>selectProp(p.SystemName);
+      tr.innerHTML=`<td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td>${dt}</td><td>${src}</td>`;
+      tb.appendChild(tr); return;
     }
+    const idx=PROPS.indexOf(p);
+    const mapN=CSMAPS.filter(m=>m.propDef===p.SystemName).length;
+    const expanded=p.SystemName===selectedPropSys;
+    if(expanded) tr.style.background='rgba(79,142,247,.12)';
+    tr.style.cursor='pointer';
+    tr.innerHTML=`<td style="white-space:nowrap">${expanded?'▾':'▸'} ${esc(p.Id)}</td>
+      <td><input class="inp" value="${esc(p.DisplayName)}" data-f="DisplayName"/></td>
+      <td><select class="inp" data-f="DataType">${PROP_TYPES.map(x=>`<option ${x===p.DataType?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td>${src}</td>
+      <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}" data-act="1" style="cursor:pointer">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}</td>
+      <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}" data-f="notes"/></td>
+      <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="event.stopPropagation();PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button></td>`;
+    tr.querySelectorAll('input.inp,select.inp').forEach(elm=>{ elm.onclick=e=>e.stopPropagation(); elm.onchange=e=>{ p[elm.getAttribute('data-f')]=e.target.value; }; });
+    const actTag=tr.querySelector('[data-act]'); if(actTag) actTag.onclick=e=>{ e.stopPropagation(); p.Active=!p.Active; renderPropsTable('prop-tbody',PROPS,false); };
+    tr.onclick=()=>toggleProp(p.SystemName);
     tb.appendChild(tr);
+    if(expanded){ const er=document.createElement('tr'); er.className='prop-exp'; er.innerHTML=`<td colspan="7" style="background:var(--surface2);padding:12px 16px">${propMappingHTML(p)}</td>`; tb.appendChild(er); }
   });
 }
 let selectedPropSys=null;
-function selectProp(sys){ selectedPropSys=sys; renderPropsTable('prop-tbody',PROPS,false); renderPropMapping(); }
-function renderPropMapping(){
-  const card=document.getElementById('prop-map-card'), tb=document.getElementById('prop-map-tbody'); if(!card||!tb)return;
-  if(!selectedPropSys){ card.style.display='none'; return; }
-  const prop=PROPS.find(p=>p.SystemName===selectedPropSys);
-  card.style.display='block';
-  document.getElementById('prop-map-title').innerHTML=`Mapping — <span style="color:var(--accent)">${esc(prop?prop.DisplayName:selectedPropSys)}</span> <span style="color:var(--text-muted);font-weight:400;font-size:.78rem">(${esc(selectedPropSys)})</span>`;
-  tb.innerHTML='';
-  CSMAPS.forEach((m,idx)=>{
-    if(m.propDef!==selectedPropSys) return;
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input class="inp" style="width:120px" value="${esc(m.entityClass)}"/></td>
-      <td><input class="inp" value="${esc(m.contentSource)}"/></td>
-      <td><select class="inp">${['Read','Write','ReadAndWrite'].map(x=>`<option ${x===m.direction?'selected':''}>${x}</option>`).join('')}</select></td>
-      <td style="text-align:center"><input type="checkbox" ${(m.canCreateNew==='true'||m.canCreateNew===true)?'checked':''}/></td>
-      <td><input class="inp" style="font-family:monospace;font-size:.7rem" value="${esc(m.moniker)}"/></td>
-      <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="CSMAPS.splice(${idx},1);renderPropMapping();renderPropsTable('prop-tbody',PROPS,false)">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="CSMAPS.splice(${idx}+1,0,{...CSMAPS[${idx}]});renderPropMapping();renderPropsTable('prop-tbody',PROPS,false)">⎘</button></td>`;
-    const el=tr.querySelectorAll('input,select');
-    el[0].onchange=e=>m.entityClass=e.target.value; el[1].onchange=e=>m.contentSource=e.target.value; el[2].onchange=e=>m.direction=e.target.value; el[3].onchange=e=>m.canCreateNew=e.target.checked?'true':'false'; el[4].onchange=e=>m.moniker=e.target.value;
-    tb.appendChild(tr);
-  });
-  if(!CSMAPS.some(m=>m.propDef===selectedPropSys)) tb.innerHTML='<tr><td colspan="6" style="color:var(--text-muted)">No mappings for this property. Use + Add Mapping.</td></tr>';
+function toggleProp(sys){ selectedPropSys=(selectedPropSys===sys)?null:sys; renderPropsTable('prop-tbody',PROPS,false); }
+function propMappingHTML(p){
+  const sys=p.SystemName;
+  const rows=CSMAPS.map((m,idx)=>({m,idx})).filter(o=>o.m.propDef===sys);
+  const body=rows.length?rows.map(({m,idx})=>`<tr>
+      <td><input class="inp" style="width:120px" value="${esc(m.entityClass)}" onchange="csmapSet(${idx},'entityClass',this.value)"/></td>
+      <td><input class="inp" value="${esc(m.contentSource)}" onchange="csmapSet(${idx},'contentSource',this.value)"/></td>
+      <td><select class="inp" onchange="csmapSet(${idx},'direction',this.value)">${['Read','Write','ReadAndWrite'].map(x=>`<option ${x===m.direction?'selected':''}>${x}</option>`).join('')}</select></td>
+      <td style="text-align:center"><input type="checkbox" ${(m.canCreateNew==='true'||m.canCreateNew===true)?'checked':''} onchange="csmapSet(${idx},'canCreateNew',this.checked?'true':'false')"/></td>
+      <td><input class="inp" style="font-family:monospace;font-size:.7rem" value="${esc(m.moniker)}" onchange="csmapSet(${idx},'moniker',this.value)"/></td>
+      <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="csmapDel(${idx})">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="csmapDup(${idx})">⎘</button></td>
+    </tr>`).join(''):`<tr><td colspan="6" style="color:var(--text-muted)">No mappings for this property. Use + Add Mapping.</td></tr>`;
+  return `<div style="font-weight:600;font-size:.82rem;margin-bottom:8px">Content-Source Mappings — ${esc(p.DisplayName)}</div>
+    <table class="tbl"><thead><tr><th>Entity</th><th>Provider (Content Source)</th><th>Direction</th><th>Create</th><th>Moniker</th><th></th></tr></thead>
+    <tbody>${body}</tbody></table>
+    <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="addMappingForSelected()">+ Add Mapping</button></div>`;
 }
-function addMappingForSelected(){ if(!selectedPropSys)return; CSMAPS.push({propDef:selectedPropSys,entityClass:'File',contentSource:'Inventor',moniker:'',direction:'ReadAndWrite',mappingType:'Constant',priority:'1',canCreateNew:'false'}); renderPropMapping(); renderPropsTable('prop-tbody',PROPS,false); }
+function csmapSet(idx,f,v){ if(CSMAPS[idx]) CSMAPS[idx][f]=v; }
+function csmapDel(idx){ CSMAPS.splice(idx,1); renderPropsTable('prop-tbody',PROPS,false); }
+function csmapDup(idx){ CSMAPS.splice(idx+1,0,{...CSMAPS[idx]}); renderPropsTable('prop-tbody',PROPS,false); }
+function addMappingForSelected(){ if(!selectedPropSys)return; CSMAPS.push({propDef:selectedPropSys,entityClass:'File',contentSource:'Inventor',moniker:'',direction:'ReadAndWrite',mappingType:'Constant',priority:'1',canCreateNew:'false'}); renderPropsTable('prop-tbody',PROPS,false); }
+function addProperty(){ const sn='Prop_'+Math.random().toString(36).slice(2,8); PROPS.unshift({Id:'—',DisplayName:'New Property',SystemName:sn,DataType:'String',IsSystem:false,Active:true,notes:''}); selectedPropSys=null; renderAll(); notify('Property added'); }
 function duplicateProperty(i){
   const s=PROPS[i]; if(!s)return;
-  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy',DataType:s.DataType,IsSystem:false,Active:true,notes:''});
-  renderAll(); notify('Property duplicated → editable custom property');
+  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy_'+Math.random().toString(36).slice(2,5),DataType:s.DataType,IsSystem:false,Active:true,notes:''});
+  renderAll(); notify('Property duplicated');
 }
 function reFilterProps(){ filterProps(document.querySelector('#page-properties .search-bar input').value,'prop-tbl'); }
 function filterProps(val,tblId){
@@ -1467,6 +1463,7 @@ function filterProps(val,tblId){
   const srcF=document.getElementById('prop-filter-src')?.value||'';
   const v=(val||'').toLowerCase();
   document.getElementById(tblId)?.querySelectorAll('tbody tr').forEach(r=>{
+    if(r.classList.contains('prop-exp'))return;
     const txt=r.textContent.toLowerCase();
     const tm=!typeF||txt.includes(typeF.toLowerCase());
     const sm=!srcF||txt.includes(srcF.toLowerCase());
@@ -2771,7 +2768,7 @@ function cfgParseProps(text,RES){
   doc.querySelectorAll('UserDefinedProperty').forEach(p=>{
     const sys=xAttr(p,'Name')||'';
     out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(xAttr(p,'ResKey'))||sys,DataType:xAttr(p,'DataType')||'String',
-      IsSystem:!/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(sys),Active:xAttr(p,'Active')!=='false'});
+      IsSystem:false,Active:xAttr(p,'Active')!=='false'});
   });
   return out;
 }
@@ -3401,8 +3398,8 @@ function buildPrintDoc(){
 
   // PROPERTIES (custom only)
   html+=prSection(S(),'Property Definitions',`${pProps.length} custom property definition(s).`)+
-    (pProps.length?`<table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>System Name</th><th>Type</th><th>Active</th></tr></thead><tbody>
-    ${pProps.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td style="font-family:monospace">${esc(p.SystemName)}</td><td>${esc(p.DataType)}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
+    (pProps.length?`<table class="pr-tbl"><thead><tr><th>ID</th><th>Display Name</th><th>Type</th><th>Active</th></tr></thead><tbody>
+    ${pProps.map(p=>`<tr><td>${esc(p.Id)}</td><td>${esc(p.DisplayName)}</td><td>${esc(p.DataType)}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
     </tbody></table>`:OMIT)+`</div>`;
 
   // LIFECYCLES (custom only)
