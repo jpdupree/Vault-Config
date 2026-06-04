@@ -466,7 +466,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Category Definitions</h3>
     <table class="tbl" id="cat-tbl">
-      <thead><tr><th>Name</th><th>Entity Type</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th style="width:64px;text-align:center">Default</th><th>Name</th><th>Entity Type</th><th>Lifecycle</th><th>Revision Scheme</th><th>Notes</th><th></th></tr></thead>
       <tbody id="cat-tbody"></tbody>
     </table>
     <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addCategory()">+ Add Category</button></div>
@@ -1459,28 +1459,25 @@ function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolde
 // ═══════════════════════════════════════════════════════════════
 function lcOptions(sel){ return '<option value="">— None —</option>'+LIFECYCLES.map(l=>`<option ${l.name===sel?'selected':''}>${esc(l.name)}</option>`).join(''); }
 function renderCategories(){
-  markSystemDefaults();
   const tb=document.getElementById('cat-tbody'); if(!tb)return; tb.innerHTML='';
   CATEGORIES.forEach((c,i)=>{
     const tr=document.createElement('tr');
-    const ro=c.system?'disabled':'';
-    const lockName=c.system?' 🔒':'';
-    const actions=c.system
-      ?`<button class="btn btn-warn btn-icon" title="Duplicate to an editable copy" onclick="duplicateCategory(${i})">⎘</button>`
-      :`<button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
-    tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:6px;width:100%"><input class="inp" style="flex:1;min-width:0" value="${esc(c.name)}" ${ro}/>${lockName?'<span style="flex:none">🔒</span>':''}</div></td>
-      <td><select class="inp" ${ro}>${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
-      <td><select class="inp" ${ro}>${lcOptions(c.lifecycle)}</select></td>
-      <td><select class="inp" ${ro}>${revOptions(c.revision)}</select></td>
-      <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..." ${ro}/></td>
+    const actions=`<button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
+    tr.innerHTML=`<td style="text-align:center"><input type="checkbox" ${c.isDefault?'checked':''}/></td>
+      <td><input class="inp" value="${esc(c.name)}"/></td>
+      <td><select class="inp">${['File','Folder','Item','Change Order'].map(e=>`<option ${e===c.entity?'selected':''}>${e}</option>`).join('')}</select></td>
+      <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
+      <td><select class="inp">${revOptions(c.revision)}</select></td>
+      <td><input class="inp" value="${esc(c.notes)}" placeholder="Notes..."/></td>
       <td style="white-space:nowrap">${actions}</td>`;
-    if(!c.system){const el=tr.querySelectorAll('input,select');
-      el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.entity=e.target.value; el[2].onchange=e=>c.lifecycle=e.target.value; el[3].onchange=e=>c.revision=e.target.value; el[4].onchange=e=>c.notes=e.target.value;}
+    const cb=tr.querySelector('input[type=checkbox]'); cb.onchange=e=>c.isDefault=e.target.checked;
+    const el=tr.querySelectorAll('td input.inp, select');
+    el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.entity=e.target.value; el[2].onchange=e=>c.lifecycle=e.target.value; el[3].onchange=e=>c.revision=e.target.value; el[4].onchange=e=>c.notes=e.target.value;
     tb.appendChild(tr);
   });
 }
-function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:"",system:false}); renderCategories(); updateMetrics(); }
-function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,system:false}); renderCategories(); updateMetrics(); notify('Category duplicated (editable)'); }
+function addCategory(){ CATEGORIES.push({name:"New Category",entity:"File",lifecycle:"",revision:"",notes:"",isDefault:false,system:false}); renderCategories(); updateMetrics(); }
+function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,isDefault:false,system:false}); renderCategories(); updateMetrics(); notify('Category duplicated'); }
 
 function seqOptions(sel){ return '<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${s.name===sel?'selected':''}>${esc(s.name)}</option>`).join(''); }
 function revOptions(sel){ return '<option value="">— None —</option>'+REVISIONS.map(r=>`<option ${r.name===sel?'selected':''}>${esc(r.name)}</option>`).join(''); }
@@ -2418,7 +2415,7 @@ function colorForState(s,i){
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
-function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
+function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
 function normNum(n){return{name:pick(n,'name','Name','scheme','Scheme')||'Scheme',resKey:pick(n,'resKey','SchemeNameResKey')||null,isActive:toBool(pick(n,'isActive','IsActive')),isDefault:toBool(pick(n,'isDefault','IsDefault')),toUpperCase:toBool(pick(n,'toUpperCase','ToUpperCase')),length:String(pick(n,'length','Length')??'6'),rangeFrom:String(pick(n,'rangeFrom','RangeFrom','start','Start')??'1'),rangeTo:String(pick(n,'rangeTo','RangeTo')??'999999'),stepSize:String(pick(n,'stepSize','StepSize','inc','Increment')??'1'),zeroPadding:toBool(pick(n,'zeroPadding','ZeroPadding')??true),system:toBool(pick(n,'system','isSystem'))};}
@@ -2739,13 +2736,26 @@ function cfgParseNumbering(text,RES){
   });
   return out;
 }
-function cfgParseCategories(text,RES){
+// Map an EntityClassCategoryRuleSet class name to one of our entity types.
+const ENTITY_CLASS_TO_TYPE={FileMaster:'File',ItemMaster:'Item',Folder:'Folder',ChangeOrder:'Change Order',CustomEntity:'File',CustomEntityBase:'File'};
+// Categories whose entity type is known by name even when no rule set references them.
+const CAT_NAME_TO_ENTITY={Folder:'Folder',Project:'Folder',ChangeOrder:'Change Order'};
+function cfgParseCategories(text,RES,rulText){
   const doc=xmlDoc(text), out=[];
+  // Build CategoryName -> entity type from the rule sets (which class each category lives under).
+  const catEntity={};
+  if(rulText){ try{ const rd=xmlDoc(rulText);
+    rd.querySelectorAll('EntityClassCategoryRuleSet').forEach(ec=>{
+      const t=ENTITY_CLASS_TO_TYPE[xAttr(ec,'EntityClassName')]; if(!t)return;
+      ec.querySelectorAll('CategoryRuleSet').forEach(crs=>{ const cn=xAttr(crs,'CategoryName'); if(cn&&!catEntity[cn])catEntity[cn]=t; });
+    });
+  }catch(e){} }
   doc.querySelectorAll('Categories > Category').forEach(c=>{
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
-    const cn=RES.get(xAttr(c,'ResKey'))||xAttr(c,'Name')||'';
-    out.push({name:cn,entity:'File',lifecycle:beh('LifeCycle'),revision:beh('RevisionScheme'),
-      notes:'Color '+(xAttr(c,'Color')||''),system:SYSTEM_CAT_NAMES.has(cn)});
+    const rawName=xAttr(c,'Name')||''; const cn=RES.get(xAttr(c,'ResKey'))||rawName||'';
+    const entity=catEntity[rawName]||catEntity[cn]||CAT_NAME_TO_ENTITY[rawName]||CAT_NAME_TO_ENTITY[cn]||'File';
+    out.push({name:cn,entity,lifecycle:beh('LifeCycle'),revision:beh('RevisionScheme'),
+      notes:'Color '+(xAttr(c,'Color')||''),isDefault:false,system:SYSTEM_CAT_NAMES.has(cn)});
   });
   return out;
 }
@@ -2793,8 +2803,9 @@ async function applyCfgPackage(ab, replace, sourceName){
   const udpT=entryText(entries,'UDP/UDP.xml'); if(udpT) cfg.properties=cfgParseProps(udpT,RES);
   const revT=entryText(entries,'Revision/Revision.xml'); if(revT){ const rv=cfgParseRevisions(revT,RES); cfg.revisionSchemes=rv.schemes; cfg.revisionSequences=rv.sequences; }
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
-  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES);
-  const rulT=entryText(entries,'EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml'); if(rulT) cfg.categoryRules=cfgParseRules(rulT);
+  const rulT=entryText(entries,'EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml');
+  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT);
+  if(rulT) cfg.categoryRules=cfgParseRules(rulT);
   const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(csmT) cfg.contentSourceMappings=cfgParseCsMap(csmT);
   applyConfig(cfg, replace);
   // stash the original package AFTER applyConfig (which may reset loadedCfg)
