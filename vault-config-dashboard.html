@@ -292,7 +292,6 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Integrations</div>
   <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
   <div class="nav-item" onclick="showPage('email')" id="nav-email"><span class="ni">📧</span> Email &amp; Notifications</div>
-  <div class="nav-item" onclick="showPage('api')" id="nav-api"><span class="ni">🔌</span> Connections &amp; Integrations</div>
   <div class="nav-item" onclick="showPage('fusion')" id="nav-fusion"><span class="ni">🔄</span> Vault Connector (Fusion)</div>
 
   <div class="nav-section">Maintenance</div>
@@ -362,6 +361,24 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="card">
     <h3>Configuration Completion</h3>
     <div id="completion-bars"></div>
+  </div>
+
+  <div class="card">
+    <h3>Connections &amp; Integrations</h3>
+    <p style="font-size:.78rem;color:var(--text-muted);margin:-4px 0 10px">Third-party connectors and add-ins in use with this Vault.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vaultconnector" checked onchange="updateConnectorVisibility()"><span>Vault Connector (Fusion)</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vds"><span>VDS (Vault Data Standard)</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-forgeflow"><span>ForgeFlow</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powerplm"><span>PowerPLM</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-jitterbit"><span>Jitterbit</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-desktop" checked><span>Desktop Connector</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-sovelia"><span>Sovelia Vault</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-jobq"><span>JobQ Tool</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powerjobs"><span>powerJobs</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powergate"><span>powerGate</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-ruler"><span>Ruler</span></label>
+    </div>
   </div>
 </div>
 
@@ -727,27 +744,6 @@ input:checked+.slider:before{transform:translateX(18px);}
   </div>
 </div>
 
-<!-- CONNECTIONS & INTEGRATIONS -->
-<div class="page" id="page-api">
-  <div class="page-title">Connections &amp; Integrations</div>
-  <div class="page-sub">Third-party connectors and add-ins in use with this Vault.</div>
-  <div class="card">
-    <h3>Integrations</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vaultconnector" checked onchange="updateConnectorVisibility()"><span>Vault Connector (Fusion)</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vds"><span>VDS (Vault Data Standard)</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-forgeflow"><span>ForgeFlow</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powerplm"><span>PowerPLM</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-jitterbit"><span>Jitterbit</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-desktop" checked><span>Desktop Connector</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-sovelia"><span>Sovelia Vault</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-jobq"><span>JobQ Tool</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powerjobs"><span>powerJobs</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powergate"><span>powerGate</span></label>
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-ruler"><span>Ruler</span></label>
-    </div>
-  </div>
-</div>
 
 <!-- VAULT CONNECTOR (FUSION MANAGE) -->
 <div class="page" id="page-fusion">
