@@ -351,18 +351,6 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div class="form-group"><label>Summary Notes</label><textarea id="cfg-notes" rows="2" placeholder="General notes about this Vault configuration..."></textarea></div>
   </div>
 
-  <div class="card-grid">
-    <div class="metric"><div class="label">Property Definitions</div><div class="value" id="ov-props">0</div><div class="sub">System + Custom</div></div>
-    <div class="metric"><div class="label">Lifecycles</div><div class="value" id="ov-lc">0</div><div class="sub">Defined workflows</div></div>
-    <div class="metric"><div class="label">Categories</div><div class="value" id="ov-cats">0</div><div class="sub">Assignment rules</div></div>
-    <div class="metric"><div class="label">Folders</div><div class="value" id="ov-folders">0</div><div class="sub">Tracked folders</div></div>
-  </div>
-
-  <div class="card">
-    <h3>Configuration Completion</h3>
-    <div id="completion-bars"></div>
-  </div>
-
   <div class="card">
     <h3>Connections &amp; Integrations</h3>
     <p style="font-size:.78rem;color:var(--text-muted);margin:-4px 0 10px">Third-party connectors and add-ins in use with this Vault.</p>
@@ -379,6 +367,18 @@ input:checked+.slider:before{transform:translateX(18px);}
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powergate"><span>powerGate</span></label>
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-ruler"><span>Ruler</span></label>
     </div>
+  </div>
+
+  <div class="card-grid">
+    <div class="metric"><div class="label">Property Definitions</div><div class="value" id="ov-props">0</div><div class="sub">System + Custom</div></div>
+    <div class="metric"><div class="label">Lifecycles</div><div class="value" id="ov-lc">0</div><div class="sub">Defined workflows</div></div>
+    <div class="metric"><div class="label">Categories</div><div class="value" id="ov-cats">0</div><div class="sub">Assignment rules</div></div>
+    <div class="metric"><div class="label">Folders</div><div class="value" id="ov-folders">0</div><div class="sub">Tracked folders</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Configuration Completion</h3>
+    <div id="completion-bars"></div>
   </div>
 </div>
 
