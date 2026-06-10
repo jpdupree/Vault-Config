@@ -296,7 +296,6 @@ input:checked+.slider:before{transform:translateX(18px);}
 
   <div class="nav-section">Maintenance</div>
   <div class="nav-item" onclick="showPage('backup')" id="nav-backup"><span class="ni">💾</span> Backup &amp; Restore</div>
-  <div class="nav-item" onclick="showPage('audit')" id="nav-audit"><span class="ni">📊</span> Audit Log</div>
 
   <div class="nav-section">Settings</div>
   <div class="nav-item" onclick="showPage('general')" id="nav-general"><span class="ni">⚙️</span> General Settings</div>
@@ -826,33 +825,6 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
 </div>
 
 <!-- AUDIT LOG -->
-<div class="page" id="page-audit">
-  <div class="page-title">Audit Log</div>
-  <div class="page-sub">Audit logging policy and recent entries.</div>
-  <div class="card">
-    <h3>Audit Log Settings</h3>
-    <div class="form-grid">
-      <div class="form-group"><label>Log Retention (days)</label><input id="audit-retain" type="number" placeholder="e.g. 365"></div>
-      <div class="form-group"><label>Log Level</label><select id="audit-level"><option>Info</option><option>Warning</option><option>Error</option><option>Debug</option></select></div>
-      <div class="form-group"><label>Export Format</label><select id="audit-fmt"><option>CSV</option><option>JSON</option><option>XML</option></select></div>
-    </div>
-    <div class="toggle-stack">
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-login"><span class="slider"></span></label><span>Log login/logout events</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-file"><span class="slider"></span></label><span>Log file operations</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-admin"><span class="slider"></span></label><span>Log admin configuration changes</span></div>
-      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="audit-lc"><span class="slider"></span></label><span>Log lifecycle transitions</span></div>
-    </div>
-  </div>
-  <div class="card">
-    <h3>Recent Audit Entries</h3>
-    <table class="tbl" id="audit-tbl">
-      <thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th><th></th></tr></thead>
-      <tbody id="audit-tbody"></tbody>
-    </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addAuditEntry()">+ Add Entry</button></div>
-  </div>
-</div>
-
 <!-- GENERAL -->
 <div class="page" id="page-general">
   <div class="page-title">General Settings</div>
@@ -861,12 +833,13 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
     <h3>File Handling</h3>
     <div class="form-grid">
       <div class="form-group"><label>Working Folder</label><input id="gs-working" placeholder="e.g. C:\Vault Working Folder"/></div>
-      <div class="form-group"><label>Workspace</label><input id="gs-workspace" placeholder="e.g. $/Designs"/></div>
-      <div class="form-group"><label>Max File Size (MB)</label><input id="gs-maxsize" type="number" placeholder="e.g. 500"/></div>
-      <div class="form-group"><label>Visualization Attachment</label><select id="gs-visatt"><option>System</option><option>User</option><option>None</option></select></div>
     </div>
-    <div class="toggle-row"><div><div class="toggle-label">Auto-create Visualization Attachments</div><div class="toggle-desc">Automatically generate DWF/DWFx on check-in</div></div><label class="toggle"><input type="checkbox" id="gs-autoviz" checked><span class="slider"></span></label></div>
-    <div class="toggle-row"><div><div class="toggle-label">Enforce Unique File Names</div><div class="toggle-desc">Prevent duplicate file names across vault</div></div><label class="toggle"><input type="checkbox" id="gs-unique"><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="toggle-label">Enforce Unique File Names</div><div class="toggle-desc">Prevent duplicate file names across vault</div></div><label class="toggle"><input type="checkbox" id="gs-unique" onchange="gsUpdateConditional()"><span class="slider"></span></label></div>
+    <div id="gs-unique-opts-wrap" class="form-group" style="display:none;margin-top:8px"><label>Unique File Name Options</label><textarea id="gs-unique-opts" rows="3" placeholder="Describe the unique file name enforcement options / scope..."></textarea></div>
+    <div class="toggle-row"><div><div class="toggle-label">Enforce Restriction of Check In of Design Files</div><div class="toggle-desc">Restrict check-in of design files</div></div><label class="toggle"><input type="checkbox" id="gs-checkin-restrict"><span class="slider"></span></label></div>
+    <div class="toggle-row"><div><div class="toggle-label">Duplicate Search</div><div class="toggle-desc">Search for duplicate files on check-in</div></div><label class="toggle"><input type="checkbox" id="gs-dupsearch" onchange="gsUpdateConditional()"><span class="slider"></span></label></div>
+    <div id="gs-dupsearch-opts-wrap" class="form-group" style="display:none;margin-top:8px"><label>Duplicate Search Options</label><textarea id="gs-dupsearch-opts" rows="3" placeholder="Describe the duplicate search criteria / options..."></textarea></div>
+    <div class="toggle-row"><div><div class="toggle-label">Trash Bin</div><div class="toggle-desc">Enable the Vault trash bin</div></div><label class="toggle"><input type="checkbox" id="gs-trashbin"><span class="slider"></span></label></div>
     <div class="toggle-row"><div><div class="toggle-label">Enable Change Orders</div><div class="toggle-desc">Allow change order workflows</div></div><label class="toggle"><input type="checkbox" id="gs-eco" checked><span class="slider"></span></label></div>
     <div class="toggle-row"><div><div class="toggle-label">Enable Item Master</div><div class="toggle-desc">Track items independently of files</div></div><label class="toggle"><input type="checkbox" id="gs-item" checked><span class="slider"></span></label></div>
   </div>
@@ -1370,9 +1343,9 @@ function renderAll(){
   document.getElementById('folder-count-badge').textContent=countFolders(FOLDERS);
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
-  renderUsers(); renderGroups(); renderRoles(); renderCadApps(); renderAudit();
+  renderUsers(); renderGroups(); renderRoles(); renderCadApps();
   renderRules(); renderFmProps(); renderFmStates();
-  updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator(); updateConnectorVisibility();
+  updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator(); updateConnectorVisibility(); gsUpdateConditional();
 }
 
 function updateMetrics(){
@@ -2523,7 +2496,6 @@ function collectConfig(){
     email:collectFields(SETTING_FIELDS.email),
     connections:collectFields(SETTING_FIELDS.connections),
     backup:collectFields(SETTING_FIELDS.backup),
-    audit:{settings:collectFields(SETTING_FIELDS.audit),entries:AUDITLOG},
     categoryRules:RULES, contentSourceMappings:CSMAPS,
     fusionConnector:{fields:collectFields(FM_FIELDS),propertyMappings:FMPROPMAPS,stateMappings:FMSTATEMAPS},
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),
@@ -2649,7 +2621,11 @@ function normalizeConfig(raw){
 }
 
 const VAULT_FIELDS=['cfg-vault-name','cfg-server','cfg-version','cfg-admin','cfg-org','cfg-consultant','cfg-docrev','cfg-notes'];
-const GENERAL_FIELDS=['gs-working','gs-workspace','gs-maxsize','gs-visatt','gs-autoviz','gs-unique','gs-eco','gs-item'];
+const GENERAL_FIELDS=['gs-working','gs-unique','gs-unique-opts','gs-checkin-restrict','gs-dupsearch','gs-dupsearch-opts','gs-trashbin','gs-eco','gs-item'];
+function gsUpdateConditional(){
+  const u=document.getElementById('gs-unique-opts-wrap'); if(u) u.style.display=document.getElementById('gs-unique')?.checked?'':'none';
+  const d=document.getElementById('gs-dupsearch-opts-wrap'); if(d) d.style.display=document.getElementById('gs-dupsearch')?.checked?'':'none';
+}
 function clearFields(ids){ if(!ids)return; ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=false;else if(el.tagName==='SELECT')el.selectedIndex=0;else el.value='';}); }
 
 function applyConfig(raw,replace){
@@ -2677,7 +2653,7 @@ function applyConfig(raw,replace){
   else if(replace){ LIFECYCLES=[]; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
   if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-docrev',v.documentRevision);setVal('cfg-notes',v.notes);}
   else if(replace){ clearFields(VAULT_FIELDS); }
-  if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setVal('gs-workspace',g.workspace);setVal('gs-maxsize',g.maxFileSizeMB);setVal('gs-visatt',g.visualizationAttachment);setChk('gs-autoviz',g.autoCreateViz);setChk('gs-unique',g.enforceUniqueNames);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);}
+  if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setChk('gs-unique',g.enforceUniqueNames);setVal('gs-unique-opts',g.uniqueNameOptions);setChk('gs-checkin-restrict',g.restrictDesignCheckin);setChk('gs-dupsearch',g.duplicateSearch);setVal('gs-dupsearch-opts',g.duplicateSearchOptions);setChk('gs-trashbin',g.trashBin);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);gsUpdateConditional();}
   else if(replace){ clearFields(GENERAL_FIELDS); }
   if(c.generalNotes!==undefined) setVal('general-notes',c.generalNotes); else if(replace) setVal('general-notes','');
   // restore embedded Vault .cfg package (lazy-inflated on first export)
@@ -2716,7 +2692,7 @@ function loadLocal(){ try{ const s=localStorage.getItem(LS_KEY); return s?JSON.p
 function resetSample(){ if(!confirm('Discard all current data and reload the built-in sample? This clears your saved configuration in this browser.')) return; try{ localStorage.removeItem(LS_KEY); }catch(e){} location.reload(); }
 function val(id){const el=document.getElementById(id);return el?el.value:'';}
 function chk(id){const el=document.getElementById(id);return el?el.checked:false;}
-function collectGeneral(){return{workingFolder:val('gs-working'),workspace:val('gs-workspace'),maxFileSizeMB:val('gs-maxsize'),visualizationAttachment:val('gs-visatt'),autoCreateViz:chk('gs-autoviz'),enforceUniqueNames:chk('gs-unique'),enableChangeOrders:chk('gs-eco'),enableItemMaster:chk('gs-item')};}
+function collectGeneral(){return{workingFolder:val('gs-working'),enforceUniqueNames:chk('gs-unique'),uniqueNameOptions:val('gs-unique-opts'),restrictDesignCheckin:chk('gs-checkin-restrict'),duplicateSearch:chk('gs-dupsearch'),duplicateSearchOptions:val('gs-dupsearch-opts'),trashBin:chk('gs-trashbin'),enableChangeOrders:chk('gs-eco'),enableItemMaster:chk('gs-item')};}
 
 // ═══════════════════════════════════════════════════════════════
 //  VAULT .cfg  (Global Settings export)  — ZIP of XML sections
@@ -3414,11 +3390,12 @@ function buildPrintDoc(){
     <div class="pr-h3">File Handling</div>
     <table class="pr-kv">
       <tr><td>Working Folder</td><td>${esc(g.workingFolder||'—')}</td></tr>
-      <tr><td>Workspace</td><td>${esc(g.workspace||'—')}</td></tr>
-      <tr><td>Max File Size (MB)</td><td>${esc(g.maxFileSizeMB||'—')}</td></tr>
-      <tr><td>Visualization Attachment</td><td>${esc(g.visualizationAttachment)}</td></tr>
-      <tr><td>Auto-create Visualization Attachments</td><td>${g.autoCreateViz?'Yes':'No'}</td></tr>
       <tr><td>Enforce Unique File Names</td><td>${g.enforceUniqueNames?'Yes':'No'}</td></tr>
+      ${g.enforceUniqueNames&&g.uniqueNameOptions?`<tr><td>Unique File Name Options</td><td>${esc(g.uniqueNameOptions)}</td></tr>`:''}
+      <tr><td>Enforce Restriction of Check In of Design Files</td><td>${g.restrictDesignCheckin?'Yes':'No'}</td></tr>
+      <tr><td>Duplicate Search</td><td>${g.duplicateSearch?'Yes':'No'}</td></tr>
+      ${g.duplicateSearch&&g.duplicateSearchOptions?`<tr><td>Duplicate Search Options</td><td>${esc(g.duplicateSearchOptions)}</td></tr>`:''}
+      <tr><td>Trash Bin</td><td>${g.trashBin?'Yes':'No'}</td></tr>
       <tr><td>Enable Change Orders</td><td>${g.enableChangeOrders?'Yes':'No'}</td></tr>
       <tr><td>Enable Item Master</td><td>${g.enableItemMaster?'Yes':'No'}</td></tr>
     </table></div>`;
@@ -3559,13 +3536,6 @@ function buildPrintDoc(){
   // BACKUP
   html+=prSection(S(),'Backup & Restore')+prKV(PRINT_FIELDS['Backup Configuration'])
     +(val('bk-script')?`<div class="pr-h3">Backup Script</div><div class="pr-note">${esc(val('bk-script'))}</div>`:'')+`</div>`;
-
-  // AUDIT
-  html+=prSection(S(),'Audit Log')+`
-    <div class="pr-h3">Audit Settings</div>${prKV(PRINT_FIELDS['Audit Log'])}
-    <div class="pr-h3">Recent Entries</div>
-    ${AUDITLOG.length?`<table class="pr-tbl"><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody>
-      ${AUDITLOG.map(a=>`<tr><td>${esc(a.timestamp)}</td><td>${esc(a.user)}</td><td>${esc(a.action)}</td><td>${esc(a.entity)}</td><td>${esc(a.details)}</td></tr>`).join('')}</tbody></table>`:'<div class="pr-note">No audit entries recorded.</div>'}</div>`;
 
   // NOTES & CHANGE LOG
   html+=prSection(S(),'Notes & Change Log')+`
