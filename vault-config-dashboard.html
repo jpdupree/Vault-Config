@@ -293,7 +293,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Integrations</div>
   <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
   <div class="nav-item" onclick="showPage('email')" id="nav-email"><span class="ni">📧</span> Email &amp; Notifications</div>
-  <div class="nav-item" onclick="showPage('fusion')" id="nav-fusion"><span class="ni">🔄</span> Vault Connector (Fusion)</div>
+  <div class="nav-item" onclick="showPage('fusion')" id="nav-fusion"><span class="ni">🔄</span> Vault Connector (Fusion Manage)</div>
 
   <div class="nav-section">Maintenance</div>
   <div class="nav-item" onclick="showPage('backup')" id="nav-backup"><span class="ni">💾</span> Backup &amp; Restore</div>
@@ -356,7 +356,7 @@ input:checked+.slider:before{transform:translateX(18px);}
     <h3>Connections &amp; Integrations</h3>
     <p style="font-size:.78rem;color:var(--text-muted);margin:-4px 0 10px">Third-party connectors and add-ins in use with this Vault.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vaultconnector" checked onchange="updateConnectorVisibility()"><span>Vault Connector (Fusion)</span></label>
+      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vaultconnector" checked onchange="updateConnectorVisibility()"><span>Vault Connector (Fusion Manage)</span></label>
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-vds"><span>VDS (Vault Data Standard)</span></label>
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-forgeflow"><span>ForgeFlow</span></label>
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="conn-powerplm"><span>PowerPLM</span></label>
@@ -1237,7 +1237,7 @@ const PRINT_FIELDS={
   'Job Processor & Thin Client':[['Vault Username','jp-account'],['Autodesk Account','jp-adsk-account'],['Job Processor Machine(s)','jp-machine'],['Number of Job Processors','jp-count'],['Thin Client (Web Client) Address','thin-client-url']],
   'Password Policy':[['Minimum password length','sec-minlen-en'],['Minimum length','sec-minlen'],['Lowercase characters','sec-lower'],['Uppercase characters','sec-upper'],['Numbers','sec-num'],['Special characters','sec-special']],
   'SMTP / Email':[['Email notifications enabled','email-enable'],['Account type','email-account'],['Email Address From','email-from'],['Username','email-user'],['Domain Name','email-domain'],['Outgoing (SMTP) Server','email-smtp'],['Port Number','email-port'],['Notification Interval (min)','email-interval'],['Encrypted (SSL) connection','email-ssl']],
-  'Connections & Integrations':[['Vault Connector (Fusion)','conn-vaultconnector'],['VDS (Vault Data Standard)','conn-vds'],['ForgeFlow','conn-forgeflow'],['PowerPLM','conn-powerplm'],['Jitterbit','conn-jitterbit'],['Desktop Connector','conn-desktop'],['Sovelia Vault','conn-sovelia'],['JobQ Tool','conn-jobq'],['powerJobs','conn-powerjobs'],['powerGate','conn-powergate'],['Ruler','conn-ruler']],
+  'Connections & Integrations':[['Vault Connector (Fusion Manage)','conn-vaultconnector'],['VDS (Vault Data Standard)','conn-vds'],['ForgeFlow','conn-forgeflow'],['PowerPLM','conn-powerplm'],['Jitterbit','conn-jitterbit'],['Desktop Connector','conn-desktop'],['Sovelia Vault','conn-sovelia'],['JobQ Tool','conn-jobq'],['powerJobs','conn-powerjobs'],['powerGate','conn-powergate'],['Ruler','conn-ruler']],
   'Backup Configuration':[['Backup Path','bk-path'],['Schedule','bk-sched'],['Backup Time','bk-time'],['Retention (days)','bk-retain'],['Last Backup','bk-last'],['Backup Type','bk-type'],['Compress','bk-compress'],['Encrypt','bk-encrypt'],['Email on completion','bk-notify']],
   'Audit Log':[['Log Retention (days)','audit-retain'],['Log Level','audit-level'],['Export Format','audit-fmt'],['Log login/logout','audit-login'],['Log file operations','audit-file'],['Log admin changes','audit-admin'],['Log lifecycle transitions','audit-lc']]
 };
@@ -1375,7 +1375,7 @@ function showPage(id){
   if(id==='lifecycles'&&activeLCId!==null){ setTimeout(()=>{lcResizeCanvas();lcDraw();},50); }
   if(id==='overview') renderCompletionBars();
 }
-// Hide the Vault Connector (Fusion) page/nav when its connection is unchecked.
+// Hide the Vault Connector (Fusion Manage) page/nav when its connection is unchecked.
 function updateConnectorVisibility(){
   const on=document.getElementById('conn-vaultconnector')?.checked;
   const nav=document.getElementById('nav-fusion'); if(nav) nav.style.display=on?'':'none';
