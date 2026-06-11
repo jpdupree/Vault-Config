@@ -2002,7 +2002,7 @@ function lcDraw(){
   lc.states.forEach(s=>{
     const m=document.createElementNS(SVGNS,'marker');
     m.setAttribute('id',`lc-arr-c-${s.id}`);m.setAttribute('markerWidth','8');m.setAttribute('markerHeight','8');m.setAttribute('refX','7');m.setAttribute('refY','3');m.setAttribute('orient','auto');
-    const p=document.createElementNS(SVGNS,'polygon');p.setAttribute('points','0 0, 7 3, 0 6');p.setAttribute('fill',s.color);m.appendChild(p);defs.appendChild(m);
+    const p=document.createElementNS(SVGNS,'polygon');p.setAttribute('points','0 0, 7 3, 0 6');p.setAttribute('fill',lcNodeTextColor(s.color));m.appendChild(p);defs.appendChild(m);
   });
   const ms=document.createElementNS(SVGNS,'marker');
   ms.setAttribute('id','lc-arr-sel');ms.setAttribute('markerWidth','8');ms.setAttribute('markerHeight','8');ms.setAttribute('refX','7');ms.setAttribute('refY','3');ms.setAttribute('orient','auto');
@@ -2016,7 +2016,7 @@ function lcDraw(){
 function lcDrawEdge(g,t,lc){
   const pts=fullPolyline(lc,t); if(!pts||pts.length<2)return;
   const fromS=lc.states.find(s=>s.id===t.from);
-  const isSel=t.id===lcSelectedTransId, isWP=lcTool==='waypoint', color=fromS?.color||'#8892b0';
+  const isSel=t.id===lcSelectedTransId, isWP=lcTool==='waypoint', color=lcNodeTextColor(fromS?.color||'#8892b0');
   const d='M'+pts.map(p=>`${p.x},${p.y}`).join(' L');
   const path=document.createElementNS(SVGNS,'path');
   path.setAttribute('d',d);path.setAttribute('fill','none');path.setAttribute('stroke',isSel?'#fff':color);
