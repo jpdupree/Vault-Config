@@ -2819,7 +2819,8 @@ function cfgParseLifecycles(text,RES){
       rules:[...rs.querySelectorAll('Rule')].map(r=>({property:xAttr(r,'PropertyName')||'',condition:xAttr(r,'Condition')||'EqualTo',value:xAttr(r,'Value')||''}))};
   });
   const txActions=t=>{ const ck={}; TX_CHECKS.forEach(c=>{ const v=xAttr(t,c.attr); ck[c.key]= c.enum?(v&&v!=='None'):(v==='true'); });
-    return {bumpRevision:xAttr(t,'BumpRevision')||'None',syncPropOption:xAttr(t,'SyncPropOption')||'None',syncProps:(xAttr(t,'SyncPropOption')||'None')!=='None',syncFileTypes:[],updateItems:xAttr(t,'UpdateItems')==='true',purge:xAttr(t,'ExecutePurge')==='true',extSync:xAttr(t,'ExtSyncToFM')==='true',checks:ck}; };
+    const truthy=v=>['true','1','yes'].includes(String(v||'').toLowerCase());
+    return {bumpRevision:xAttr(t,'BumpRevision')||'None',syncPropOption:xAttr(t,'SyncPropOption')||'None',syncProps:(xAttr(t,'SyncPropOption')||'None')!=='None',syncFileTypes:[],updateItems:xAttr(t,'UpdateItems')==='true',purge:xAttr(t,'ExecutePurge')==='true',extSync:truthy(xAttr(t,'ExtSyncToFM')||xAttr(t,'ExtSyncToFusion')||xAttr(t,'SyncToFM')),checks:ck}; };
   doc.querySelectorAll('LifecycleDefinition').forEach((def,di)=>{
     const rawName=xAttr(def,'Name')||('Lifecycle '+(di+1));
     // Custom lifecycles use a GUID as the Name; the readable name is in the resx.
