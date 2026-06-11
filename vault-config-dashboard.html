@@ -2803,13 +2803,16 @@ function cfgParseLifecycles(text,RES){
   const txActions=t=>{ const ck={}; TX_CHECKS.forEach(c=>{ const v=xAttr(t,c.attr); ck[c.key]= c.enum?(v&&v!=='None'):(v==='true'); });
     return {bumpRevision:xAttr(t,'BumpRevision')||'None',syncPropOption:xAttr(t,'SyncPropOption')||'None',syncProps:(xAttr(t,'SyncPropOption')||'None')!=='None',syncFileTypes:[],updateItems:xAttr(t,'UpdateItems')==='true',purge:xAttr(t,'ExecutePurge')==='true',extSync:xAttr(t,'ExtSyncToFM')==='true',checks:ck}; };
   doc.querySelectorAll('LifecycleDefinition').forEach((def,di)=>{
-    const name=xAttr(def,'Name')||('Lifecycle '+(di+1));
+    const rawName=xAttr(def,'Name')||('Lifecycle '+(di+1));
+    // Custom lifecycles use a GUID as the Name; the readable name is in the resx.
+    const name=RES.get(xAttr(def,'DisplayNameResource'))||rawName;
     const init=xAttr(def,'InitialState');
     const states=[]; const idByName=new Map();
     [...def.querySelectorAll('LifecycleStates > LifecycleState')].forEach((s,si)=>{
       const sn=xAttr(s,'Name'); const id=si+1; idByName.set(sn,id);
+      const dispName=RES.get(xAttr(s,'DisplayNameResource'))||sn;
       const comments=[...s.querySelectorAll('Comments > Comment')].map(c=>RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean);
-      states.push({id,name:sn,description:RES.get(xAttr(s,'DescriptionResource'))||'',comments,
+      states.push({id,name:dispName,description:RES.get(xAttr(s,'DescriptionResource'))||'',comments,
         isDefault:sn===init,isReleasedState:xAttr(s,'IsReleased')==='true',isObsoleteState:xAttr(s,'IsObsolete')==='true',
         color:xAttr(s,'Color')||'#4f8ef7',_ord:+(xAttr(s,'DisplayOrder')||si+1)});
     });
@@ -2823,7 +2826,7 @@ function cfgParseLifecycles(text,RES){
         security:{restrict:xAttr(t,'UseTransitionBasedSecurity')==='true',entries:acl},
         customJobTypes:[],peerReview:{rules:[]}};
     }).filter(t=>t.from!=null&&t.to!=null);
-    out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:true});
+    out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:SYSTEM_LC_NAMES.has(name)});
   });
   return out;
 }
