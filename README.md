@@ -47,6 +47,7 @@ The left sidebar covers the configuration areas:
 | **Backup & Restore** | Backup settings and script |
 | **General Settings** | File‑handling options (unique names, duplicate search, trash bin, etc.) |
 | **Notes & Change Log** | Free‑form notes and a change log |
+| **Manual Checklist** | Punch list of settings the `.cfg` can't apply — must be set by hand in Vault |
 
 ---
 
@@ -92,6 +93,25 @@ Use **📂 Load Data** (top right). Three formats are accepted:
   and won't update.
 - **🖨 Print / PDF** — generates a stylized, multi‑page configuration document
   (cover sheet + each section). System‑default objects are omitted to keep it focused.
+
+---
+
+## Manual checklist (what the `.cfg` can't apply)
+
+The Global Settings `.cfg` only carries a subset of a Vault configuration
+(properties, lifecycles, categories, category rules, revision/numbering schemes,
+property mappings). Many other settings live in the Vault database or in connector
+add‑ins and must be applied **by hand** after importing the `.cfg`.
+
+The **Deployment ▸ Manual Checklist** page lists those items — Users & Groups,
+Roles, Security policy, Folder structure, Server/Database/Job Processor, CAD
+integration, Email (SMTP), Connectors, the Fusion Manage connector, Backup,
+General Settings, and lifecycle transition extras (Custom Job Types, Peer Review,
+Email Notifications, State‑based Security).
+
+- Each item has a **checkbox** (progress is saved with the configuration) and a
+  **link to jump to that section** of the dashboard.
+- The checklist is included in the **PDF** as a go‑live punch list (☑/☐ per item).
 
 ---
 

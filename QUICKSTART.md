@@ -67,6 +67,7 @@ The **Overview** page shows completion bars so you can see what's still blank.
 | Continue earlier work | **Load Data** → your saved dashboard JSON |
 | Update Vault from my edits | Load the `.cfg`, edit, **Export .cfg**, import it back in the Vault client |
 | Produce a hand‑off document | **Print / PDF** → Save as PDF |
+| Track manual setup steps | Open **Deployment ▸ Manual Checklist** and check items off |
 
 ---
 
@@ -76,3 +77,4 @@ The **Overview** page shows completion bars so you can see what's still blank.
 - **Offline** — no internet or server needed.
 - **Version** — the build stamp (e.g. `v1.0 · Build 2026.06.10`) is in the sidebar footer and on the PDF cover; quote it if you report an issue.
 - **Users & Groups** are environment‑specific and are **not** included in a `.cfg`, so a `.cfg` import won't touch them.
+- **Not everything is in the `.cfg`.** After importing, use **Deployment ▸ Manual Checklist** — it lists the settings you must apply by hand in Vault (users, roles, folders, email, connectors, etc.), with a link to each section and a checkbox to track progress. It also prints in the PDF.
