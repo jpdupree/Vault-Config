@@ -2051,6 +2051,10 @@ function lcDrawEdge(g,t,lc){
     }
   }
 }
+// Node label uses the state color, but switch to light text when the color is too
+// dark to read against the dark canvas.
+function lcHexLum(hex){const c=String(hex||'').replace('#','');if(c.length<6)return 1;const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
+function lcNodeTextColor(color){return lcHexLum(color)<0.4?'#e6e9f0':color;}
 function lcDrawNode(g,s){
   const isSel=s.id===lcSelectedStateId, isCS=lcConnectFrom&&lcConnectFrom.id===s.id;
   const group=document.createElementNS(SVGNS,'g'); group.style.cursor=lcTool==='connect'?'crosshair':'grab';
@@ -2060,7 +2064,7 @@ function lcDrawNode(g,s){
   rect.setAttribute('x',s.x-NW/2);rect.setAttribute('y',s.y-NH/2);rect.setAttribute('width',NW);rect.setAttribute('height',NH);rect.setAttribute('rx',NR);
   rect.setAttribute('fill',s.color+'33');rect.setAttribute('stroke',isSel||isCS?'#fff':s.color);rect.setAttribute('stroke-width',(isSel||isCS?2.5:1.8)/lcCamZ);group.appendChild(rect);
   const txt=document.createElementNS(SVGNS,'text');
-  txt.setAttribute('x',s.x+3);txt.setAttribute('y',s.y+5);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill',isSel?'#fff':s.color);txt.setAttribute('font-size',13);txt.setAttribute('font-weight','700');txt.setAttribute('font-family','Segoe UI,sans-serif');txt.setAttribute('pointer-events','none');txt.textContent=s.name;group.appendChild(txt);
+  txt.setAttribute('x',s.x+3);txt.setAttribute('y',s.y+5);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill',isSel?'#fff':lcNodeTextColor(s.color));txt.setAttribute('font-size',13);txt.setAttribute('font-weight','700');txt.setAttribute('font-family','Segoe UI,sans-serif');txt.setAttribute('pointer-events','none');txt.textContent=s.name;group.appendChild(txt);
   if(s.isDefault){const st=document.createElementNS(SVGNS,'text');st.setAttribute('x',s.x+NW/2-14);st.setAttribute('y',s.y-NH/2+14);st.setAttribute('fill','#f39c12');st.setAttribute('font-size','11');st.setAttribute('pointer-events','none');st.textContent='★';group.appendChild(st);}
   if(lcTool==='connect'){const port=document.createElementNS(SVGNS,'circle');port.setAttribute('cx',s.x+NW/2);port.setAttribute('cy',s.y);port.setAttribute('r',7);port.setAttribute('fill',isCS?'#f39c12':s.color);port.setAttribute('stroke','#fff');port.setAttribute('stroke-width','1.5');port.style.cursor='crosshair';group.appendChild(port);}
   group.addEventListener('mousedown',e=>lcOnNodeMouseDown(e,s));
@@ -2818,14 +2822,19 @@ function cfgParseLifecycles(text,RES){
     });
     const n=states.length||1; states.forEach((s,i)=>{const a=(2*Math.PI*((s._ord||i+1)-1)/n)-Math.PI/2;s.x=Math.round(420+280*Math.cos(a));s.y=Math.round(300+230*Math.sin(a));delete s._ord;});
     const transitions=[...def.querySelectorAll('StateTransitions > StateTransition')].map(t=>{
-      const rsName=xAttr(t,'RuleSet'); const rs=rsName?ruleSets[rsName]:null;
+      const restrict=xAttr(t,'UseTransitionBasedSecurity')==='true';
       const acl=[...t.querySelectorAll('TransitionACL > TransitionACE')].map(a=>({name:xAttr(a,'UserOrGroupName')||'',allowed:xAttr(a,'IsAllowed')==='true',isGroup:xAttr(a,'IsGroup')==='true'}));
+      // A transition that denies Everyone and allows no one is a blocked (non-)transition
+      // — Vault stores the full matrix this way. Don't draw it as an arrow.
+      const blocked=restrict && acl.some(a=>a.name.toLowerCase()==='everyone'&&!a.allowed) && !acl.some(a=>a.allowed);
+      if(blocked) return null;
+      const rsName=xAttr(t,'RuleSet'); const rs=rsName?ruleSets[rsName]:null;
       return {from:idByName.get(xAttr(t,'FromState')),to:idByName.get(xAttr(t,'ToState')),waypoints:[],
         actions:txActions(t),
         criteria:{ruleSetName:rsName||null,displayName:rs?rs.displayName:'',description:rs?rs.description:'',rules:rs?rs.rules.map(r=>({...r})):[]},
-        security:{restrict:xAttr(t,'UseTransitionBasedSecurity')==='true',entries:acl},
+        security:{restrict,entries:acl},
         customJobTypes:[],peerReview:{rules:[]}};
-    }).filter(t=>t.from!=null&&t.to!=null);
+    }).filter(t=>t&&t.from!=null&&t.to!=null);
     out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:SYSTEM_LC_NAMES.has(name)});
   });
   return out;
@@ -3018,6 +3027,21 @@ function patchLifecyclePackage(){
       } else { el.removeAttribute('RuleSet'); }
       tw.appendChild(el);
     });
+    // For every ordered state pair WITHOUT an arrow, write a blocked transition that
+    // denies Everyone — this is how Vault represents "transition not allowed".
+    const arrowSet=new Set();
+    lc.transitions.forEach(t=>{const fs=lc.states.find(s=>s.id===t.from),ts=lc.states.find(s=>s.id===t.to);if(fs&&ts)arrowSet.add(fs.name+'→'+ts.name);});
+    lc.states.forEach(fs=>lc.states.forEach(ts=>{
+      if(fs===ts || arrowSet.has(fs.name+'→'+ts.name)) return;
+      let el=oTrans[fs.name+'→'+ts.name]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
+      el.setAttribute('FromState',fs.name); el.setAttribute('ToState',ts.name);
+      el.setAttribute('UseTransitionBasedSecurity','true'); el.removeAttribute('RuleSet');
+      [...el.querySelectorAll('TransitionACL')].forEach(e=>e.remove());
+      const aclEl=mk('TransitionACL'); const ace=mk('TransitionACE');
+      ace.setAttribute('UserOrGroupName','Everyone'); ace.setAttribute('IsAllowed','false'); ace.setAttribute('IsGroup','true');
+      aclEl.appendChild(ace); el.appendChild(aclEl);
+      tw.appendChild(el);
+    }));
     lc.states.forEach((s,i)=>{
       let el=oStates[s.name]; el=el?el.cloneNode(true):(tmplState?tmplState.cloneNode(true):mk('LifecycleState'));
       el.setAttribute('Name',s.name); el.setAttribute('Color',s.color||'#4f8ef7'); el.setAttribute('DisplayOrder',String(i+1));
