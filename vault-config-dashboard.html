@@ -2051,10 +2051,21 @@ function lcDrawEdge(g,t,lc){
     }
   }
 }
-// Node label uses the state color, but switch to light text when the color is too
-// dark to read against the dark canvas.
-function lcHexLum(hex){const c=String(hex||'').replace('#','');if(c.length<6)return 1;const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return (0.299*r+0.587*g+0.114*b)/255;}
-function lcNodeTextColor(color){return lcHexLum(color)<0.4?'#e6e9f0':color;}
+// Node label / arrow color uses the state color, but switch to light text when the
+// color is too dark to read against the dark canvas. Parse via canvas so ANY CSS
+// color form works (3/6/8-digit hex, rgb(), hsl(), named colors).
+let _lumCtx=null; const _lumCache={};
+function lcColorLum(color){
+  const key=String(color||''); if(key in _lumCache) return _lumCache[key];
+  let lum=0;
+  try{
+    if(!_lumCtx){const cv=document.createElement('canvas');cv.width=cv.height=1;_lumCtx=cv.getContext('2d',{willReadFrequently:true});}
+    _lumCtx.clearRect(0,0,1,1); _lumCtx.fillStyle='#000'; _lumCtx.fillStyle=key||'#000'; _lumCtx.fillRect(0,0,1,1);
+    const d=_lumCtx.getImageData(0,0,1,1).data; lum=(0.299*d[0]+0.587*d[1]+0.114*d[2])/255;
+  }catch(e){ lum=1; }
+  return _lumCache[key]=lum;
+}
+function lcNodeTextColor(color){return lcColorLum(color)<0.42?'#e6e9f0':color;}
 function lcDrawNode(g,s){
   const isSel=s.id===lcSelectedStateId, isCS=lcConnectFrom&&lcConnectFrom.id===s.id;
   const group=document.createElementNS(SVGNS,'g'); group.style.cursor=lcTool==='connect'?'crosshair':'grab';
