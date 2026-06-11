@@ -1380,6 +1380,8 @@ function updateConnectorVisibility(){
   const on=document.getElementById('conn-vaultconnector')?.checked;
   const nav=document.getElementById('nav-fusion'); if(nav) nav.style.display=on?'':'none';
   if(!on && document.getElementById('page-fusion')?.classList.contains('active')) showPage('overview');
+  // Refresh the open transition panel so the Fusion Manage sync action shows/hides.
+  const txp=document.getElementById('lc-tx-panel'); if(txp && txp.style.display!=='none' && typeof lcTxRender==='function') lcTxRender();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2335,8 +2337,9 @@ function lcTxActions(t){
       ${TX_CHECKS.map(c=>`<label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.checks[c.key]?'checked':''} onchange="lcTxCheck('${c.key}',this.checked)"><span>${c.label}</span></label>`).join('')}
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.updateItems?'checked':''} onchange="lcTxAct('updateItems',this.checked)"><span>Update items</span></label>
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.purge?'checked':''} onchange="lcTxAct('purge',this.checked)"><span>Purge</span></label>
+      ${document.getElementById('conn-vaultconnector')?.checked?`<label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.extSync?'checked':''} onchange="lcTxAct('extSync',this.checked)"><span>Sync Item to Fusion Manage Using Vault Connector</span></label>`:''}
     </div>
-    ${TX_NOTE('Bump revision, the checks, Update items and Purge are written to the StateTransition attributes in the .cfg. (File-type sync list is documented but preserved as-is on export.)')}`;
+    ${TX_NOTE('Bump revision, the checks, Update items, Purge and Sync to Fusion Manage are written to the StateTransition attributes in the .cfg. (File-type sync list is documented but preserved as-is on export.)')}`;
 }
 function lcTxJobs(t){
   return `<div style="font-size:.74rem;color:var(--text-muted);margin-bottom:6px">Available Custom Job Types</div>
