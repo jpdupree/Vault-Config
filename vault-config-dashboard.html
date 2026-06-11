@@ -301,6 +301,9 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-section">Settings</div>
   <div class="nav-item" onclick="showPage('general')" id="nav-general"><span class="ni">⚙️</span> General Settings</div>
   <div class="nav-item" onclick="showPage('notes')" id="nav-notes"><span class="ni">📝</span> Notes &amp; Change Log</div>
+
+  <div class="nav-section">Deployment</div>
+  <div class="nav-item" onclick="showPage('checklist')" id="nav-checklist"><span class="ni">✅</span> Manual Checklist</div>
   <div class="nav-foot" id="app-version"></div>
 </nav>
 
@@ -879,6 +882,16 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
   </div>
 </div>
 
+<!-- MANUAL CHECKLIST -->
+<div class="page" id="page-checklist">
+  <div class="page-title">Manual Configuration Checklist</div>
+  <div class="page-sub">Settings that are <b>not</b> carried by the Global Settings <b>.cfg</b> and must be applied manually in Vault after importing it. Check items off as you complete them — progress is saved with the configuration.</div>
+  <div class="card">
+    <h3>Apply These in Vault</h3>
+    <div id="checklist-list"></div>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -1351,7 +1364,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderCadApps();
-  renderRules(); renderFmProps(); renderFmStates();
+  renderRules(); renderFmProps(); renderFmStates(); renderChecklist();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator(); updateConnectorVisibility(); gsUpdateConditional();
 }
 
@@ -1656,6 +1669,35 @@ function renderChangeLog(){
   });
 }
 function addChangeLog(){ CHANGELOG.push({date:new Date().toISOString().split('T')[0],author:document.getElementById('cfg-consultant').value||'',section:'',desc:''}); renderChangeLog(); }
+
+// Items the Global Settings .cfg does NOT carry — must be applied manually in Vault.
+const CHECKLIST_ITEMS=[
+  {id:'users',label:'Users & Groups',page:'users',note:'Create Vault users and groups — environment-specific, not stored in the .cfg.'},
+  {id:'roles',label:'Roles & Permissions',page:'roles',note:'Recreate custom roles and their permissions.'},
+  {id:'security',label:'Security / Password Policy',page:'security',note:'Apply the password policy in Vault admin.'},
+  {id:'folders',label:'Folder Structure & Library Folders',page:'folders',note:'Create the folder tree and designate library folders.'},
+  {id:'server',label:'Server, Database, Job Processor & Thin Client',page:'server',note:'Configured during install / server setup — not in the .cfg.'},
+  {id:'cad',label:'CAD Integration',page:'cad',note:'Install and configure CAD add-ins and workspaces.'},
+  {id:'email',label:'Email (SMTP) Configuration',page:'email',note:'Set in Tools ▸ Administration ▸ Email — not in the .cfg.'},
+  {id:'connections',label:'Connections & Integrations',page:'overview',note:'Install / configure third-party connectors and add-ins.'},
+  {id:'fusion',label:'Vault Connector (Fusion Manage)',page:'fusion',note:'Tenant, property/state mappings, attachments, and the per-transition Fusion sync are managed by the connector — not in the .cfg.'},
+  {id:'backup',label:'Backup & Restore',page:'backup',note:'Set up the backup schedule / script on the server (ADMS).'},
+  {id:'general',label:'General Settings (file handling)',page:'general',note:'Unique file names, duplicate search, trash bin, design check-in restrictions, etc.'},
+  {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review, Email Notifications and State-based Security are documented but not written to the .cfg.'}
+];
+let CHECKLIST={};
+function renderChecklist(){
+  const host=document.getElementById('checklist-list'); if(!host)return;
+  host.innerHTML=CHECKLIST_ITEMS.map(it=>`
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);margin-bottom:8px">
+      <input type="checkbox" id="chk-${it.id}" ${CHECKLIST[it.id]?'checked':''} style="margin-top:3px;transform:scale(1.2);cursor:pointer" onchange="CHECKLIST['${it.id}']=this.checked">
+      <div style="flex:1">
+        <label for="chk-${it.id}" style="font-weight:600;cursor:pointer">${esc(it.label)}</label>
+        <div style="font-size:.74rem;color:var(--text-muted);margin-top:2px">${esc(it.note)}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="flex:none" onclick="showPage('${it.page}')">Go to section →</button>
+    </div>`).join('');
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  USERS / GROUPS / ROLES / CAD MAPPINGS / AUDIT
@@ -2523,7 +2565,7 @@ function collectConfig(){
     backup:collectFields(SETTING_FIELDS.backup),
     categoryRules:RULES, contentSourceMappings:CSMAPS,
     fusionConnector:{fields:collectFields(FM_FIELDS),propertyMappings:FMPROPMAPS,stateMappings:FMSTATEMAPS},
-    generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),
+    generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),checklist:CHECKLIST,
     // Embed the original Vault .cfg package so a single JSON is a complete,
     // reload-proof snapshot and re-arms Export .cfg when loaded.
     cfgPackageB64: loadedCfg?loadedCfg.rawB64:undefined,
@@ -2624,6 +2666,7 @@ function normalizeConfig(raw){
   const v=raw.vault||raw.Vault; if(v) out.vault=normVault(v);
   const g=raw.generalSettings||raw.general||raw.GeneralSettings; if(g) out.general=g;
   const gn=pick(raw,'generalNotes','GeneralNotes'); if(gn!==undefined) out.generalNotes=gn;
+  const ckl=pick(raw,'checklist','Checklist'); if(ckl&&typeof ckl==='object') out.checklist=ckl;
   // people
   const users=firstArr(raw,'users','Users'); if(users) out.users=users.map(normUser);
   const groups=firstArr(raw,'groups','Groups'); if(groups) out.groups=groups.map(normGroup);
@@ -2681,6 +2724,7 @@ function applyConfig(raw,replace){
   if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setChk('gs-unique',g.enforceUniqueNames);setVal('gs-unique-opts',g.uniqueNameOptions);setChk('gs-checkin-restrict',g.restrictDesignCheckin);setChk('gs-dupsearch',g.duplicateSearch);setVal('gs-dupsearch-opts',g.duplicateSearchOptions);setChk('gs-trashbin',g.trashBin);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);gsUpdateConditional();}
   else if(replace){ clearFields(GENERAL_FIELDS); }
   if(c.generalNotes!==undefined) setVal('general-notes',c.generalNotes); else if(replace) setVal('general-notes','');
+  if(c.checklist!==undefined) CHECKLIST=c.checklist; else if(replace) CHECKLIST={};
   // restore embedded Vault .cfg package (lazy-inflated on first export)
   if(c.cfgPackageB64){ loadedCfg={entries:null,rawB64:c.cfgPackageB64,sourceName:c.cfgSourceName||'restored .cfg'}; }
   else if(replace){ loadedCfg=null; }
@@ -3585,6 +3629,12 @@ function buildPrintDoc(){
   // BACKUP
   html+=prSection(S(),'Backup & Restore')+prKV(PRINT_FIELDS['Backup Configuration'])
     +(val('bk-script')?`<div class="pr-h3">Backup Script</div><div class="pr-note">${esc(val('bk-script'))}</div>`:'')+`</div>`;
+
+  // MANUAL CHECKLIST
+  html+=prSection(S(),'Manual Configuration Checklist','Items the Global Settings .cfg does not carry — apply manually in Vault.')+`
+    <table class="pr-tbl"><thead><tr><th style="width:34px">Done</th><th>Item</th><th>Notes</th></tr></thead><tbody>
+    ${CHECKLIST_ITEMS.map(it=>`<tr><td style="text-align:center">${CHECKLIST[it.id]?'☑':'☐'}</td><td>${esc(it.label)}</td><td>${esc(it.note)}</td></tr>`).join('')}
+    </tbody></table></div>`;
 
   // NOTES & CHANGE LOG
   html+=prSection(S(),'Notes & Change Log')+`
