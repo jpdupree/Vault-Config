@@ -1074,6 +1074,11 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
       Property mappings keep the exact <b>moniker</b> but not the friendly file-property name / classification.
       Roles &amp; user accounts are server-level, never part of this .cfg.
     </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)">
+      <label style="font-size:.8rem;font-weight:600;white-space:nowrap">🎯 Target Vault version</label>
+      <input id="cfg-target-version" class="inp" style="width:150px" placeholder="e.g. 32.0.71.0">
+      <span style="font-size:.72rem;color:var(--text-muted);flex:1;min-width:200px">Set this to the version of the Vault you're importing <b>into</b> so it accepts the file. Pre-filled with the source version — leave it to keep the original.</span>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
       <button class="btn btn-ghost" onclick="document.getElementById('cfg-export-modal').classList.remove('open')">Cancel</button>
       <button class="btn btn-success" onclick="doExportCfg()">⬇ Export .cfg</button>
@@ -3554,14 +3559,37 @@ function patchCsMapPackage(){
   ent.data=reserializeXml(doc, ent.data);
 }
 function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); patchCategoryPackage(); patchPropertyPackage(); patchNumberingPackage(); patchRulesPackage(); patchCsMapPackage(); return zipStore(loadedCfg.entries); }
+// Read/patch the Vault version stamp in Manifest.xml (PRODUCT|<ver> + ADMS_VERSION).
+function cfgManifestVersion(){
+  if(!loadedCfg||!loadedCfg.entries) return '';
+  const ent=loadedCfg.entries.find(e=>e.name==='Manifest.xml'); if(!ent) return '';
+  try{ const doc=xmlDoc(new TextDecoder().decode(ent.data));
+    const p=[...doc.querySelectorAll('Property')].find(x=>xAttr(x,'Name')==='ADMS_VERSION');
+    return p?(xAttr(p,'Value')||''):'';
+  }catch(e){ return ''; }
+}
+function patchManifestVersion(ver){
+  if(!ver) return;
+  const ent=loadedCfg.entries.find(e=>e.name==='Manifest.xml'); if(!ent) return;
+  const doc=xmlDoc(new TextDecoder().decode(ent.data));
+  [...doc.querySelectorAll('Property')].forEach(p=>{
+    const n=xAttr(p,'Name'), v=xAttr(p,'Value')||'';
+    if(n==='PRODUCT' && v.includes('|')) p.setAttribute('Value', v.split('|')[0]+'|'+ver);
+    else if(n==='ADMS_VERSION') p.setAttribute('Value', ver);
+  });
+  ent.data=reserializeXml(doc, ent.data);
+}
 function exportCfg(){
   if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
   document.getElementById('cfg-export-modal').classList.add('open');
+  // Pre-fill the target version with the source version (once entries are available).
+  ensureCfgEntries().then(()=>{ const f=document.getElementById('cfg-target-version'); if(f&&!f.value) f.value=cfgManifestVersion(); });
 }
 async function doExportCfg(){
   document.getElementById('cfg-export-modal').classList.remove('open');
   try{
     await ensureCfgEntries();
+    patchManifestVersion((document.getElementById('cfg-target-version').value||'').trim());
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
