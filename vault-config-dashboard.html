@@ -1533,7 +1533,7 @@ function renderPropsTable(tbodyId,data,compact){
     const actTag=tr.querySelector('[data-act]'); if(actTag) actTag.onclick=e=>{ e.stopPropagation(); p.Active=!p.Active; renderPropsTable('prop-tbody',PROPS,false); };
     tr.onclick=()=>toggleProp(p.SystemName);
     tb.appendChild(tr);
-    if(expanded){ const er=document.createElement('tr'); er.className='prop-exp'; er.innerHTML=`<td colspan="6" style="background:var(--surface2);padding:12px 16px">${propMappingHTML(p)}</td>`; tb.appendChild(er); }
+    if(expanded){ const er=document.createElement('tr'); er.className='prop-exp'; er.innerHTML=`<td colspan="6" style="background:var(--surface2);padding:12px 16px">${propValueListHTML(p)}${propMappingHTML(p)}</td>`; tb.appendChild(er); }
   });
 }
 let selectedPropSys=null;
@@ -1565,6 +1565,21 @@ function csmapFilePropLabel(m){
   return raw;
 }
 function csmapSetFileProp(idx,val){ const m=CSMAPS[idx]; if(!m)return; const mn=m.moniker||''; const rest=mn.includes('!')?mn.slice(mn.indexOf('!')):''; m.moniker=val+rest; }
+// Per-property list values (UDP ValueList) — carried in the .cfg.
+function propValueListHTML(p){
+  const idx=PROPS.indexOf(p); const list=p.valueList||[];
+  const rows=list.length?list.map((m,i)=>`<tr>
+      <td style="width:80px"><input class="inp" value="${esc(m.value??'')}" onchange="pvlSet(${idx},${i},'value',this.value)"></td>
+      <td><input class="inp" value="${esc(m.label||'')}" onchange="pvlSet(${idx},${i},'label',this.value)"></td>
+      <td><button class="btn btn-danger btn-icon" onclick="pvlDel(${idx},${i})">✕</button></td>
+    </tr>`).join(''):`<tr><td colspan="3" style="color:var(--text-muted)">No list values — free-text entry.</td></tr>`;
+  return `<div style="font-weight:600;font-size:.82rem;margin-bottom:8px">List Values — ${esc(p.DisplayName)}</div>
+    <table class="tbl"><thead><tr><th style="width:80px">Value</th><th>Label</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    <div style="margin:8px 0 16px"><button class="btn btn-primary btn-sm" onclick="pvlAdd(${idx})">+ Add Value</button></div>`;
+}
+function pvlSet(idx,i,k,v){ const p=PROPS[idx]; if(p&&p.valueList&&p.valueList[i]) p.valueList[i][k]=v; }
+function pvlDel(idx,i){ const p=PROPS[idx]; if(!p||!p.valueList)return; p.valueList.splice(i,1); renderPropsTable('prop-tbody',PROPS,false); }
+function pvlAdd(idx){ const p=PROPS[idx]; if(!p)return; if(!p.valueList)p.valueList=[]; const nextVal=p.valueList.reduce((mx,m)=>{const n=parseInt(m.value,10);return isNaN(n)?mx:Math.max(mx,n);},-1)+1; p.valueList.push({value:String(nextVal),label:''}); renderPropsTable('prop-tbody',PROPS,false); }
 function propMappingHTML(p){
   const sys=p.SystemName;
   const rows=CSMAPS.map((m,idx)=>({m,idx})).filter(o=>o.m.propDef===sys);
@@ -1606,7 +1621,7 @@ function submitAddProp(){
 }
 function duplicateProperty(i){
   const s=PROPS[i]; if(!s)return;
-  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy_'+Math.random().toString(36).slice(2,5),DataType:s.DataType,IsSystem:false,Active:true,notes:''});
+  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy_'+Math.random().toString(36).slice(2,5),DataType:s.DataType,IsSystem:false,Active:true,valueList:(s.valueList||[]).map(m=>({...m})),notes:''});
   renderAll(); notify('Property duplicated');
 }
 function reFilterProps(){ filterProps(document.querySelector('#page-properties .search-bar input').value,'prop-tbl'); }
@@ -2780,7 +2795,7 @@ function colorForState(s,i){
   if(n.includes('pre-release')||n.includes('prerelease')) return '#1abc9c';
   return ['#f39c12','#4f8ef7','#9b59b6','#1abc9c','#7c5ff5','#2ecc71'][i%6];
 }
-function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
+function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,rawName:pick(r,'rawName','RawName')||undefined,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
@@ -3099,8 +3114,9 @@ function cfgParseProps(text,RES){
     // Match Vault's Property Type: System if the internal name is in Vault's
     // system-property set, otherwise a user-defined property (UDP).
     const isSystem=SYSTEM_PROP_NAMES.has(sys);
+    const valueList=[...p.querySelectorAll('ValueList > Member')].map(m=>({value:xAttr(m,'Value')||'',label:RES.get(xAttr(m,'ResKey'))||xAttr(m,'Value')||''}));
     out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(resKey)||sys,DataType:xAttr(p,'DataType')||'String',
-      IsSystem:isSystem,Active:xAttr(p,'Active')!=='false'});
+      IsSystem:isSystem,Active:xAttr(p,'Active')!=='false',valueList});
   });
   return out;
 }
@@ -3475,6 +3491,7 @@ function patchPropertyPackage(){
   const tmpl=doc.querySelector('UserDefinedProperty');
   let resxDoc=rxEntry?xmlDoc(dec.decode(rxEntry.data)):null;
   const setRes=resxDoc?makeResxSetter(resxDoc):(()=>{});
+  const U=s=>(s||'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
   [...wrap.querySelectorAll('UserDefinedProperty')].forEach(n=>n.remove());
   PROPS.forEach(p=>{
     const match=orig[p.SystemName];
@@ -3485,10 +3502,19 @@ function patchPropertyPackage(){
       el.setAttribute('Name', p.SystemName||p.DisplayName||'Prop');
       el.setAttribute('DataType', p.DataType||'String');
       el.setAttribute('Active', p.Active!==false?'true':'false');
-      const rk='ID_UDPDEF_DISPLAYNAME_'+(p.DisplayName||p.SystemName||'PROP').toUpperCase();
+      const rk='ID_UDPDEF_DISPLAYNAME_'+U(p.DisplayName||p.SystemName||'PROP');
       setRes(rk, p.DisplayName||p.SystemName); el.setAttribute('ResKey',rk);
-      el.querySelectorAll('ValueList').forEach(v=>{ while(v.firstChild) v.removeChild(v.firstChild); });
     }
+    // Rebuild the ValueList from the model (so edits/additions are written back).
+    let vl=el.querySelector('ValueList'); if(!vl){ vl=mk('ValueList'); el.insertBefore(vl, el.firstChild); }
+    while(vl.firstChild) vl.removeChild(vl.firstChild);
+    (p.valueList||[]).forEach((m,mi)=>{
+      const me=mk('Member');
+      const mrk='ID_UDPDEF_LIST_'+U(p.DisplayName||p.SystemName||'PROP')+'_'+U(m.label||('VALUE '+mi));
+      setRes(mrk, m.label||''); me.setAttribute('ResKey',mrk);
+      me.setAttribute('Value', (m.value!=null&&m.value!=='')?String(m.value):String(mi));
+      vl.appendChild(me);
+    });
     wrap.appendChild(el);
   });
   ent.data=reserializeXml(doc, ent.data);
@@ -3834,8 +3860,8 @@ function buildPrintDoc(){
 
   // PROPERTIES (custom only)
   html+=prSection(S(),'Property Definitions',`${pProps.length} custom property definition(s).`)+
-    (pProps.length?`<table class="pr-tbl"><thead><tr><th>Display Name</th><th>Type</th><th>Active</th></tr></thead><tbody>
-    ${pProps.slice().sort((a,b)=>String(a.DisplayName||'').localeCompare(String(b.DisplayName||''),undefined,{sensitivity:'base'})).map(p=>`<tr><td>${esc(p.DisplayName)}</td><td>${esc(p.DataType)}</td><td>${p.Active?'Yes':'No'}</td></tr>`).join('')}
+    (pProps.length?`<table class="pr-tbl"><thead><tr><th>Display Name</th><th>Type</th><th>Active</th><th>List Values</th></tr></thead><tbody>
+    ${pProps.slice().sort((a,b)=>String(a.DisplayName||'').localeCompare(String(b.DisplayName||''),undefined,{sensitivity:'base'})).map(p=>`<tr><td>${esc(p.DisplayName)}</td><td>${esc(p.DataType)}</td><td>${p.Active?'Yes':'No'}</td><td>${esc((p.valueList||[]).map(m=>m.label).filter(Boolean).join(', '))}</td></tr>`).join('')}
     </tbody></table>`:OMIT)+`</div>`;
 
   // LIFECYCLES (custom only)
