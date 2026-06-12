@@ -2624,7 +2624,7 @@ function lcShowStateSecPanel(s){
   document.getElementById('lc-state-sec-title').innerHTML=`🔐 State Security — <span style="color:${s.color}">${esc(s.name)}</span>`;
   const body=document.getElementById('lc-state-sec-body');
   body.innerHTML=`
-    <label class="toggle-wrap" style="gap:8px;margin-bottom:8px"><input type="checkbox" ${sec.useStateBased?'checked':''} onchange="lcStateSecToggle(${s.id},this.checked)"><span>Use state-based security</span></label>
+    <div class="toggle-wrap" style="gap:8px;margin-bottom:8px"><input type="checkbox" id="lc-state-usesb-${s.id}" ${sec.useStateBased?'checked':''} onchange="lcStateSecToggle(${s.id},this.checked)"><span style="cursor:default">Use state-based security</span></div>
     ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th>${ACL_PERMS.map(pm=>`<th style="width:96px;text-align:center">${pm.label}</th>`).join('')}<th style="width:48px"></th></tr></thead><tbody>
       ${sec.entries.map((e,i)=>`<tr><td><input class="inp" value="${esc(e.name)}" onchange="lcStateSec(${s.id},${i},'name',this.value)"></td>
         ${ACL_PERMS.map(pm=>`<td style="text-align:center"><select class="inp" onchange="lcStateSec(${s.id},${i},'${pm.key}',this.value)">${ACL_LEVELS.map(lv=>`<option value="${lv}" ${((e[pm.key]||'')===lv)?'selected':''}>${lv||'—'}</option>`).join('')}</select></td>`).join('')}
