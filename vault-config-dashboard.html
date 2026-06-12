@@ -3237,7 +3237,12 @@ function patchLifecyclePackage(){
       const a=t.actions;
       if(a){
         el.setAttribute('BumpRevision',a.bumpRevision||'None');
-        TX_CHECKS.forEach(c=>{ const on=!!(a.checks&&a.checks[c.key]); el.setAttribute(c.attr, c.enum?(on?'Released':'None'):(on?'true':'false')); });
+        TX_CHECKS.forEach(c=>{ const on=!!(a.checks&&a.checks[c.key]);
+          if(c.enum){ // FileLinkTypeEnum (None/Primary/Secondary/Tertiary) — preserve the original level selection when on.
+            const orig=xAttr(el,c.attr);
+            el.setAttribute(c.attr, on?((orig&&orig!=='None')?orig:'Primary Secondary Tertiary'):'None');
+          } else { el.setAttribute(c.attr, on?'true':'false'); }
+        });
         el.setAttribute('UpdateItems',a.updateItems?'true':'false');
         el.setAttribute('ExecutePurge',a.purge?'true':'false');
         el.setAttribute('ExtSyncToFM',a.extSync?'true':'false');
