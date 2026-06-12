@@ -989,11 +989,6 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
   </div>
 
   <div class="card">
-    <h3>🛠 The PowerShell Script (optional)</h3>
-    <p style="font-size:.84rem;line-height:1.7;color:var(--text)"><code>Export-VaultConfig.ps1</code> runs on Windows against an ADMS/Vault server and writes a JSON file you load here. Most people don't need it — the built-in <b>.cfg</b> import covers the same ground. Hand it only to whoever does live extraction.</p>
-  </div>
-
-  <div class="card">
     <h3>📦 Distribution &amp; Version</h3>
     <ul style="font-size:.84rem;line-height:1.8;padding-left:20px;margin:6px 0;color:var(--text)">
       <li>The tool is the single file <code>vault-config-dashboard.html</code> — copy it anywhere; updates are a drop-in replacement.</li>
@@ -3107,8 +3102,10 @@ function cfgParseNumbering(text,RES){
 const ENTITY_CLASS_TO_TYPE={FileMaster:'File',ItemMaster:'Item',Folder:'Folder',ChangeOrder:'Custom',CustomEntity:'Custom',CustomEntityBase:'Custom'};
 // Categories whose entity type is known by name even when no rule set references them.
 const CAT_NAME_TO_ENTITY={Folder:'Folder',Project:'Folder',ChangeOrder:'Custom',CustomEntityBase:'Custom'};
-function cfgParseCategories(text,RES,rulText){
+function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap){
   const doc=xmlDoc(text), out=[];
+  const mapLC=v=>(lcNameMap&&lcNameMap[v])||v;
+  const mapRev=v=>(revNameMap&&revNameMap[v])||v;
   // Build CategoryName -> entity type from the rule sets (which class each category lives under).
   const catEntity={};
   if(rulText){ try{ const rd=xmlDoc(rulText);
@@ -3121,7 +3118,7 @@ function cfgParseCategories(text,RES,rulText){
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
     const rawName=xAttr(c,'Name')||''; const cn=RES.get(xAttr(c,'ResKey'))||rawName||'';
     const entity=catEntity[rawName]||catEntity[cn]||CAT_NAME_TO_ENTITY[rawName]||CAT_NAME_TO_ENTITY[cn]||'File';
-    out.push({name:cn,entity,lifecycle:beh('LifeCycle'),revision:beh('RevisionScheme'),
+    out.push({name:cn,entity,lifecycle:mapLC(beh('LifeCycle')),revision:mapRev(beh('RevisionScheme')),
       notes:'Color '+(xAttr(c,'Color')||''),isDefault:false,system:SYSTEM_CAT_NAMES.has(cn)});
   });
   return out;
@@ -3173,7 +3170,11 @@ async function applyCfgPackage(ab, replace, sourceName){
   const revT=entryText(entries,'Revision/Revision.xml'); if(revT){ const rv=cfgParseRevisions(revT,RES); cfg.revisionSchemes=rv.schemes; cfg.revisionSequences=rv.sequences; }
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
   const rulT=entryText(entries,'EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml');
-  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT);
+  // Categories reference lifecycles/revision schemes by internal Name (a GUID for
+  // custom ones); map those to the friendly names so assignments display correctly.
+  const lcNameMap={}; (cfg.lifecycles||[]).forEach(l=>{ if(l.rawName)lcNameMap[l.rawName]=l.name; });
+  const revNameMap={}; (cfg.revisionSchemes||[]).forEach(r=>{ if(r.rawName)revNameMap[r.rawName]=r.name; });
+  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT,lcNameMap,revNameMap);
   if(rulT) cfg.categoryRules=cfgParseRules(rulT,RES);
   const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(csmT) cfg.contentSourceMappings=cfgParseCsMap(csmT);
   applyConfig(cfg, replace);
@@ -3385,6 +3386,10 @@ function patchCategoryPackage(){
   let resxDoc=rxEntry?xmlDoc(dec.decode(rxEntry.data)):null;
   const setRes=resxDoc?makeResxSetter(resxDoc):(()=>{});
   const U=s=>(s||'').toUpperCase();
+  // Categories reference lifecycles/revision schemes by internal Name (GUID for
+  // custom); map the friendly names back so the reference matches the definition.
+  const lcRaw={}; LIFECYCLES.forEach(l=>lcRaw[l.name]=l.rawName||l.name);
+  const revRaw={}; REVISIONS.forEach(r=>revRaw[r.name]=r.rawName||r.name);
   [...wrap.querySelectorAll('Category')].forEach(n=>n.remove());
   CATEGORIES.forEach(c=>{
     const match=orig[c.name];
@@ -3402,8 +3407,8 @@ function patchCategoryPackage(){
         if(![...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'Name')===value)){ const b=mk('Behavior'); b.setAttribute('Name',value); beh.appendChild(b); }
       }
     };
-    setBeh('LifeCycle', c.lifecycle);
-    setBeh('RevisionScheme', c.revision);
+    setBeh('LifeCycle', lcRaw[c.lifecycle]||c.lifecycle);
+    setBeh('RevisionScheme', revRaw[c.revision]||c.revision);
     wrap.appendChild(el);
   });
   ent.data=reserializeXml(doc, ent.data);
