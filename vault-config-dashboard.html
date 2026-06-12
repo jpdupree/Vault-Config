@@ -1077,7 +1077,7 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)">
       <label style="font-size:.8rem;font-weight:600;white-space:nowrap">🎯 Target Vault version</label>
       <input id="cfg-target-version" class="inp" style="width:150px" placeholder="e.g. 32.0.71.0">
-      <span style="font-size:.72rem;color:var(--text-muted);flex:1;min-width:200px">Set this to the version of the Vault you're importing <b>into</b> so it accepts the file. Pre-filled with the source version — leave it to keep the original.</span>
+      <span style="font-size:.72rem;color:var(--text-muted);flex:1;min-width:200px">Use the target Vault's <b>build number</b> (e.g. <code>31.3.58.0</code>) — <b>not</b> the release name (2026.x). Get it from the target's <code>Manifest.xml</code> ADMS_VERSION or the ADMS About box. Pre-filled with the source version; leave it to keep the original.</span>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
       <button class="btn btn-ghost" onclick="document.getElementById('cfg-export-modal').classList.remove('open')">Cancel</button>
