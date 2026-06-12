@@ -2702,17 +2702,26 @@ function lcExportData(lc){
 }
 function download(name,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
 function lcExportJSON(){const lc=activeLC();if(!lc)return;download((lc.name||'lifecycle').replace(/\s+/g,'-').toLowerCase()+'.json',lcExportData(lc));notify('Lifecycle exported');}
-function lcImportJSON(){document.getElementById('import-json-txt').value='';document.getElementById('import-modal').classList.add('open');}
-function doImportJSON(){
+function lcImportJSON(){
+  if(!activeLC())return;
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f)return;
+    const r=new FileReader(); r.onload=()=>{ try{ applyLcImport(JSON.parse(r.result)); }catch(err){ alert('Invalid JSON: '+err.message); } }; r.readAsText(f); };
+  inp.click();
+}
+function applyLcImport(o){
   const lc=activeLC(); if(!lc)return;
+  lc.name=o.displayName||o.name||lc.name; lc.description=o.description||''; if(o.rawName)lc.rawName=o.rawName;
+  lc.states=(o.states||[]).map(s=>({id:s.id,name:s.displayName||s.name,rawName:s.rawName,description:s.description||'',comments:s.comments||[],isDefault:!!s.isDefault,isReleasedState:!!s.isReleasedState,isObsoleteState:!!s.isObsoleteState,security:s.security,color:s.color||'#4f8ef7',x:(s.position?.x)??s.x??200,y:(s.position?.y)??s.y??200}));
+  lc.transitions=(o.transitions||[]).map(t=>({id:t.id,from:t.fromStateId??t.from,to:t.toStateId??t.to,waypoints:t.waypoints||[],actions:t.actions,criteria:t.criteria,security:t.security,customJobTypes:t.customJobTypes,peerReview:t.peerReview,email:t.email}));
+  document.getElementById('lc-edit-name').value=lc.name;document.getElementById('lc-edit-desc').value=lc.description;
+  lcRenderSidebar();lcShowEmpty();lcZoomFit();lcDraw();renderLCList();notify('Lifecycle imported');
+}
+function doImportJSON(){
   try{
     const o=JSON.parse(document.getElementById('import-json-txt').value);
-    lc.name=o.displayName||o.name||lc.name; lc.description=o.description||'';
-    lc.states=(o.states||[]).map(s=>({id:s.id,name:s.displayName||s.name,description:s.description||'',comments:s.comments||[],isDefault:!!s.isDefault,isReleasedState:!!s.isReleasedState,isObsoleteState:!!s.isObsoleteState,color:s.color||'#4f8ef7',x:(s.position?.x)??s.x??200,y:(s.position?.y)??s.y??200}));
-    lc.transitions=(o.transitions||[]).map(t=>({id:t.id,from:t.fromStateId??t.from,to:t.toStateId??t.to,waypoints:t.waypoints||[]}));
     document.getElementById('import-modal').classList.remove('open');
-    document.getElementById('lc-edit-name').value=lc.name;document.getElementById('lc-edit-desc').value=lc.description;
-    lcRenderSidebar();lcShowEmpty();lcZoomFit();lcDraw();renderLCList();notify('Lifecycle imported');
+    applyLcImport(o);
   }catch(err){alert('Invalid JSON: '+err.message);}
 }
 
