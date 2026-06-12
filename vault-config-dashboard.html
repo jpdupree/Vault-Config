@@ -865,8 +865,9 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
 <div class="page" id="page-revtable">
   <div class="page-title">Revision Table Settings</div>
   <div class="page-sub">Vault revision table control for drawings — column mappings, content, and filters. Documented here; not stored in the Global Settings .cfg.</div>
-  <div class="card">
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
     <label class="toggle-wrap" style="gap:10px;font-weight:600;font-size:.9rem"><input type="checkbox" id="rt-enable" checked onchange="rtUpdateEnabled()"><span>Enable Revision Table control</span></label>
+    <button class="btn btn-ghost btn-sm" onclick="loadDefaultRevTable()">⤓ Load Defaults</button>
   </div>
   <div id="rt-body">
     <div class="card">
@@ -1787,6 +1788,24 @@ function renderRtMaps(){
   });
 }
 function addRtMap(){ RTMAPS.push({header:'',property:'',releasedOnly:false}); renderRtMaps(); }
+function loadDefaultRevTable(){
+  if((RTMAPS.length||document.getElementById('rt-enable')) && !confirm('Replace the current Revision Table settings with the defaults?')) return;
+  RTMAPS=[
+    {header:'REV',property:'Revision',releasedOnly:false},
+    {header:'DESCRIPTION',property:'',releasedOnly:false},
+    {header:'APPROVED',property:'Created By',releasedOnly:true},
+    {header:'DATE',property:'Checked In (Date Only)',releasedOnly:true}
+  ];
+  const setC=(id,v)=>{const e=document.getElementById(id);if(e)e.checked=v;};
+  const setV=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  setC('rt-enable',true);
+  setV('rt-content-version','first'); setV('rt-content-state','first');
+  setC('rt-limit',true); setV('rt-limit-count','8'); setC('rt-hide-exceeding',false);
+  setC('rt-update-latest',false); setC('rt-detect-scheme',false);
+  setC('rt-lvl-primary',true); setC('rt-lvl-secondary',true); setC('rt-lvl-tertiary',true);
+  setC('rt-precedence',false); setV('rt-precedence-level','higher'); setC('rt-omit-initial',false);
+  renderRtMaps(); rtUpdateEnabled(); notify('Revision Table defaults loaded');
+}
 function rtUpdateEnabled(){
   const body=document.getElementById('rt-body'); if(!body)return;
   const on=document.getElementById('rt-enable')?.checked;
