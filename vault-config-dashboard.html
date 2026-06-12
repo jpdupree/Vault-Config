@@ -2553,11 +2553,10 @@ function lcTxActions(t){
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.syncProps?'checked':''} onchange="lcTxAct('syncProps',this.checked)"><span>Synchronize properties and update the selected file types using Job Server</span></label>
       ${a.syncProps?`<div style="display:flex;gap:14px;flex-wrap:wrap;padding-left:26px">${ft}</div>`:''}
       ${TX_CHECKS.map(c=>`<label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.checks[c.key]?'checked':''} onchange="lcTxCheck('${c.key}',this.checked)"><span>${c.label}</span></label>`).join('')}
-      <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.updateItems?'checked':''} onchange="lcTxAct('updateItems',this.checked)"><span>Update items</span></label>
       <label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.purge?'checked':''} onchange="lcTxAct('purge',this.checked)"><span>Purge</span></label>
       ${document.getElementById('conn-vaultconnector')?.checked?`<label class="toggle-wrap" style="gap:8px"><input type="checkbox" ${a.extSync?'checked':''} onchange="lcTxAct('extSync',this.checked)"><span>Sync Item to Fusion Manage Using Vault Connector</span></label>`:''}
     </div>
-    ${TX_NOTE('Bump revision, the checks, Update items and Purge map to StateTransition attributes in the .cfg. The Fusion Manage sync is managed by the Vault Connector and is not stored in the Global Settings .cfg lifecycle, so it cannot be read from the file — set it manually for documentation. (File-type sync list is documented but preserved as-is on export.)')}`;
+    ${TX_NOTE('Bump revision, the checks and Purge map to StateTransition attributes in the .cfg. The Fusion Manage sync is managed by the Vault Connector and is not stored in the Global Settings .cfg lifecycle, so it cannot be read from the file — set it manually for documentation. (File-type sync list is documented but preserved as-is on export.)')}`;
 }
 function lcTxJobs(t){
   return `<div style="font-size:.74rem;color:var(--text-muted);margin-bottom:6px">Available Custom Job Types</div>
