@@ -2616,8 +2616,8 @@ function lcAddWPMidpoint(id){
 
 // ── IMPORT / EXPORT ──
 function lcExportData(lc){
-  return {id:lc.id,displayName:lc.name,description:lc.description,system:!!lc.system,
-    states:lc.states.map(s=>({id:s.id,displayName:s.name,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
+  return {id:lc.id,displayName:lc.name,rawName:lc.rawName,description:lc.description,system:!!lc.system,
+    states:lc.states.map(s=>({id:s.id,displayName:s.name,rawName:s.rawName,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
     transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)})),actions:t.actions,criteria:t.criteria,security:t.security,customJobTypes:t.customJobTypes,peerReview:t.peerReview}))};
 }
 function download(name,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
@@ -2686,8 +2686,8 @@ function colorForState(s,i){
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
-function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
-function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
+function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,rawName:pick(r,'rawName','RawName')||undefined,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
+function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,rawName:pick(s,'rawName','RawName')||undefined,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
 function normNum(n){return{name:pick(n,'name','Name','scheme','Scheme')||'Scheme',resKey:pick(n,'resKey','SchemeNameResKey')||null,isActive:toBool(pick(n,'isActive','IsActive')),isDefault:toBool(pick(n,'isDefault','IsDefault')),toUpperCase:toBool(pick(n,'toUpperCase','ToUpperCase')),length:String(pick(n,'length','Length')??'6'),rangeFrom:String(pick(n,'rangeFrom','RangeFrom','start','Start')??'1'),rangeTo:String(pick(n,'rangeTo','RangeTo')??'999999'),stepSize:String(pick(n,'stepSize','StepSize','inc','Increment')??'1'),zeroPadding:toBool(pick(n,'zeroPadding','ZeroPadding')??true),system:toBool(pick(n,'system','isSystem'))};}
 function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],author:pick(c,'author','Author')||'',section:pick(c,'section','Section')||'',desc:pick(c,'desc','Description','description')||''};}
 function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
@@ -2709,6 +2709,7 @@ function normLifecycle(lc,idx,nid){
     const newId=nid(); idMap.set(orig,newId);
     const st={id:newId,
       name:pick(s,'name','displayName','DispName','DisplayName','Name')||('State '+(i+1)),
+      rawName:pick(s,'rawName','RawName')||undefined,
       description:pick(s,'description','Description','Descr')||'',
       comments:(firstArr(s,'comments','Comments')||[]).map(c=>typeof c==='string'?c:(pick(c,'comment','Comment','text','Text')||String(c))),
       isDefault:toBool(pick(s,'isDefault','IsDefault','IsDflt','Default','DefState')??false),
@@ -2736,7 +2737,7 @@ function normLifecycle(lc,idx,nid){
   }).filter(t=>t.from!=null&&t.to!=null);
   const nm=pick(lc,'name','displayName','DispName','DisplayName','Name')||('Lifecycle '+(idx+1));
   const sysv=pick(lc,'system','isSystem');
-  return {id:nid(),name:nm,description:pick(lc,'description','Description','Descr')||'',states,transitions,system:sysv!=null?toBool(sysv):SYSTEM_LC_NAMES.has(nm)};
+  return {id:nid(),name:nm,rawName:pick(lc,'rawName','RawName')||undefined,description:pick(lc,'description','Description','Descr')||'',states,transitions,system:sysv!=null?toBool(sysv):SYSTEM_LC_NAMES.has(nm)};
 }
 
 function normalizeConfig(raw){
@@ -2969,7 +2970,7 @@ function cfgParseLifecycles(text,RES){
       // State-based security: StateACL/StateACE (per-permission grant booleans).
       const sacl=[...s.querySelectorAll('StateACL > StateACE')].map(a=>({name:xAttr(a,'UserOrGroupName')||'',isGroup:xAttr(a,'IsGroup')==='true',
         read:xAttr(a,'Read')==='true'?'Allow':'',modify:xAttr(a,'Modify')==='true'?'Allow':'',delete:xAttr(a,'Delete')==='true'?'Allow':'',download:xAttr(a,'Download')==='true'?'Allow':''}));
-      states.push({id,name:dispName,description:RES.get(xAttr(s,'DescriptionResource'))||'',comments,
+      states.push({id,name:dispName,rawName:sn,description:RES.get(xAttr(s,'DescriptionResource'))||'',comments,
         isDefault:sn===init,isReleasedState:xAttr(s,'IsReleased')==='true',isObsoleteState:xAttr(s,'IsObsolete')==='true',
         security:{useStateBased:xAttr(s,'UseStateBasedSecurity')==='true',entries:sacl},
         color:xAttr(s,'Color')||'#4f8ef7',_ord:+(xAttr(s,'DisplayOrder')||si+1)});
@@ -2989,7 +2990,7 @@ function cfgParseLifecycles(text,RES){
         security:{restrict,entries:acl},
         customJobTypes:[],peerReview:{rules:[]}};
     }).filter(t=>t&&t.from!=null&&t.to!=null);
-    out.push({name,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:SYSTEM_LC_NAMES.has(name)});
+    out.push({name,rawName,description:RES.get(xAttr(def,'DescriptionResource'))||'',states,transitions,system:SYSTEM_LC_NAMES.has(name)});
   });
   return out;
 }
@@ -3015,14 +3016,14 @@ function cfgParseRevisions(text,RES){
     const raw=xAttr(r,'Name')||'';
     const disp=xAttr(r,'DisplayName')||RES.get(xAttr(r,'DisplayNameResource'))||raw;
     seqMap[raw]=disp;
-    return { name:disp, displayName:disp, system:xAttr(r,'IsSystem')==='true',
+    return { name:disp, displayName:disp, rawName:raw, system:xAttr(r,'IsSystem')==='true',
       labels:[...r.querySelectorAll('RevisionLabels > RevisionLabel')].map(l=>xAttr(l,'Label')) };
   });
   const mapSeq=v=>v?(seqMap[v]||v):'';
   const schemes=[...doc.querySelectorAll('RevisionDefinitions > RevisionDefinition')].map(d=>{
     const raw=xAttr(d,'Name')||'';
     const disp=xAttr(d,'DisplayName')||RES.get(xAttr(d,'DisplayNameResource'))||raw;
-    return { name:disp, description:xAttr(d,'Description')||RES.get(xAttr(d,'DescriptionResource'))||'',
+    return { name:disp, rawName:raw, description:xAttr(d,'Description')||RES.get(xAttr(d,'DescriptionResource'))||'',
       separator:xAttr(d,'Separator')||'.', primary:mapSeq(xAttr(d,'PrimarySequence')||''), secondary:mapSeq(xAttr(d,'SecondarySequence')||''), tertiary:mapSeq(xAttr(d,'TertiarySequence')||''),
       comments:[...d.querySelectorAll('RevisionComments > RevisionComment')].map(c=>xAttr(c,'Value')||RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean),
       system:xAttr(d,'IsSystem')==='true' };
@@ -3143,12 +3144,14 @@ function patchLifecyclePackage(){
   const U=s=>(s||'').toUpperCase();
   const ruleSetDefs=[]; // collected transition criteria → rebuilt into <RuleSets>
   LIFECYCLES.forEach(lc=>{
-    const orig=origDefs[lc.name];
+    // Internal Name = original GUID (rawName) when present, so re-import matches.
+    const RN=o=>(o&&(o.rawName||o.name))||'';
+    const orig=origDefs[RN(lc)]||origDefs[lc.name];
     let def=orig?orig.cloneNode(true):mk('LifecycleDefinition');
     if(!orig) def.setAttribute('SystemAclBehav','Combined');
-    def.setAttribute('Name',lc.name);
+    def.setAttribute('Name',RN(lc));
     const dflt=lc.states.find(s=>s.isDefault)||lc.states[0];
-    if(dflt) def.setAttribute('InitialState',dflt.name);
+    if(dflt) def.setAttribute('InitialState',RN(dflt));
     setRes('DISPNAME_'+lc.name+'_DEF',lc.name); def.setAttribute('DisplayNameResource','DISPNAME_'+lc.name+'_DEF');
     setRes('DESCR_'+lc.name+'_DEF',lc.description||''); def.setAttribute('DescriptionResource','DESCR_'+lc.name+'_DEF');
     const oStates={},oTrans={};
@@ -3159,8 +3162,8 @@ function patchLifecyclePackage(){
     const tw=mk('StateTransitions'), sw=mk('LifecycleStates');
     lc.transitions.forEach(t=>{
       const fs=lc.states.find(s=>s.id===t.from), ts=lc.states.find(s=>s.id===t.to); if(!fs||!ts)return;
-      let el=oTrans[fs.name+'→'+ts.name]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
-      el.setAttribute('FromState',fs.name); el.setAttribute('ToState',ts.name);
+      let el=oTrans[RN(fs)+'→'+RN(ts)]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
+      el.setAttribute('FromState',RN(fs)); el.setAttribute('ToState',RN(ts));
       // Actions
       const a=t.actions;
       if(a){
@@ -3193,11 +3196,11 @@ function patchLifecyclePackage(){
     // For every ordered state pair WITHOUT an arrow, write a blocked transition that
     // denies Everyone — this is how Vault represents "transition not allowed".
     const arrowSet=new Set();
-    lc.transitions.forEach(t=>{const fs=lc.states.find(s=>s.id===t.from),ts=lc.states.find(s=>s.id===t.to);if(fs&&ts)arrowSet.add(fs.name+'→'+ts.name);});
+    lc.transitions.forEach(t=>{const fs=lc.states.find(s=>s.id===t.from),ts=lc.states.find(s=>s.id===t.to);if(fs&&ts)arrowSet.add(RN(fs)+'→'+RN(ts));});
     lc.states.forEach(fs=>lc.states.forEach(ts=>{
-      if(fs===ts || arrowSet.has(fs.name+'→'+ts.name)) return;
-      let el=oTrans[fs.name+'→'+ts.name]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
-      el.setAttribute('FromState',fs.name); el.setAttribute('ToState',ts.name);
+      if(fs===ts || arrowSet.has(RN(fs)+'→'+RN(ts))) return;
+      let el=oTrans[RN(fs)+'→'+RN(ts)]; el=el?el.cloneNode(true):(tmplTrans?tmplTrans.cloneNode(true):mk('StateTransition'));
+      el.setAttribute('FromState',RN(fs)); el.setAttribute('ToState',RN(ts));
       el.setAttribute('UseTransitionBasedSecurity','true'); el.removeAttribute('RuleSet');
       [...el.querySelectorAll('TransitionACL')].forEach(e=>e.remove());
       const aclEl=mk('TransitionACL'); const ace=mk('TransitionACE');
@@ -3206,8 +3209,8 @@ function patchLifecyclePackage(){
       tw.appendChild(el);
     }));
     lc.states.forEach((s,i)=>{
-      let el=oStates[s.name]; el=el?el.cloneNode(true):(tmplState?tmplState.cloneNode(true):mk('LifecycleState'));
-      el.setAttribute('Name',s.name); el.setAttribute('Color',s.color||'#4f8ef7'); el.setAttribute('DisplayOrder',String(i+1));
+      let el=oStates[RN(s)]; el=el?el.cloneNode(true):(tmplState?tmplState.cloneNode(true):mk('LifecycleState'));
+      el.setAttribute('Name',RN(s)); el.setAttribute('Color',s.color||'#4f8ef7'); el.setAttribute('DisplayOrder',String(i+1));
       if(s.isReleasedState) el.setAttribute('IsReleased','true'); else el.removeAttribute('IsReleased');
       if(s.isObsoleteState) el.setAttribute('IsObsolete','true'); else el.removeAttribute('IsObsolete');
       const dn='DISPNAME_'+U(lc.name)+'_'+U(s.name)+'_DEF'; setRes(dn,s.name); el.setAttribute('DisplayNameResource',dn);
@@ -3272,11 +3275,16 @@ function patchRevisionPackage(){
   let resxDoc=rxEntry?xmlDoc(dec.decode(rxEntry.data)):null;
   const setRes=resxDoc?makeResxSetter(resxDoc):(()=>{});
   const U=s=>(s||'').toUpperCase();
+  // Preserve the original internal Name (a GUID for custom objects) so re-import
+  // into Vault matches the existing object instead of creating a duplicate.
+  const seqRaw={}; REVSEQS.forEach(s=>seqRaw[s.name]=s.rawName||s.name);
+  const mapSeqRef=v=>v?(seqRaw[v]||v):'';
   // sequences
   [...seqWrap.querySelectorAll('RevisionSequence')].forEach(n=>n.remove());
   REVSEQS.forEach(s=>{
-    let el=origSeq[s.name]; el=el?el.cloneNode(true):(tmplSeq?tmplSeq.cloneNode(true):mk('RevisionSequence'));
-    el.setAttribute('Name',s.name); el.setAttribute('DisplayName',s.displayName||s.name); el.setAttribute('IsSystem',s.system?'true':'false');
+    const iname=s.rawName||s.name;
+    let el=origSeq[iname]; el=el?el.cloneNode(true):(tmplSeq?tmplSeq.cloneNode(true):mk('RevisionSequence'));
+    el.setAttribute('Name',iname); el.setAttribute('DisplayName',s.displayName||s.name); el.setAttribute('IsSystem',s.system?'true':'false');
     const dnk='REVISION_SEQ_DISPNAME_'+U(s.displayName||s.name)+'_DEF'; setRes(dnk,s.displayName||s.name); el.setAttribute('DisplayNameResource',dnk);
     [...el.querySelectorAll('RevisionLabels')].forEach(e=>e.remove());
     const lw=mk('RevisionLabels');
@@ -3286,9 +3294,10 @@ function patchRevisionPackage(){
   // scheme definitions
   [...defWrap.querySelectorAll('RevisionDefinition')].forEach(n=>n.remove());
   REVISIONS.forEach(r=>{
-    let el=origDef[r.name]; el=el?el.cloneNode(true):(tmplDef?tmplDef.cloneNode(true):mk('RevisionDefinition'));
-    el.setAttribute('Name',r.name); el.setAttribute('DisplayName',r.name); el.setAttribute('Description',r.description||'');
-    el.setAttribute('PrimarySequence',r.primary||''); el.setAttribute('SecondarySequence',r.secondary||r.primary||''); el.setAttribute('TertiarySequence',r.tertiary||r.secondary||r.primary||'');
+    const iname=r.rawName||r.name;
+    let el=origDef[iname]; el=el?el.cloneNode(true):(tmplDef?tmplDef.cloneNode(true):mk('RevisionDefinition'));
+    el.setAttribute('Name',iname); el.setAttribute('DisplayName',r.name); el.setAttribute('Description',r.description||'');
+    el.setAttribute('PrimarySequence',mapSeqRef(r.primary)||''); el.setAttribute('SecondarySequence',mapSeqRef(r.secondary||r.primary)||''); el.setAttribute('TertiarySequence',mapSeqRef(r.tertiary||r.secondary||r.primary)||'');
     el.setAttribute('Separator',r.separator||'.'); el.setAttribute('IsSystem',r.system?'true':'false');
     const dnk='REVISION_SCHEME_DISPNAME_'+U(r.name)+'_DEF'; setRes(dnk,r.name); el.setAttribute('DisplayNameResource',dnk);
     const ddk='DESCR_'+U(r.name)+'_DEF'; setRes(ddk,r.description||''); el.setAttribute('DescriptionResource',ddk);
