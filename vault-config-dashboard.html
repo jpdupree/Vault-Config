@@ -1974,7 +1974,14 @@ const RULE_ENTITY_CLASSES=[['FileMaster','File'],['ItemMaster','Item'],['Folder'
 function ruleClassLabel(cls){ const m=RULE_ENTITY_CLASSES.find(x=>x[0]===cls); return m?m[1]:cls; }
 function ruleClassOptions(sel){ let opts=RULE_ENTITY_CLASSES.slice(); if(sel&&!opts.some(x=>x[0]===sel))opts.push([sel,sel]); return opts.map(([c,l])=>`<option value="${esc(c)}" ${c===sel?'selected':''}>${esc(l)}</option>`).join(''); }
 function catOptions(sel){ return '<option value="">—</option>'+CATEGORIES.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join(''); }
-function propOptions(sel){ const names=[...new Set(PROPS.map(p=>p.SystemName))]; if(sel&&!names.includes(sel))names.push(sel); names.sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})); return names.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join(''); }
+function propOptions(sel){
+  // Value = SystemName (used for cfg links/write-back); label = friendly DisplayName.
+  const seen=new Set(), opts=[];
+  PROPS.forEach(p=>{ const sn=p.SystemName; if(sn==null||seen.has(sn))return; seen.add(sn); opts.push({value:sn,label:p.DisplayName||sn}); });
+  if(sel&&!seen.has(sel)) opts.push({value:sel,label:sel});
+  opts.sort((a,b)=>String(a.label).localeCompare(String(b.label),undefined,{sensitivity:'base'}));
+  return opts.map(o=>`<option value="${esc(o.value)}" ${o.value===sel?'selected':''}>${esc(o.label)}</option>`).join('');
+}
 function addRule(entityClass){ RULES.push({entityClass:entityClass||"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
 function duplicateRule(i){ const s=RULES[i]; if(!s)return; RULES.splice(i+1,0,{...s,ruleSetName:(s.ruleSetName||s.category)+' Copy'}); renderRules(); notify('Rule duplicated'); }
 
