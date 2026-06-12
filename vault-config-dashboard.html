@@ -3008,17 +3008,25 @@ function cfgParseProps(text,RES){
 }
 function cfgParseRevisions(text,RES){
   const doc=xmlDoc(text);
-  const sequences=[...doc.querySelectorAll('RevisionSequences > RevisionSequence')].map(r=>({
-    name:xAttr(r,'Name')||'', displayName:xAttr(r,'DisplayName')||xAttr(r,'Name')||'',
-    system:xAttr(r,'IsSystem')==='true',
-    labels:[...r.querySelectorAll('RevisionLabels > RevisionLabel')].map(l=>xAttr(l,'Label'))
-  }));
-  const schemes=[...doc.querySelectorAll('RevisionDefinitions > RevisionDefinition')].map(d=>({
-    name:xAttr(d,'Name')||'', description:xAttr(d,'Description')||RES.get(xAttr(d,'DescriptionResource'))||'',
-    separator:xAttr(d,'Separator')||'.', primary:xAttr(d,'PrimarySequence')||'', secondary:xAttr(d,'SecondarySequence')||'', tertiary:xAttr(d,'TertiarySequence')||'',
-    comments:[...d.querySelectorAll('RevisionComments > RevisionComment')].map(c=>xAttr(c,'Value')||RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean),
-    system:xAttr(d,'IsSystem')==='true'
-  }));
+  // Custom schemes/sequences have a GUID Name; the readable name is in DisplayName
+  // (or the resx). Sequences are referenced by schemes via that GUID, so remap.
+  const seqMap={};
+  const sequences=[...doc.querySelectorAll('RevisionSequences > RevisionSequence')].map(r=>{
+    const raw=xAttr(r,'Name')||'';
+    const disp=xAttr(r,'DisplayName')||RES.get(xAttr(r,'DisplayNameResource'))||raw;
+    seqMap[raw]=disp;
+    return { name:disp, displayName:disp, system:xAttr(r,'IsSystem')==='true',
+      labels:[...r.querySelectorAll('RevisionLabels > RevisionLabel')].map(l=>xAttr(l,'Label')) };
+  });
+  const mapSeq=v=>v?(seqMap[v]||v):'';
+  const schemes=[...doc.querySelectorAll('RevisionDefinitions > RevisionDefinition')].map(d=>{
+    const raw=xAttr(d,'Name')||'';
+    const disp=xAttr(d,'DisplayName')||RES.get(xAttr(d,'DisplayNameResource'))||raw;
+    return { name:disp, description:xAttr(d,'Description')||RES.get(xAttr(d,'DescriptionResource'))||'',
+      separator:xAttr(d,'Separator')||'.', primary:mapSeq(xAttr(d,'PrimarySequence')||''), secondary:mapSeq(xAttr(d,'SecondarySequence')||''), tertiary:mapSeq(xAttr(d,'TertiarySequence')||''),
+      comments:[...d.querySelectorAll('RevisionComments > RevisionComment')].map(c=>xAttr(c,'Value')||RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean),
+      system:xAttr(d,'IsSystem')==='true' };
+  });
   return {schemes,sequences};
 }
 function cfgParseNumbering(text,RES){
@@ -3057,14 +3065,15 @@ function cfgParseCategories(text,RES,rulText){
   return out;
 }
 
-function cfgParseRules(text){
+function cfgParseRules(text,RES){
   const doc=xmlDoc(text), out=[];
   doc.querySelectorAll('EntityClassCategoryRuleSet').forEach(ec=>{
     const cls=xAttr(ec,'EntityClassName')||'', applyNew=xAttr(ec,'ApplyToNewEntity')==='true';
     ec.querySelectorAll('CategoryRuleSet').forEach(crs=>{
       const cat=xAttr(crs,'CategoryName')||'';
       crs.querySelectorAll('RuleSet').forEach(rs=>{
-        const rsName=xAttr(rs,'Name')||'';
+        // Custom rule sets can carry a GUID Name; prefer the resx display name.
+        const rsName=(RES&&RES.get(xAttr(rs,'ResKey')))||xAttr(rs,'Name')||'';
         const rules=[...rs.querySelectorAll('Rule')];
         if(rules.length===0){ out.push({entityClass:cls,applyToNew:applyNew,category:cat,ruleSetName:rsName,propDef:'',condition:'EqualTo',value:''}); }
         rules.forEach(r=>out.push({entityClass:cls,applyToNew:applyNew,category:cat,ruleSetName:rsName,propDef:xAttr(r,'PropDefName')||'',condition:xAttr(r,'Condition')||'EqualTo',value:xAttr(r,'Value')||''}));
@@ -3103,7 +3112,7 @@ async function applyCfgPackage(ab, replace, sourceName){
   const numT=entryText(entries,'FileNumberingScheme/FileNumberingScheme.xml'); if(numT) cfg.numberingSchemes=cfgParseNumbering(numT,RES);
   const rulT=entryText(entries,'EntityClassCategoryRuleSet/EntityClassCategoryRuleSets.xml');
   const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT);
-  if(rulT) cfg.categoryRules=cfgParseRules(rulT);
+  if(rulT) cfg.categoryRules=cfgParseRules(rulT,RES);
   const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(csmT) cfg.contentSourceMappings=cfgParseCsMap(csmT);
   applyConfig(cfg, replace);
   // stash the original package AFTER applyConfig (which may reset loadedCfg)
