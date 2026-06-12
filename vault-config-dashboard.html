@@ -303,6 +303,9 @@ input:checked+.slider:before{transform:translateX(18px);}
 
   <div class="nav-section">Deployment</div>
   <div class="nav-item" onclick="showPage('checklist')" id="nav-checklist"><span class="ni">✅</span> Manual Checklist</div>
+
+  <div class="nav-section">Help</div>
+  <div class="nav-item" onclick="showPage('help')" id="nav-help"><span class="ni">❓</span> Help &amp; Docs</div>
   <div class="nav-foot" id="app-version"></div>
 </nav>
 
@@ -942,6 +945,63 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
   </div>
 </div>
 
+<!-- HELP & DOCS -->
+<div class="page" id="page-help">
+  <div class="page-title">Help &amp; Docs</div>
+  <div class="page-sub">What this tool is, how to use it, and how it's distributed.</div>
+
+  <div class="card">
+    <h3>🚀 Quick Start</h3>
+    <ol style="font-size:.84rem;line-height:1.9;padding-left:20px;margin:6px 0">
+      <li><b>Open it</b> — this single HTML file runs in any modern browser, fully offline. It opens with sample data so you can click around safely.</li>
+      <li><b>Load your config</b> — use <b>📂 Load Data</b> (top right). Three formats: a Vault <b>.cfg</b> Global Settings export (File ▸ Export in the Vault client — best option), this dashboard's own JSON, or PowerShell JSON from <code>Export-VaultConfig.ps1</code>.</li>
+      <li><b>Replace toggle</b> — <b>Off (merge)</b> keeps existing data for sections the file doesn't include (use this most of the time); <b>On (replace)</b> clears missing sections for a clean slate.</li>
+      <li><b>Review &amp; edit</b> — use the left sidebar. Everything is editable inline. Lifecycles has a visual flowchart editor; Property Definitions expands per-property mappings.</li>
+      <li><b>Save</b> — <b>💾 Save</b> keeps your work in this browser; <b>↺ Reset</b> returns to sample data. Nothing is ever uploaded.</li>
+      <li><b>Export / hand off</b> — <b>⬇ Download JSON</b> (re-loadable), <b>⬇ Export .cfg</b> (appears after loading a .cfg; writes edits back so it re-imports into Vault), or <b>🖨 Print / PDF</b> for a polished hand-off document.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>📋 Common Tasks</h3>
+    <table class="tbl"><thead><tr><th>I want to…</th><th>Do this</th></tr></thead><tbody>
+      <tr><td>Document a brand-new Vault</td><td>Start from sample data, edit each section, then Download JSON / Print PDF</td></tr>
+      <tr><td>Review an existing Vault</td><td>Load Data → its <b>.cfg</b> (Replace on), walk the sidebar</td></tr>
+      <tr><td>Continue earlier work</td><td>Load Data → your saved dashboard JSON</td></tr>
+      <tr><td>Update Vault from my edits</td><td>Load the .cfg, edit, Export .cfg, import it back in the Vault client</td></tr>
+      <tr><td>Produce a hand-off document</td><td>Print / PDF → Save as PDF</td></tr>
+      <tr><td>Track manual setup steps</td><td>Open <b>Deployment ▸ Manual Checklist</b> and check items off</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="card">
+    <h3>📂 What the .cfg does &amp; doesn't carry</h3>
+    <p style="font-size:.84rem;line-height:1.7;color:var(--text)">The Global Settings <b>.cfg</b> carries: <b>properties, lifecycles, categories, category rules, revision schemes/sequences, numbering schemes,</b> and <b>property mappings</b> — these round-trip on import and <b>.cfg</b> export.</p>
+    <p style="font-size:.84rem;line-height:1.7;color:var(--text-muted)">It does <b>not</b> carry users/groups, roles, security policy, folders, server/database, CAD, email, connectors, the Fusion Manage connector, backup, general settings, the revision table control, or lifecycle transition extras (custom job types, peer review, email notifications). Those are documented here and listed on the <b>Manual Checklist</b> for hand-application in Vault.</p>
+  </div>
+
+  <div class="card">
+    <h3>🔒 Data &amp; Privacy</h3>
+    <ul style="font-size:.84rem;line-height:1.8;padding-left:20px;margin:6px 0;color:var(--text)">
+      <li>100% client-side — data lives in this browser and in files you explicitly export. <b>Nothing is uploaded</b>; there is no backend.</li>
+      <li>Avoid putting secrets you don't want shared (e.g. service passwords) into a file you then commit or distribute. The email section intentionally omits password fields.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>🛠 The PowerShell Script (optional)</h3>
+    <p style="font-size:.84rem;line-height:1.7;color:var(--text)"><code>Export-VaultConfig.ps1</code> runs on Windows against an ADMS/Vault server and writes a JSON file you load here. Most people don't need it — the built-in <b>.cfg</b> import covers the same ground. Hand it only to whoever does live extraction.</p>
+  </div>
+
+  <div class="card">
+    <h3>📦 Distribution &amp; Version</h3>
+    <ul style="font-size:.84rem;line-height:1.8;padding-left:20px;margin:6px 0;color:var(--text)">
+      <li>The tool is the single file <code>vault-config-dashboard.html</code> — copy it anywhere; updates are a drop-in replacement.</li>
+      <li>The build stamp in the sidebar footer and on the PDF cover (e.g. <span id="help-version" style="font-weight:600"></span>) identifies which copy you're running — quote it if you report an issue.</li>
+    </ul>
+  </div>
+</div>
+
 </main>
 </div>
 
@@ -1399,6 +1459,7 @@ const APP_BUILD='2026.06.12';
 const APP_VERSION_LABEL='v'+APP_VERSION+' · Build '+APP_BUILD;
 window.addEventListener('DOMContentLoaded',()=>{
   const av=document.getElementById('app-version'); if(av) av.textContent=APP_VERSION_LABEL;
+  const hv=document.getElementById('help-version'); if(hv) hv.textContent=APP_VERSION_LABEL;
   document.getElementById('last-updated').textContent=new Date().toLocaleDateString();
   document.getElementById('cfg-date').value=new Date().toISOString().split('T')[0];
   const saved=loadLocal();
