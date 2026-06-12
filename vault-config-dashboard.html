@@ -2697,8 +2697,8 @@ function lcAddWPMidpoint(id){
 // ── IMPORT / EXPORT ──
 function lcExportData(lc){
   return {id:lc.id,displayName:lc.name,rawName:lc.rawName,description:lc.description,system:!!lc.system,
-    states:lc.states.map(s=>({id:s.id,displayName:s.name,rawName:s.rawName,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
-    transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)})),actions:t.actions,criteria:t.criteria,security:t.security,customJobTypes:t.customJobTypes,peerReview:t.peerReview}))};
+    states:lc.states.map(s=>({id:s.id,displayName:s.name,rawName:s.rawName,description:s.description,comments:s.comments,isDefault:s.isDefault,isReleasedState:s.isReleasedState,isObsoleteState:s.isObsoleteState,security:s.security,color:s.color,position:{x:Math.round(s.x),y:Math.round(s.y)}})),
+    transitions:lc.transitions.map(t=>({id:t.id,fromStateId:t.from,toStateId:t.to,fromStateName:lc.states.find(s=>s.id===t.from)?.name||'',toStateName:lc.states.find(s=>s.id===t.to)?.name||'',waypoints:(t.waypoints||[]).map(p=>({x:Math.round(p.x),y:Math.round(p.y)})),actions:t.actions,criteria:t.criteria,security:t.security,customJobTypes:t.customJobTypes,peerReview:t.peerReview,email:t.email}))};
 }
 function download(name,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
 function lcExportJSON(){const lc=activeLC();if(!lc)return;download((lc.name||'lifecycle').replace(/\s+/g,'-').toLowerCase()+'.json',lcExportData(lc));notify('Lifecycle exported');}
