@@ -1683,7 +1683,7 @@ const CHECKLIST_ITEMS=[
   {id:'fusion',label:'Vault Connector (Fusion Manage)',page:'fusion',note:'Tenant, property/state mappings, attachments, and the per-transition Fusion sync are managed by the connector — not in the .cfg.'},
   {id:'backup',label:'Backup & Restore',page:'backup',note:'Set up the backup schedule / script on the server (ADMS).'},
   {id:'general',label:'General Settings (file handling)',page:'general',note:'Unique file names, duplicate search, trash bin, design check-in restrictions, etc.'},
-  {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review, Email Notifications and State-based Security are documented but not written to the .cfg.'}
+  {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review and Email Notifications are documented but not written to the .cfg.'}
 ];
 let CHECKLIST={};
 function renderChecklist(){
@@ -2464,7 +2464,7 @@ function lcShowStateSecPanel(s){
         <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||`<tr><td colspan="${ACL_PERMS.length+2}" style="color:var(--text-muted)">No entries.</td></tr>`}
       </tbody></table><div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcStateAddSec(${s.id})">+ Add User/Group</button></div>`
       :'<div style="color:var(--text-muted);font-size:.78rem">Object-based (folder) security applies while in this state. Enable state-based security to grant or restrict specific users and groups.</div>'}
-    <div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">Documented in the dashboard/JSON. The default .cfg lifecycle export has no state ACL element, so this is not written back to the .cfg.</div>`;
+    <div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">Read from and written back to the .cfg (UseStateBasedSecurity + StateACL). Note: Vault state ACEs grant permissions, so only <b>Allow</b> round-trips — Deny/Empty both export as “not granted”.</div>`;
   if(lcReadOnly){ body.querySelectorAll('input,select,textarea').forEach(x=>x.disabled=true); body.querySelectorAll('button').forEach(x=>x.style.display='none'); }
   p.style.display='block';
 }
@@ -2626,6 +2626,7 @@ function normLifecycle(lc,idx,nid){
       isDefault:toBool(pick(s,'isDefault','IsDefault','IsDflt','Default','DefState')??false),
       isReleasedState:toBool(pick(s,'isReleasedState','IsReleased','IsRel','ReleasedState','Released','Consume')??false),
       isObsoleteState:toBool(pick(s,'isObsoleteState','IsObsolete','IsObs','ObsoleteState','Obsolete')??false),
+      security:pick(s,'security','Security'),
       color:pick(s,'color','Color'),
       x:asNum(pick(s.position||s,'x','X','PosX')),
       y:asNum(pick(s.position||s,'y','Y','PosY'))};
@@ -2875,8 +2876,12 @@ function cfgParseLifecycles(text,RES){
       const sn=xAttr(s,'Name'); const id=si+1; idByName.set(sn,id);
       const dispName=RES.get(xAttr(s,'DisplayNameResource'))||sn;
       const comments=[...s.querySelectorAll('Comments > Comment')].map(c=>RES.get(xAttr(c,'ValueResource'))||'').filter(Boolean);
+      // State-based security: StateACL/StateACE (per-permission grant booleans).
+      const sacl=[...s.querySelectorAll('StateACL > StateACE')].map(a=>({name:xAttr(a,'UserOrGroupName')||'',isGroup:xAttr(a,'IsGroup')==='true',
+        read:xAttr(a,'Read')==='true'?'Allow':'',modify:xAttr(a,'Modify')==='true'?'Allow':'',delete:xAttr(a,'Delete')==='true'?'Allow':'',download:xAttr(a,'Download')==='true'?'Allow':''}));
       states.push({id,name:dispName,description:RES.get(xAttr(s,'DescriptionResource'))||'',comments,
         isDefault:sn===init,isReleasedState:xAttr(s,'IsReleased')==='true',isObsoleteState:xAttr(s,'IsObsolete')==='true',
+        security:{useStateBased:xAttr(s,'UseStateBasedSecurity')==='true',entries:sacl},
         color:xAttr(s,'Color')||'#4f8ef7',_ord:+(xAttr(s,'DisplayOrder')||si+1)});
     });
     const n=states.length||1; states.forEach((s,i)=>{const a=(2*Math.PI*((s._ord||i+1)-1)/n)-Math.PI/2;s.x=Math.round(420+280*Math.cos(a));s.y=Math.round(300+230*Math.sin(a));delete s._ord;});
@@ -3112,6 +3117,17 @@ function patchLifecyclePackage(){
       const cw=mk('Comments'); const cs=(s.comments&&s.comments.length)?s.comments:[''];
       cs.forEach((c,ci)=>{ const ck='COMM_'+U(lc.name)+'_'+U(s.name)+'_DEF'+ci; setRes(ck,c); const ce=mk('Comment'); ce.setAttribute('ValueResource',ck); ce.setAttribute('IsDefault',ci===0?'true':'false'); cw.appendChild(ce); });
       const acl=el.querySelector('StateACL'); if(acl) el.insertBefore(cw,acl); else el.appendChild(cw);
+      // State-based security: UseStateBasedSecurity + StateACL (per-permission grants).
+      const ssec=s.security;
+      [...el.querySelectorAll('StateACL')].forEach(e=>e.remove());
+      el.setAttribute('UseStateBasedSecurity', ssec&&ssec.useStateBased?'true':'false');
+      if(ssec&&ssec.useStateBased&&ssec.entries&&ssec.entries.length){
+        const aclEl=mk('StateACL');
+        ssec.entries.forEach(en=>{ const ace=mk('StateACE'); ace.setAttribute('UserOrGroupName',en.name||'');
+          [['read','Read'],['modify','Modify'],['delete','Delete'],['download','Download']].forEach(([k,A])=>{ if(en[k]==='Allow') ace.setAttribute(A,'true'); });
+          ace.setAttribute('IsGroup',en.isGroup?'true':'false'); aclEl.appendChild(ace); });
+        el.appendChild(aclEl);
+      }
       sw.appendChild(el);
     });
     def.appendChild(tw); def.appendChild(sw); root.appendChild(def);
