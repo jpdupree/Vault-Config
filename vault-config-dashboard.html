@@ -347,12 +347,12 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div class="form-grid">
       <div class="form-group"><label>Vault Name</label><input id="cfg-vault-name" value="Vault" oninput="updateBadge()"/></div>
       <div class="form-group"><label>Server</label><input id="cfg-server" value="localhost"/></div>
-      <div class="form-group"><label>Vault Version</label><input id="cfg-version" placeholder="e.g. 2025.1"/></div>
+      <div class="form-group"><label>Vault Version</label><input id="cfg-version" placeholder="e.g. 2026.1"/></div>
+      <div class="form-group"><label>Build Number <span style="color:var(--text-muted);font-weight:400;font-size:.72rem">(used for .cfg version)</span></label><input id="cfg-build" placeholder="e.g. 32.0.71.0"/></div>
       <div class="form-group"><label>Administrator</label><input id="cfg-admin" value="Administrator"/></div>
       <div class="form-group"><label>Organization / Client</label><input id="cfg-org" placeholder="Client / company name"/></div>
       <div class="form-group"><label>Document Date</label><input id="cfg-date" type="date"/></div>
       <div class="form-group"><label>Prepared By (Consultant)</label><input id="cfg-consultant" placeholder="Your name"/></div>
-      <div class="form-group"><label>Document Revision</label><input id="cfg-docrev" value="1.0"/></div>
     </div>
     <div class="form-group"><label>Summary Notes</label><textarea id="cfg-notes" rows="2" placeholder="General notes about this Vault configuration..."></textarea></div>
   </div>
@@ -380,11 +380,6 @@ input:checked+.slider:before{transform:translateX(18px);}
     <div class="metric"><div class="label">Lifecycles</div><div class="value" id="ov-lc">0</div><div class="sub">Defined workflows</div></div>
     <div class="metric"><div class="label">Categories</div><div class="value" id="ov-cats">0</div><div class="sub">Assignment rules</div></div>
     <div class="metric"><div class="label">Folders</div><div class="value" id="ov-folders">0</div><div class="sub">Tracked folders</div></div>
-  </div>
-
-  <div class="card">
-    <h3>Configuration Completion</h3>
-    <div id="completion-bars"></div>
   </div>
 </div>
 
@@ -1074,10 +1069,8 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
       Property mappings keep the exact <b>moniker</b> but not the friendly file-property name / classification.
       Roles &amp; user accounts are server-level, never part of this .cfg.
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2)">
-      <label style="font-size:.8rem;font-weight:600;white-space:nowrap">🎯 Target Vault version</label>
-      <input id="cfg-target-version" class="inp" style="width:150px" placeholder="e.g. 32.0.71.0">
-      <span style="font-size:.72rem;color:var(--text-muted);flex:1;min-width:200px">Use the target Vault's <b>build number</b> (e.g. <code>31.3.58.0</code>) — <b>not</b> the release name (2026.x). Get it from the target's <code>Manifest.xml</code> ADMS_VERSION or the ADMS About box. Pre-filled with the source version; leave it to keep the original.</span>
+    <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);font-size:.74rem;color:var(--text)">
+      🎯 The exported <b>.cfg</b> is stamped with the <b>Build Number</b> from Overview ▸ Vault Details (<span id="cfg-export-build" style="font-weight:700">—</span>). Set that to the <b>target</b> Vault's build number so it accepts the file; leave it as the source version to keep the original.
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
       <button class="btn btn-ghost" onclick="document.getElementById('cfg-export-modal').classList.remove('open')">Cancel</button>
@@ -2707,7 +2700,7 @@ function doImportJSON(){
 function collectConfig(){
   return {
     schema:"vault-config-dashboard/1",
-    vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),documentRevision:val('cfg-docrev'),notes:val('cfg-notes')},
+    vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),buildNumber:val('cfg-build'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),notes:val('cfg-notes')},
     lifecycles:LIFECYCLES.map(lcExportData),
     categories:CATEGORIES,revisionSchemes:REVISIONS,revisionSequences:REVSEQS,numberingSchemes:NUMBERING,
     properties:PROPS,folders:FOLDERS,
@@ -2758,7 +2751,7 @@ function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pic
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,rawName:pick(s,'rawName','RawName')||undefined,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
 function normNum(n){return{name:pick(n,'name','Name','scheme','Scheme')||'Scheme',resKey:pick(n,'resKey','SchemeNameResKey')||null,isActive:toBool(pick(n,'isActive','IsActive')),isDefault:toBool(pick(n,'isDefault','IsDefault')),toUpperCase:toBool(pick(n,'toUpperCase','ToUpperCase')),length:String(pick(n,'length','Length')??'6'),rangeFrom:String(pick(n,'rangeFrom','RangeFrom','start','Start')??'1'),rangeTo:String(pick(n,'rangeTo','RangeTo')??'999999'),stepSize:String(pick(n,'stepSize','StepSize','inc','Increment')??'1'),zeroPadding:toBool(pick(n,'zeroPadding','ZeroPadding')??true),system:toBool(pick(n,'system','isSystem'))};}
 function normCL(c){return{date:String(pick(c,'date','Date')||'').split('T')[0],author:pick(c,'author','Author')||'',section:pick(c,'section','Section')||'',desc:pick(c,'desc','Description','description')||''};}
-function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),documentRevision:pick(v,'documentRevision','docRev'),notes:pick(v,'notes','Notes','summary')};}
+function normVault(v){return{name:pick(v,'name','Name','vaultName'),server:pick(v,'server','Server'),version:pick(v,'version','Version'),buildNumber:pick(v,'buildNumber','build','BuildNumber'),administrator:pick(v,'administrator','Administrator','admin'),organization:pick(v,'organization','Organization','org','client'),documentDate:pick(v,'documentDate','date'),preparedBy:pick(v,'preparedBy','consultant'),notes:pick(v,'notes','Notes','summary')};}
 function normUser(u){return{username:pick(u,'username','Username','UserName','name')||'',fullName:pick(u,'fullName','FullName','Name')||'',email:pick(u,'email','Email')||'',role:pick(u,'role','Role')||'',status:pick(u,'status','Status')||'Active'};}
 function normGroup(g){return{name:pick(g,'name','Name')||'',description:pick(g,'description','Description')||'',members:Array.isArray(g.members)?g.members.join(', '):(pick(g,'members','Members')||'')};}
 function normRole(r){const nm=pick(r,'name','Name')||'';const sysv=pick(r,'system','isSystem');return{name:nm,description:pick(r,'description','Description')||'',notes:pick(r,'notes','Notes')||'',system:sysv!=null?toBool(sysv):SYSTEM_ROLE_NAMES.has(nm)};}
@@ -2847,7 +2840,7 @@ function normalizeConfig(raw){
   return out;
 }
 
-const VAULT_FIELDS=['cfg-vault-name','cfg-server','cfg-version','cfg-admin','cfg-org','cfg-consultant','cfg-docrev','cfg-notes'];
+const VAULT_FIELDS=['cfg-vault-name','cfg-server','cfg-version','cfg-build','cfg-admin','cfg-org','cfg-consultant','cfg-notes'];
 const GENERAL_FIELDS=['gs-working','gs-unique','gs-unique-opts','gs-checkin-restrict','gs-dupsearch','gs-dupsearch-opts','gs-trashbin','gs-eco','gs-item'];
 function gsUpdateConditional(){
   const u=document.getElementById('gs-unique-opts-wrap'); if(u) u.style.display=document.getElementById('gs-unique')?.checked?'':'none';
@@ -2879,7 +2872,7 @@ function applyConfig(raw,replace){
   grp(SETTING_FIELDS.revtable,c.rtFields); rtUpdateEnabled();
   if(c.lifecycles){ LIFECYCLES=c.lifecycles; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
   else if(replace){ LIFECYCLES=[]; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
-  if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-docrev',v.documentRevision);setVal('cfg-notes',v.notes);}
+  if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-build',v.buildNumber);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-notes',v.notes);}
   else if(replace){ clearFields(VAULT_FIELDS); }
   if(c.general){const g=c.general;setVal('gs-working',g.workingFolder);setChk('gs-unique',g.enforceUniqueNames);setVal('gs-unique-opts',g.uniqueNameOptions);setChk('gs-checkin-restrict',g.restrictDesignCheckin);setChk('gs-dupsearch',g.duplicateSearch);setVal('gs-dupsearch-opts',g.duplicateSearchOptions);setChk('gs-trashbin',g.trashBin);setChk('gs-eco',g.enableChangeOrders);setChk('gs-item',g.enableItemMaster);gsUpdateConditional();}
   else if(replace){ clearFields(GENERAL_FIELDS); }
@@ -3192,6 +3185,8 @@ async function applyCfgPackage(ab, replace, sourceName){
   applyConfig(cfg, replace);
   // stash the original package AFTER applyConfig (which may reset loadedCfg)
   loadedCfg={entries,rawB64,sourceName:sourceName||'loaded .cfg'};
+  // Pre-fill the Build Number from the package manifest (source version).
+  const mv=cfgManifestVersion(); if(mv) setVal('cfg-build',mv);
   updateCfgIndicator();
 }
 
@@ -3582,14 +3577,13 @@ function patchManifestVersion(ver){
 function exportCfg(){
   if(!loadedCfg){ alert('Load a Vault .cfg first (📂 Load Data), then Export .cfg patches your edits back into that package. Tip: a JSON saved/exported after loading a .cfg also carries the package, so loading that JSON re-arms this button.'); return; }
   document.getElementById('cfg-export-modal').classList.add('open');
-  // Pre-fill the target version with the source version (once entries are available).
-  ensureCfgEntries().then(()=>{ const f=document.getElementById('cfg-target-version'); if(f&&!f.value) f.value=cfgManifestVersion(); });
+  const eb=document.getElementById('cfg-export-build'); if(eb) eb.textContent=val('cfg-build')||'(unset — keeps source version)';
 }
 async function doExportCfg(){
   document.getElementById('cfg-export-modal').classList.remove('open');
   try{
     await ensureCfgEntries();
-    patchManifestVersion((document.getElementById('cfg-target-version').value||'').trim());
+    patchManifestVersion((val('cfg-build')||'').trim());
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -3677,9 +3671,9 @@ function buildPrintDoc(){
         <tr><td>Vault Name</td><td>${esc(vname)}</td></tr>
         <tr><td>Server</td><td>${esc(val('cfg-server')||'—')}</td></tr>
         <tr><td>Vault Version</td><td>${esc(val('cfg-version')||'—')}</td></tr>
+        <tr><td>Build Number</td><td>${esc(val('cfg-build')||'—')}</td></tr>
         <tr><td>Administrator</td><td>${esc(val('cfg-admin')||'—')}</td></tr>
         <tr><td>Prepared By</td><td>${esc(val('cfg-consultant')||'—')}</td></tr>
-        <tr><td>Document Revision</td><td>${esc(val('cfg-docrev')||'—')}</td></tr>
         <tr><td>Document Date</td><td>${esc(val('cfg-date')||today)}</td></tr>
       </table>
       ${val('cfg-notes')?`<div class="pr-cover-summary"><div class="lbl">Summary</div><div class="txt">${esc(val('cfg-notes'))}</div></div>`:''}
