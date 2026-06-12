@@ -283,8 +283,7 @@ input:checked+.slider:before{transform:translateX(18px);}
   <div class="nav-item" onclick="showPage('rules')" id="nav-rules"><span class="ni">🧭</span> Category Rules</div>
   <div class="nav-item" onclick="showPage('revisions')" id="nav-revisions"><span class="ni">📋</span> Revision Schemes</div>
   <div class="nav-item" onclick="showPage('numbering')" id="nav-numbering"><span class="ni">🔢</span> Numbering Schemes</div>
-
-  <div class="nav-section">Properties</div>
+  <div class="nav-item" onclick="showPage('revtable')" id="nav-revtable"><span class="ni">📑</span> Revision Table</div>
   <div class="nav-item" onclick="showPage('properties')" id="nav-properties"><span class="ni">🔑</span> Property Definitions</div>
 
   <div class="nav-section">Structure</div>
@@ -864,6 +863,57 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
   </div>
 </div>
 
+<!-- REVISION TABLE -->
+<div class="page" id="page-revtable">
+  <div class="page-title">Revision Table Settings</div>
+  <div class="page-sub">Vault revision table control for drawings — column mappings, content, and filters. Documented here; not stored in the Global Settings .cfg.</div>
+  <div class="card">
+    <label class="toggle-wrap" style="gap:10px;font-weight:600;font-size:.9rem"><input type="checkbox" id="rt-enable" checked onchange="rtUpdateEnabled()"><span>Enable Revision Table control</span></label>
+  </div>
+  <div id="rt-body">
+    <div class="card">
+      <h3>Mappings</h3>
+      <p style="font-size:.78rem;color:var(--text-muted);margin:-4px 0 10px">Match the revision table column headers to Vault properties. <b>Released Only</b> checked = show released information only; unchecked = latest information from the vault.</p>
+      <table class="tbl" id="rtmap-tbl">
+        <thead><tr><th>Column Header</th><th>Vault Property</th><th style="width:100px;text-align:center">Released Only</th><th></th></tr></thead>
+        <tbody id="rtmap-tbody"></tbody>
+      </table>
+      <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addRtMap()">+ Add Column</button></div>
+    </div>
+    <div class="card">
+      <h3>Content</h3>
+      <p style="font-size:.78rem;color:var(--text-muted);margin:-4px 0 10px">Configure the type of information displayed within the revision table.</p>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:.84rem">
+        <span>Populate information using</span>
+        <select id="rt-content-version" class="inp" style="width:auto"><option>first</option><option>last</option></select>
+        <span>version from the</span>
+        <select id="rt-content-state" class="inp" style="width:auto"><option>first</option><option>last</option></select>
+        <span>released state information</span>
+      </div>
+      <div class="toggle-stack">
+        <div class="toggle-wrap" style="gap:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rt-limit" checked onchange="rtUpdateEnabled()"><span>Limit number of rows</span></label> <input type="number" id="rt-limit-count" value="8" class="inp" style="width:72px"></div>
+        <label class="toggle-wrap" style="gap:8px;padding-left:26px"><input type="checkbox" id="rt-hide-exceeding"><span>Hide exceeding records for Inventor drawings</span></label>
+        <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="rt-update-latest"><span>Update latest revision only</span></label>
+        <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="rt-detect-scheme"><span>Detect revision scheme change and remove previous revision history</span></label>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Filters</h3>
+      <p style="font-size:.78rem;color:var(--text-muted);margin:-4px 0 10px">Set up filters to omit unnecessary information in the revision table.</p>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:.84rem">
+        <span>Display revision at the following levels:</span>
+        <label class="toggle-wrap" style="gap:6px"><input type="checkbox" id="rt-lvl-primary" checked><span>Primary</span></label>
+        <label class="toggle-wrap" style="gap:6px"><input type="checkbox" id="rt-lvl-secondary" checked><span>Secondary</span></label>
+        <label class="toggle-wrap" style="gap:6px"><input type="checkbox" id="rt-lvl-tertiary" checked><span>Tertiary</span></label>
+      </div>
+      <div class="toggle-stack">
+        <div class="toggle-wrap" style="gap:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="rt-precedence"><span>Apply precedence rules to display only</span></label> <select id="rt-precedence-level" class="inp" style="width:auto"><option>higher</option><option>lower</option></select> <span style="font-size:.84rem">revision levels</span></div>
+        <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="rt-omit-initial"><span>Omit the initial revision row</span></label>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- NOTES -->
 <div class="page" id="page-notes">
   <div class="page-title">Notes &amp; Change Log</div>
@@ -1241,7 +1291,8 @@ const SETTING_FIELDS={
   email:['email-enable','email-account','email-from','email-user','email-domain','email-smtp','email-port','email-interval','email-ssl'],
   connections:['conn-vaultconnector','conn-vds','conn-forgeflow','conn-powerplm','conn-jitterbit','conn-desktop','conn-sovelia','conn-jobq','conn-powerjobs','conn-powergate','conn-ruler'],
   backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify','bk-script'],
-  audit:['audit-retain','audit-level','audit-fmt','audit-login','audit-file','audit-admin','audit-lc']
+  audit:['audit-retain','audit-level','audit-fmt','audit-login','audit-file','audit-admin','audit-lc'],
+  revtable:['rt-enable','rt-content-version','rt-content-state','rt-limit','rt-limit-count','rt-hide-exceeding','rt-update-latest','rt-detect-scheme','rt-lvl-primary','rt-lvl-secondary','rt-lvl-tertiary','rt-precedence','rt-precedence-level','rt-omit-initial']
 };
 // [label, id] descriptors for the printed PDF
 const PRINT_FIELDS={
@@ -1364,7 +1415,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderCadApps();
-  renderRules(); renderFmProps(); renderFmStates(); renderChecklist();
+  renderRules(); renderFmProps(); renderFmStates(); renderChecklist(); renderRtMaps(); rtUpdateEnabled();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator(); updateConnectorVisibility(); gsUpdateConditional();
 }
 
@@ -1656,6 +1707,41 @@ function renderNumbering(){
 function addNumRow(){ NUMBERING.push({name:"New Scheme",resKey:null,isActive:false,isDefault:false,toUpperCase:false,length:"6",rangeFrom:"1",rangeTo:"999999",stepSize:"1",zeroPadding:true,system:false}); renderNumbering(); }
 function duplicateNum(i){ const s=NUMBERING[i]; if(!s)return; NUMBERING.splice(i+1,0,{...s,name:'Copy of '+s.name,resKey:null}); renderNumbering(); notify('Numbering scheme duplicated'); }
 
+// ── Revision Table (Vault drawing revision-table control) ──
+let RTMAPS=[
+  {header:'REV',property:'Revision',releasedOnly:false},
+  {header:'DESCRIPTION',property:'',releasedOnly:false},
+  {header:'APPROVED',property:'Created By',releasedOnly:true},
+  {header:'DATE',property:'Checked In (Date Only)',releasedOnly:true}
+];
+function rtPropOptions(sel){
+  const names=[...new Set(PROPS.map(p=>p.DisplayName).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'}));
+  if(sel&&!names.includes(sel)) names.unshift(sel);
+  return '<option value=""></option>'+names.map(n=>`<option ${n===sel?'selected':''}>${esc(n)}</option>`).join('');
+}
+function renderRtMaps(){
+  const tb=document.getElementById('rtmap-tbody'); if(!tb)return; tb.innerHTML='';
+  RTMAPS.forEach((m,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(m.header)}"/></td>
+      <td><select class="inp">${rtPropOptions(m.property)}</select></td>
+      <td style="text-align:center" title="Checked = released only; unchecked = latest from the vault"><input type="checkbox" ${m.releasedOnly?'checked':''}/></td>
+      <td><button class="btn btn-danger btn-icon" onclick="RTMAPS.splice(${i},1);renderRtMaps()">✕</button></td>`;
+    const el=tr.querySelectorAll('input,select');
+    el[0].onchange=e=>m.header=e.target.value; el[1].onchange=e=>m.property=e.target.value; el[2].onchange=e=>m.releasedOnly=e.target.checked;
+    tb.appendChild(tr);
+  });
+}
+function addRtMap(){ RTMAPS.push({header:'',property:'',releasedOnly:false}); renderRtMaps(); }
+function rtUpdateEnabled(){
+  const body=document.getElementById('rt-body'); if(!body)return;
+  const on=document.getElementById('rt-enable')?.checked;
+  body.style.opacity=on?'1':'.45'; body.style.pointerEvents=on?'':'none';
+  // Limit sub-options only apply when "Limit number of rows" is on.
+  const lim=document.getElementById('rt-limit')?.checked;
+  ['rt-limit-count','rt-hide-exceeding'].forEach(id=>{const e=document.getElementById(id);if(e)e.disabled=!lim;});
+}
+
 function renderChangeLog(){
   const tb=document.getElementById('changelog-tbody'); if(!tb)return; tb.innerHTML='';
   CHANGELOG.forEach((c,i)=>{
@@ -1683,7 +1769,8 @@ const CHECKLIST_ITEMS=[
   {id:'fusion',label:'Vault Connector (Fusion Manage)',page:'fusion',note:'Tenant, property/state mappings, attachments, and the per-transition Fusion sync are managed by the connector — not in the .cfg.'},
   {id:'backup',label:'Backup & Restore',page:'backup',note:'Set up the backup schedule / script on the server (ADMS).'},
   {id:'general',label:'General Settings (file handling)',page:'general',note:'Unique file names, duplicate search, trash bin, design check-in restrictions, etc.'},
-  {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review and Email Notifications are documented but not written to the .cfg.'}
+  {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review and Email Notifications are documented but not written to the .cfg.'},
+  {id:'revtable',label:'Revision Table Control',page:'revtable',note:'Drawing revision table mappings, content and filters — configured in the Vault add-in, not the .cfg.'}
 ];
 let CHECKLIST={};
 function renderChecklist(){
@@ -2565,6 +2652,7 @@ function collectConfig(){
     backup:collectFields(SETTING_FIELDS.backup),
     categoryRules:RULES, contentSourceMappings:CSMAPS,
     fusionConnector:{fields:collectFields(FM_FIELDS),propertyMappings:FMPROPMAPS,stateMappings:FMSTATEMAPS},
+    revisionTable:{settings:collectFields(SETTING_FIELDS.revtable),mappings:RTMAPS},
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),checklist:CHECKLIST,
     // Embed the original Vault .cfg package so a single JSON is a complete,
     // reload-proof snapshot and re-arms Export .cfg when loaded.
@@ -2668,6 +2756,7 @@ function normalizeConfig(raw){
   const g=raw.generalSettings||raw.general||raw.GeneralSettings; if(g) out.general=g;
   const gn=pick(raw,'generalNotes','GeneralNotes'); if(gn!==undefined) out.generalNotes=gn;
   const ckl=pick(raw,'checklist','Checklist'); if(ckl&&typeof ckl==='object') out.checklist=ckl;
+  if(raw.revisionTable){ out.rtFields=raw.revisionTable.settings||raw.revisionTable; const rm=firstArr(raw.revisionTable,'mappings','Mappings'); if(rm) out.rtmaps=rm.map(m=>({header:pick(m,'header','Header')||'',property:pick(m,'property','Property')||'',releasedOnly:toBool(pick(m,'releasedOnly','ReleasedOnly')??false)})); }
   // people
   const users=firstArr(raw,'users','Users'); if(users) out.users=users.map(normUser);
   const groups=firstArr(raw,'groups','Groups'); if(groups) out.groups=groups.map(normGroup);
@@ -2707,7 +2796,7 @@ function applyConfig(raw,replace){
   arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v);
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   arr('changelog',v=>CHANGELOG=v); arrKeep('users',v=>USERS=v); arrKeep('groups',v=>GROUPS=v);
-  arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('cadapps',v=>CADAPPS=v); arr('auditlog',v=>AUDITLOG=v);
+  arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('cadapps',v=>CADAPPS=v); arr('auditlog',v=>AUDITLOG=v); arr('rtmaps',v=>RTMAPS=v);
   arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
   arr('fmpropmaps',v=>FMPROPMAPS=v); arr('fmstatemaps',v=>FMSTATEMAPS=v);
   if(c.fmFields) restoreFields(c.fmFields);
@@ -2718,6 +2807,7 @@ function applyConfig(raw,replace){
   grp(SETTING_FIELDS.connections,c.connFields); grp(SETTING_FIELDS.backup,c.backupFields);
   updateConnectorVisibility();
   grp(SETTING_FIELDS.audit,c.auditFields);
+  grp(SETTING_FIELDS.revtable,c.rtFields); rtUpdateEnabled();
   if(c.lifecycles){ LIFECYCLES=c.lifecycles; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
   else if(replace){ LIFECYCLES=[]; activeLCId=null; const ec=document.getElementById('lc-editor-card'); if(ec) ec.style.display='none'; }
   if(c.vault){const v=c.vault;setVal('cfg-vault-name',v.name);setVal('cfg-server',v.server);setVal('cfg-version',v.version);setVal('cfg-admin',v.administrator);setVal('cfg-org',v.organization);setVal('cfg-date',v.documentDate);setVal('cfg-consultant',v.preparedBy);setVal('cfg-docrev',v.documentRevision);setVal('cfg-notes',v.notes);}
@@ -3514,6 +3604,26 @@ function buildPrintDoc(){
     <table class="pr-tbl"><thead><tr><th>Name</th><th>Active</th><th>Default</th><th>Length</th><th>From</th><th>To</th><th>Step</th><th>Zero Pad</th></tr></thead><tbody>
     ${NUMBERING.map(n=>`<tr><td>${esc(n.name)}</td><td>${n.isActive?'Yes':'No'}</td><td>${n.isDefault?'Yes':'No'}</td><td>${esc(n.length)}</td><td>${esc(n.rangeFrom)}</td><td>${esc(n.rangeTo)}</td><td>${esc(n.stepSize)}</td><td>${n.zeroPadding?'Yes':'No'}</td></tr>`).join('')}
     </tbody></table></div>`;
+
+  // REVISION TABLE
+  const rtOn=document.getElementById('rt-enable')?.checked;
+  html+=prSection(S(),'Revision Table',rtOn?'Revision Table control enabled.':'Revision Table control disabled.')+
+    (rtOn?`<div class="pr-h3">Column Mappings</div>
+    <table class="pr-tbl"><thead><tr><th>Column Header</th><th>Vault Property</th><th>Released Only</th></tr></thead><tbody>
+    ${RTMAPS.map(m=>`<tr><td>${esc(m.header)}</td><td>${esc(m.property||'—')}</td><td>${m.releasedOnly?'Yes':'No'}</td></tr>`).join('')||'<tr><td colspan="3">None</td></tr>'}
+    </tbody></table>
+    <div class="pr-h3">Content</div><table class="pr-kv">
+      <tr><td>Populate using</td><td>${prFieldVal('rt-content-version')} version, from the ${prFieldVal('rt-content-state')} released state</td></tr>
+      <tr><td>Limit number of rows</td><td>${prFieldVal('rt-limit')==='Yes'?prFieldVal('rt-limit-count'):'No'}</td></tr>
+      <tr><td>Hide exceeding records (Inventor drawings)</td><td>${prFieldVal('rt-hide-exceeding')}</td></tr>
+      <tr><td>Update latest revision only</td><td>${prFieldVal('rt-update-latest')}</td></tr>
+      <tr><td>Detect revision scheme change &amp; remove history</td><td>${prFieldVal('rt-detect-scheme')}</td></tr>
+    </table>
+    <div class="pr-h3">Filters</div><table class="pr-kv">
+      <tr><td>Revision levels</td><td>${['Primary','Secondary','Tertiary'].filter((l,i)=>prFieldVal(['rt-lvl-primary','rt-lvl-secondary','rt-lvl-tertiary'][i])==='Yes').join(', ')||'—'}</td></tr>
+      <tr><td>Apply precedence rules</td><td>${prFieldVal('rt-precedence')==='Yes'?('Yes — '+prFieldVal('rt-precedence-level')+' levels'):'No'}</td></tr>
+      <tr><td>Omit the initial revision row</td><td>${prFieldVal('rt-omit-initial')}</td></tr>
+    </table>`:'<div class="pr-note">Revision Table control is disabled.</div>')+`</div>`;
 
   // SERVER & DATABASE
   html+=prSection(S(),'Server & Database')+`
