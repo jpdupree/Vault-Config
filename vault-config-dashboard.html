@@ -2372,12 +2372,21 @@ function lcZoomFit(){
 }
 
 // ── SIDEBAR ──
+let lcDragStateIdx=null;
 function lcRenderSidebar(){
   const list=document.getElementById('lc-states-list'); const lc=activeLC(); if(!lc){list.innerHTML='';return;}
   list.innerHTML='';
-  lc.states.forEach(s=>{
+  lc.states.forEach((s,idx)=>{
     const div=document.createElement('div');
     div.className='state-card'+(s.id===lcSelectedStateId?' active':'');
+    if(!lcReadOnly){
+      div.draggable=true; div.title='Drag to reorder';
+      div.addEventListener('dragstart',e=>{lcDragStateIdx=idx;e.dataTransfer.effectAllowed='move';div.style.opacity='.4';});
+      div.addEventListener('dragend',()=>{div.style.opacity='';div.style.boxShadow='';lcDragStateIdx=null;});
+      div.addEventListener('dragover',e=>{if(lcDragStateIdx==null)return;e.preventDefault();e.dataTransfer.dropEffect='move';div.style.boxShadow=idx>lcDragStateIdx?'inset 0 -2px 0 var(--accent)':'inset 0 2px 0 var(--accent)';});
+      div.addEventListener('dragleave',()=>{div.style.boxShadow='';});
+      div.addEventListener('drop',e=>{e.preventDefault();div.style.boxShadow='';const from=lcDragStateIdx,to=idx;if(from==null||from===to)return;const[m]=lc.states.splice(from,1);lc.states.splice(to,0,m);lcRenderSidebar();lcDraw();});
+    }
     div.onclick=()=>{lcSelectedStateId=s.id;lcSelectedTransId=null;lcRenderSidebar();lcShowStateDetail(s);lcDraw();};
     let tags='';
     if(s.isDefault)tags+='<span class="tag tag-default">Default</span>';
