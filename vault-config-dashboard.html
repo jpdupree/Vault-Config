@@ -3295,7 +3295,7 @@ function patchLifecyclePackage(){
       if(ssec&&ssec.useStateBased&&ssec.entries&&ssec.entries.length){
         const aclEl=mk('StateACL');
         ssec.entries.forEach(en=>{ const ace=mk('StateACE'); ace.setAttribute('UserOrGroupName',en.name||'');
-          [['read','Read'],['modify','Modify'],['delete','Delete'],['download','Download']].forEach(([k,A])=>{ if(en[k]==='Allow') ace.setAttribute(A,'true'); });
+          [['read','Read'],['modify','Modify'],['delete','Delete'],['download','Download']].forEach(([k,A])=>{ ace.setAttribute(A, en[k]==='Allow'?'true':'false'); });
           ace.setAttribute('IsGroup',en.isGroup?'true':'false'); aclEl.appendChild(ace); });
         el.appendChild(aclEl);
       }
