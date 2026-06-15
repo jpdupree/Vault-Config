@@ -1678,13 +1678,19 @@ const CAT_SECTIONS=[
   {key:'Item',match:e=>e==='Item'},
   {key:'Custom',match:e=>e!=='File'&&e!=='Folder'&&e!=='Item'}
 ];
+let CAT_EXPANDED=new Set();
 function renderCategories(){
   CAT_SECTIONS.forEach(sec=>{const tb=document.getElementById('cat-tbody-'+sec.key);if(tb)tb.innerHTML='';});
+  // shared datalist of property display names for the add-property search box
+  let dl=document.getElementById('cat-prop-options');
+  if(!dl){ dl=document.createElement('datalist'); dl.id='cat-prop-options'; document.body.appendChild(dl); }
+  dl.innerHTML=[...new Set(PROPS.map(p=>p.DisplayName).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})).map(n=>`<option value="${esc(n)}"></option>`).join('');
   CATEGORIES.forEach((c,i)=>{
     const sec=CAT_SECTIONS.find(s=>s.match(c.entity))||CAT_SECTIONS[0];
     const tb=document.getElementById('cat-tbody-'+sec.key); if(!tb)return;
+    const expanded=CAT_EXPANDED.has(c);
     const tr=document.createElement('tr');
-    const actions=`<button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
+    const actions=`<button class="btn btn-ghost btn-icon" title="Property list" onclick="catToggle(${i})">${expanded?'▾':'▸'} 🔑${(c.properties||[]).length}</button> <button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
     tr.innerHTML=`<td style="text-align:center"><input type="checkbox" ${c.isDefault?'checked':''}/></td>
       <td><input class="inp" value="${esc(c.name)}"/></td>
       <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
@@ -1694,10 +1700,30 @@ function renderCategories(){
     const el=tr.querySelectorAll('td input.inp, select');
     el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.lifecycle=e.target.value; el[2].onchange=e=>c.revision=e.target.value;
     tb.appendChild(tr);
+    if(expanded){ const er=document.createElement('tr'); er.className='cat-exp'; er.innerHTML=`<td colspan="5" style="background:var(--surface2);padding:12px 16px">${catPropListHTML(c,i)}</td>`; tb.appendChild(er); }
   });
 }
-function addCategory(entity){ CATEGORIES.push({name:"New Category",entity:entity||'File',lifecycle:"",revision:"",notes:"",isDefault:false,system:false}); renderCategories(); updateMetrics(); }
-function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,isDefault:false,system:false}); renderCategories(); updateMetrics(); notify('Category duplicated'); }
+function catPropListHTML(c,i){
+  const props=c.properties||[];
+  const chips=props.length?props.map((sn,pi)=>{
+    const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px 4px 3px 10px;font-size:.76rem;margin:0 6px 6px 0">${esc(label)}<button class="btn btn-danger btn-icon" style="padding:0 5px" title="Remove" onclick="catDelProp(${i},${pi})">✕</button></span>`;
+  }).join(''):'<span style="color:var(--text-muted);font-size:.78rem">No properties assigned.</span>';
+  return `<div style="font-weight:600;font-size:.82rem;margin-bottom:8px">Property List — ${esc(c.name)}</div>
+    <div style="margin-bottom:10px">${chips}</div>
+    <input class="inp" style="max-width:300px" list="cat-prop-options" placeholder="🔍 Search & add property…" onchange="catAddProp(${i},this.value);this.value='';">`;
+}
+function catToggle(i){ const c=CATEGORIES[i]; if(!c)return; if(CAT_EXPANDED.has(c))CAT_EXPANDED.delete(c); else CAT_EXPANDED.add(c); renderCategories(); }
+function catAddProp(i,val){
+  val=(val||'').trim(); if(!val)return; const c=CATEGORIES[i]; if(!c)return;
+  const p=PROPS.find(x=>x.DisplayName===val)||PROPS.find(x=>x.SystemName===val); const sn=p?p.SystemName:val;
+  if(!Array.isArray(c.properties))c.properties=[];
+  if(!c.properties.includes(sn))c.properties.push(sn);
+  CAT_EXPANDED.add(c); renderCategories();
+}
+function catDelProp(i,pi){ const c=CATEGORIES[i]; if(!c||!Array.isArray(c.properties))return; c.properties.splice(pi,1); renderCategories(); }
+function addCategory(entity){ CATEGORIES.push({name:"New Category",entity:entity||'File',lifecycle:"",revision:"",notes:"",isDefault:false,properties:[],system:false}); renderCategories(); updateMetrics(); }
+function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,isDefault:false,properties:[...(s.properties||[])],system:false}); renderCategories(); updateMetrics(); notify('Category duplicated'); }
 
 function seqOptions(sel){ return '<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${s.name===sel?'selected':''}>${esc(s.name)}</option>`).join(''); }
 function revOptions(sel){ return '<option value="">— None —</option>'+REVISIONS.map(r=>`<option ${r.name===sel?'selected':''}>${esc(r.name)}</option>`).join(''); }
@@ -2797,7 +2823,7 @@ function colorForState(s,i){
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
-function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
+function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,properties:(firstArr(c,'properties','Properties')||[]).map(x=>typeof x==='string'?x:(pick(x,'SystemName','systemName','name','Name')||String(x))),system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,rawName:pick(r,'rawName','RawName')||undefined,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,rawName:pick(s,'rawName','RawName')||undefined,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
 function normNum(n){return{name:pick(n,'name','Name','scheme','Scheme')||'Scheme',resKey:pick(n,'resKey','SchemeNameResKey')||null,isActive:toBool(pick(n,'isActive','IsActive')),isDefault:toBool(pick(n,'isDefault','IsDefault')),toUpperCase:toBool(pick(n,'toUpperCase','ToUpperCase')),length:String(pick(n,'length','Length')??'6'),rangeFrom:String(pick(n,'rangeFrom','RangeFrom','start','Start')??'1'),rangeTo:String(pick(n,'rangeTo','RangeTo')??'999999'),stepSize:String(pick(n,'stepSize','StepSize','inc','Increment')??'1'),zeroPadding:toBool(pick(n,'zeroPadding','ZeroPadding')??true),system:toBool(pick(n,'system','isSystem'))};}
@@ -3173,9 +3199,12 @@ function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap){
   }catch(e){} }
   doc.querySelectorAll('Categories > Category').forEach(c=>{
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
+    // Assigned property list = the UserDefinedProperty behavior names (SystemNames).
+    const udpCls=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')==='UserDefinedProperty');
+    const properties=udpCls?[...udpCls.querySelectorAll('Behaviors > Behavior')].map(x=>xAttr(x,'Name')).filter(Boolean):[];
     const rawName=xAttr(c,'Name')||''; const cn=RES.get(xAttr(c,'ResKey'))||rawName||'';
     const entity=catEntity[rawName]||catEntity[cn]||CAT_NAME_TO_ENTITY[rawName]||CAT_NAME_TO_ENTITY[cn]||'File';
-    out.push({name:cn,entity,lifecycle:mapLC(beh('LifeCycle')),revision:mapRev(beh('RevisionScheme')),
+    out.push({name:cn,entity,lifecycle:mapLC(beh('LifeCycle')),revision:mapRev(beh('RevisionScheme')),properties,
       notes:'Color '+(xAttr(c,'Color')||''),isDefault:false,system:SYSTEM_CAT_NAMES.has(cn)});
   });
   return out;
@@ -3473,6 +3502,15 @@ function patchCategoryPackage(){
     };
     setBeh('LifeCycle', lcRaw[c.lifecycle]||c.lifecycle);
     setBeh('RevisionScheme', revRaw[c.revision]||c.revision);
+    // Rebuild the UserDefinedProperty behavior list from the assigned property list.
+    if(Array.isArray(c.properties)){
+      const ucls=[...el.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')==='UserDefinedProperty');
+      if(ucls){ let ub=ucls.querySelector('Behaviors'); if(!ub){ ub=mk('Behaviors'); ucls.appendChild(ub); }
+        ub.setAttribute('Default','ALLBEHAVIORS');
+        [...ub.querySelectorAll('Behavior')].forEach(n=>n.remove());
+        c.properties.forEach(sn=>{ const b=mk('Behavior'); b.setAttribute('Name',sn); ub.appendChild(b); });
+      }
+    }
     wrap.appendChild(el);
   });
   ent.data=reserializeXml(doc, ent.data);
@@ -3835,8 +3873,9 @@ function buildPrintDoc(){
   // CATEGORIES (custom only) — grouped by entity type
   const catGroups=[['File','File Categories'],['Folder','Folder Categories'],['Item','Item Categories'],['Custom','Custom Object Categories']];
   const catMatch=(c,k)=>k==='Custom'?(c.entity!=='File'&&c.entity!=='Folder'&&c.entity!=='Item'):c.entity===k;
-  const catTbl=rows=>`<table class="pr-tbl"><thead><tr><th style="width:60px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th></tr></thead><tbody>
-    ${rows.map(c=>`<tr><td style="text-align:center">${c.isDefault?'✓':''}</td><td>${esc(c.name)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td></tr>`).join('')}
+  const catPropNames=c=>(c.properties||[]).map(sn=>{const p=PROPS.find(x=>x.SystemName===sn);return p?p.DisplayName:sn;}).join(', ');
+  const catTbl=rows=>`<table class="pr-tbl"><thead><tr><th style="width:50px;text-align:center">Default</th><th>Name</th><th>Lifecycle</th><th>Revision Scheme</th><th>Properties</th></tr></thead><tbody>
+    ${rows.map(c=>`<tr><td style="text-align:center">${c.isDefault?'✓':''}</td><td>${esc(c.name)}</td><td>${esc(c.lifecycle||'—')}</td><td>${esc(c.revision||'—')}</td><td style="font-size:9px">${esc(catPropNames(c))}</td></tr>`).join('')}
     </tbody></table>`;
   const catBody=catGroups.map(([k,label])=>{const rows=pCats.filter(c=>catMatch(c,k));return rows.length?`<div class="pr-h3">${label}</div>`+catTbl(rows):'';}).join('');
   html+=prSection(S(),'Categories',`${pCats.length} custom category assignment(s).`)+(catBody||OMIT)+`</div>`;
