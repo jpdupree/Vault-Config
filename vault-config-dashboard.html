@@ -1703,13 +1703,24 @@ function renderCategories(){
     if(expanded){ const er=document.createElement('tr'); er.className='cat-exp'; er.innerHTML=`<td colspan="5" style="background:var(--surface2);padding:12px 16px">${catPropListHTML(c,i)}</td>`; tb.appendChild(er); }
   });
 }
+function catSortProps(c){ if(!Array.isArray(c.properties))return; const dn=sn=>{const p=PROPS.find(x=>x.SystemName===sn);return String((p?p.DisplayName:sn)||'');}; c.properties.sort((a,b)=>dn(a).localeCompare(dn(b),undefined,{sensitivity:'base'})); }
+let CAT_PROP_CLIPBOARD=null;
+function catCopyProps(i){ const c=CATEGORIES[i]; if(!c)return; CAT_PROP_CLIPBOARD=[...(c.properties||[])]; renderCategories(); notify('Copied '+CAT_PROP_CLIPBOARD.length+' propert'+(CAT_PROP_CLIPBOARD.length===1?'y':'ies')); }
+function catPasteProps(i){ const c=CATEGORIES[i]; if(!c)return; if(!CAT_PROP_CLIPBOARD){notify('Nothing copied yet — use Copy first');return;} const cur=(c.properties||[]).length; if(cur && !confirm('Replace this category’s '+cur+' propert'+(cur===1?'y':'ies')+' with the copied set ('+CAT_PROP_CLIPBOARD.length+')?'))return; c.properties=[...CAT_PROP_CLIPBOARD]; catSortProps(c); CAT_EXPANDED.add(c); renderCategories(); notify('Property set pasted'); }
 function catPropListHTML(c,i){
+  catSortProps(c);
   const props=c.properties||[];
   const chips=props.length?props.map((sn,pi)=>{
     const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn;
     return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px 4px 3px 10px;font-size:.76rem;margin:0 6px 6px 0">${esc(label)}<button class="btn btn-danger btn-icon" style="padding:0 5px" title="Remove" onclick="catDelProp(${i},${pi})">✕</button></span>`;
   }).join(''):'<span style="color:var(--text-muted);font-size:.78rem">No properties assigned.</span>';
-  return `<div style="font-weight:600;font-size:.82rem;margin-bottom:8px">Property List — ${esc(c.name)}</div>
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+      <div style="font-weight:600;font-size:.82rem">Property List — ${esc(c.name)}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" title="Copy this property set" onclick="catCopyProps(${i})">⧉ Copy</button>
+        <button class="btn btn-ghost btn-sm" title="Replace with the copied property set" onclick="catPasteProps(${i})">📋 Paste${CAT_PROP_CLIPBOARD?` (${CAT_PROP_CLIPBOARD.length})`:''}</button>
+      </div>
+    </div>
     <div style="margin-bottom:10px">${chips}</div>
     <input class="inp" style="max-width:300px" list="cat-prop-options" placeholder="🔍 Search & add property…" onchange="catAddProp(${i},this.value);this.value='';">`;
 }
@@ -1719,7 +1730,7 @@ function catAddProp(i,val){
   const p=PROPS.find(x=>x.DisplayName===val)||PROPS.find(x=>x.SystemName===val); const sn=p?p.SystemName:val;
   if(!Array.isArray(c.properties))c.properties=[];
   if(!c.properties.includes(sn))c.properties.push(sn);
-  CAT_EXPANDED.add(c); renderCategories();
+  catSortProps(c); CAT_EXPANDED.add(c); renderCategories();
 }
 function catDelProp(i,pi){ const c=CATEGORIES[i]; if(!c||!Array.isArray(c.properties))return; c.properties.splice(pi,1); renderCategories(); }
 function addCategory(entity){ CATEGORIES.push({name:"New Category",entity:entity||'File',lifecycle:"",revision:"",notes:"",isDefault:false,properties:[],system:false}); renderCategories(); updateMetrics(); }
@@ -3504,6 +3515,7 @@ function patchCategoryPackage(){
     setBeh('RevisionScheme', revRaw[c.revision]||c.revision);
     // Rebuild the UserDefinedProperty behavior list from the assigned property list.
     if(Array.isArray(c.properties)){
+      catSortProps(c);
       const ucls=[...el.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')==='UserDefinedProperty');
       if(ucls){ let ub=ucls.querySelector('Behaviors'); if(!ub){ ub=mk('Behaviors'); ucls.appendChild(ub); }
         ub.setAttribute('Default','ALLBEHAVIORS');
