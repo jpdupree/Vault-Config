@@ -2107,11 +2107,12 @@ function fmActionToggle(i,action,on){
 function fmSet(i,k,v){ if(FMSTATEMAPS[i]) FMSTATEMAPS[i][k]=v; }
 function fmStateToggle(i,on){ const s=FMSTATEMAPS[i]; if(!s)return; s.useStateTransition=on; if(!on) s.fromState='Any State'; renderFmStates(); }
 function addFmState(){ FMSTATEMAPS.push({name:"New Mapping",description:"",workspace:"",useStateTransition:false,transition:"",fromState:"Any State",toState:"",actions:["Change Item State"],itemLifecycle:"",filesLifecycle:""}); renderFmStates(); }
+const FM_ALL_ACTIONS=["Change Item State","Change Primary Linked File States","Change Secondary Linked File States","Change Tertiary Linked File States"];
 const DEFAULT_FMSTATEMAPS=[
-  {name:"Perform Change",description:"Change order ready to perform",workspace:"Change Orders",useStateTransition:false,transition:"",fromState:"Any State",toState:"Perform Change",actions:["Change Item State"],itemLifecycle:"",filesLifecycle:""},
-  {name:"Approve",description:"Change order approved",workspace:"Change Orders",useStateTransition:true,transition:"Approve: Change Control Board Review to Change Control Board Review",fromState:"",toState:"",actions:["Change Item State"],itemLifecycle:"",filesLifecycle:""},
-  {name:"All Confirmed",description:"All affected items confirmed/released",workspace:"Change Orders",useStateTransition:true,transition:"All Confirmed: Released to Implemented",fromState:"",toState:"",actions:["Change Item State","Change Primary Linked File States"],itemLifecycle:"",filesLifecycle:""},
-  {name:"Cancel",description:"Change order cancelled",workspace:"Change Orders",useStateTransition:true,transition:"Cancel: Perform Change to Cancelled",fromState:"",toState:"",actions:["Change Item State"],itemLifecycle:"",filesLifecycle:""}
+  {name:"Perform Change",description:"Change order submitted",workspace:"Change Orders",useStateTransition:false,transition:"",fromState:"Any State",toState:"Perform Change",actions:[...FM_ALL_ACTIONS],itemLifecycle:"Item Production Lifecycle",filesLifecycle:"Engineering File Lifecycle"},
+  {name:"Submit for Review",description:"Change order submitted",workspace:"Change Orders",useStateTransition:false,transition:"",fromState:"Any State",toState:"Change Control Board Review",actions:[...FM_ALL_ACTIONS],itemLifecycle:"Item Production Lifecycle",filesLifecycle:"Engineering File Lifecycle"},
+  {name:"Approve Change Order",description:"Change order Approved",workspace:"Change Orders",useStateTransition:false,transition:"",fromState:"Any State",toState:"Released",actions:[...FM_ALL_ACTIONS],itemLifecycle:"Item Production Lifecycle",filesLifecycle:"Engineering File Lifecycle"},
+  {name:"Reject Change Order",description:"Change order Cancelled",workspace:"Change Orders",useStateTransition:false,transition:"",fromState:"Any State",toState:"Cancelled",actions:[...FM_ALL_ACTIONS],itemLifecycle:"Item Production Lifecycle",filesLifecycle:"Engineering File Lifecycle"}
 ];
 function loadDefaultFmStates(){
   if(FMSTATEMAPS.length && !confirm('Replace the current state mappings with the defaults?')) return;
