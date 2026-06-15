@@ -2082,8 +2082,8 @@ function renderFmStates(){
       : `<div style="display:flex;gap:6px;align-items:center"><span style="font-size:.74rem;color:var(--text-muted);white-space:nowrap">Any State</span><span style="color:var(--text-muted)">→</span><input class="inp" style="width:130px" value="${esc(s.toState)}" placeholder="To" onchange="fmSet(${i},'toState',this.value)"></div>`;
     const actionCell = `<details class="fm-act-dd" style="position:relative">
         <summary class="inp" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px"><span id="fm-act-sum-${i}" title="${esc(s.actions.join(', '))}">${esc(fmActionSummary(s.actions))}</span><span style="opacity:.55">▾</span></summary>
-        <div style="position:absolute;z-index:30;top:100%;left:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;min-width:250px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
-          ${ACTIONS.map(a=>`<label style="display:flex;gap:7px;align-items:center;padding:4px 6px;font-size:.78rem;cursor:pointer;white-space:nowrap"><input type="checkbox" ${s.actions.includes(a)?'checked':''} onchange="fmActionToggle(${i},'${a}',this.checked)"><span>${a}</span></label>`).join('')}
+        <div style="position:absolute;z-index:30;top:100%;left:0;display:flex;flex-direction:column;align-items:stretch;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;min-width:250px;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+          ${ACTIONS.map(a=>`<label style="display:flex;gap:7px;align-items:center;justify-content:flex-start;width:100%;padding:4px 6px;font-size:.78rem;cursor:pointer;white-space:nowrap"><input type="checkbox" style="flex:none;margin:0" ${s.actions.includes(a)?'checked':''} onchange="fmActionToggle(${i},'${a}',this.checked)"><span>${a}</span></label>`).join('')}
         </div>
       </details>`;
     tr.innerHTML=`<td><input class="inp" value="${esc(s.name)}" onchange="fmSet(${i},'name',this.value)"/></td>
