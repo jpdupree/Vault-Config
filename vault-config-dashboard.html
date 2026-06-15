@@ -2071,27 +2071,31 @@ function renderFmProps(){
 function addFmProp(){ FMPROPMAPS.push({vault:"",fusion:"",entity:"Item"}); renderFmProps(); }
 function renderFmStates(){
   const tb=document.getElementById('fmstate-tbody'); if(!tb)return; tb.innerHTML='';
+  const ACTIONS=['Change Item State','Change Primary Linked File States','Change Secondary Linked File States','Change Tertiary Linked File States'];
   FMSTATEMAPS.forEach((s,i)=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input class="inp" value="${esc(s.name)}"/></td>
-      <td><input class="inp" value="${esc(s.workspace)}"/></td>
-      <td><div style="display:flex;gap:4px;align-items:center"><input class="inp" style="width:110px" value="${esc(s.fromState)}" placeholder="From"/><span style="color:var(--text-muted)">→</span><input class="inp" style="width:110px" value="${esc(s.toState)}" placeholder="To"/></div></td>
-      <td><select class="inp">${['Change Item State','Change Primary Linked File States','Change Secondary Linked File States','Change Tertiary Linked File States'].map(a=>`<option ${a===s.action?'selected':''}>${a}</option>`).join('')}</select></td>
-      <td><select class="inp">${lcOptions(s.itemLifecycle)}</select></td>
-      <td><select class="inp">${lcOptions(s.filesLifecycle)}</select></td>
-      <td><input class="inp" value="${esc(s.description)}" placeholder="Description"/></td>
+    const transCell = s.useStateTransition
+      ? `<input class="inp" value="${esc(s.transition||'')}" placeholder="e.g. Approve: CCB Review to Implemented" onchange="fmSet(${i},'transition',this.value)">`
+      : `<div style="display:flex;gap:6px;align-items:center"><span style="font-size:.74rem;color:var(--text-muted);white-space:nowrap">Any State</span><span style="color:var(--text-muted)">→</span><input class="inp" style="width:130px" value="${esc(s.toState)}" placeholder="To" onchange="fmSet(${i},'toState',this.value)"></div>`;
+    tr.innerHTML=`<td><input class="inp" value="${esc(s.name)}" onchange="fmSet(${i},'name',this.value)"/></td>
+      <td><input class="inp" value="${esc(s.workspace)}" onchange="fmSet(${i},'workspace',this.value)"/></td>
+      <td><label style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted);margin-bottom:4px;cursor:pointer"><input type="checkbox" ${s.useStateTransition?'checked':''} onchange="fmStateToggle(${i},this.checked)">Use state transition</label>${transCell}</td>
+      <td><select class="inp" onchange="fmSet(${i},'action',this.value)">${ACTIONS.map(a=>`<option ${a===s.action?'selected':''}>${a}</option>`).join('')}</select></td>
+      <td><select class="inp" onchange="fmSet(${i},'itemLifecycle',this.value)">${lcOptions(s.itemLifecycle)}</select></td>
+      <td><select class="inp" onchange="fmSet(${i},'filesLifecycle',this.value)">${lcOptions(s.filesLifecycle)}</select></td>
+      <td><input class="inp" value="${esc(s.description)}" placeholder="Description" onchange="fmSet(${i},'description',this.value)"/></td>
       <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="FMSTATEMAPS.splice(${i},1);renderFmStates()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="FMSTATEMAPS.splice(${i}+1,0,{...FMSTATEMAPS[${i}]});renderFmStates()">⎘</button></td>`;
-    const el=tr.querySelectorAll('input,select');
-    el[0].onchange=e=>s.name=e.target.value; el[1].onchange=e=>s.workspace=e.target.value; el[2].onchange=e=>s.fromState=e.target.value; el[3].onchange=e=>s.toState=e.target.value; el[4].onchange=e=>s.action=e.target.value; el[5].onchange=e=>s.itemLifecycle=e.target.value; el[6].onchange=e=>s.filesLifecycle=e.target.value; el[7].onchange=e=>s.description=e.target.value;
     tb.appendChild(tr);
   });
 }
-function addFmState(){ FMSTATEMAPS.push({name:"New Mapping",description:"",workspace:"",fromState:"",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}); renderFmStates(); }
+function fmSet(i,k,v){ if(FMSTATEMAPS[i]) FMSTATEMAPS[i][k]=v; }
+function fmStateToggle(i,on){ const s=FMSTATEMAPS[i]; if(!s)return; s.useStateTransition=on; if(!on) s.fromState='Any State'; renderFmStates(); }
+function addFmState(){ FMSTATEMAPS.push({name:"New Mapping",description:"",workspace:"",useStateTransition:false,transition:"",fromState:"Any State",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}); renderFmStates(); }
 const DEFAULT_FMSTATEMAPS=[
-  {name:"Submit for Review",description:"Change order submitted for review",workspace:"Change Orders",fromState:"Open",toState:"In Review",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
-  {name:"Approve Change Order",description:"Change order approved — release affected items",workspace:"Change Orders",fromState:"In Review",toState:"Approved",action:"Release Item",itemLifecycle:"",filesLifecycle:""},
-  {name:"Reject Change Order",description:"Change order rejected — return to Open",workspace:"Change Orders",fromState:"In Review",toState:"Open",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
-  {name:"Close Change Order",description:"Change order closed",workspace:"Change Orders",fromState:"Approved",toState:"Closed",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}
+  {name:"Perform Change",description:"Change order ready to perform",workspace:"Change Orders",useStateTransition:false,transition:"",fromState:"Any State",toState:"Perform Change",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
+  {name:"Approve",description:"Change order approved",workspace:"Change Orders",useStateTransition:true,transition:"Approve: Change Control Board Review to Change Control Board Review",fromState:"",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
+  {name:"All Confirmed",description:"All affected items confirmed/released",workspace:"Change Orders",useStateTransition:true,transition:"All Confirmed: Released to Implemented",fromState:"",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""},
+  {name:"Cancel",description:"Change order cancelled",workspace:"Change Orders",useStateTransition:true,transition:"Cancel: Perform Change to Cancelled",fromState:"",toState:"",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}
 ];
 function loadDefaultFmStates(){
   if(FMSTATEMAPS.length && !confirm('Replace the current state mappings with the defaults?')) return;
@@ -2848,7 +2852,7 @@ function normAudit(a){return{timestamp:pick(a,'timestamp','Timestamp','time','Ti
 function normRule(r){return{entityClass:pick(r,'entityClass','EntityClass','EntityClassName')||'',applyToNew:toBool(pick(r,'applyToNew','ApplyToNewEntity')??true),category:pick(r,'category','Category','CategoryName')||'',ruleSetName:pick(r,'ruleSetName','RuleSetName','ruleSet')||'',propDef:pick(r,'propDef','PropDef','PropDefName')||'',condition:pick(r,'condition','Condition')||'EqualTo',value:pick(r,'value','Value')!=null?String(pick(r,'value','Value')):''};}
 function normCsMap(m){return{propDef:pick(m,'propDef','PropDef','PropDefSysName')||'',entityClass:pick(m,'entityClass','EntityClass')||'',contentSource:pick(m,'contentSource','ContentSource','ContentSourceName')||'',moniker:pick(m,'moniker','Moniker')||'',direction:pick(m,'direction','Direction','MappingDirection')||'ReadAndWrite',mappingType:pick(m,'mappingType','MappingType')||'Constant',priority:String(pick(m,'priority','Priority')??'1'),canCreateNew:String(pick(m,'canCreateNew','CanCreateNew')??'false')};}
 function normFmProp(m){return{vault:pick(m,'vault','Vault','vaultProperty')||'',fusion:pick(m,'fusion','Fusion','fusionProperty')||'',entity:pick(m,'entity','Entity','entityType')||'Item'};}
-function normFmState(s){return{name:pick(s,'name','Name')||'',description:pick(s,'description','Description')||'',workspace:pick(s,'workspace','Workspace')||'',fromState:pick(s,'fromState','From')||'',toState:pick(s,'toState','To')||'',action:pick(s,'action','Action')||'Change Item State',itemLifecycle:pick(s,'itemLifecycle','ItemLifecycle')||'',filesLifecycle:pick(s,'filesLifecycle','FilesLifecycle')||''};}
+function normFmState(s){return{name:pick(s,'name','Name')||'',description:pick(s,'description','Description')||'',workspace:pick(s,'workspace','Workspace')||'',useStateTransition:toBool(pick(s,'useStateTransition','UseStateTransition')??false),transition:pick(s,'transition','Transition')||'',fromState:pick(s,'fromState','From')||'',toState:pick(s,'toState','To')||'',action:pick(s,'action','Action')||'Change Item State',itemLifecycle:pick(s,'itemLifecycle','ItemLifecycle')||'',filesLifecycle:pick(s,'filesLifecycle','FilesLifecycle')||''};}
 
 function normLifecycle(lc,idx,nid){
   const idMap=new Map();
@@ -3980,7 +3984,7 @@ function buildPrintDoc(){
     </table>
     <div class="pr-h3">State Mappings</div>
     <table class="pr-tbl"><thead><tr><th>Mapping</th><th>Workspace</th><th>From → To</th><th>Vault Action</th><th>Item LC</th><th>Files LC</th></tr></thead><tbody>
-    ${FMSTATEMAPS.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.workspace)}</td><td>${esc(s.fromState)} → ${esc(s.toState)}</td><td>${esc(s.action)}</td><td>${esc(s.itemLifecycle||'—')}</td><td>${esc(s.filesLifecycle||'—')}</td></tr>`).join('')}
+    ${FMSTATEMAPS.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.workspace)}</td><td>${esc(s.useStateTransition?(s.transition||'(transition)'):('Any State → '+(s.toState||'—')))}</td><td>${esc(s.action)}</td><td>${esc(s.itemLifecycle||'—')}</td><td>${esc(s.filesLifecycle||'—')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // BACKUP
