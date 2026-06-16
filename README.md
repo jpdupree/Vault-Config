@@ -87,6 +87,12 @@ Use **📂 Load Data** (top right). Three formats are accepted:
 
 ## Exporting
 
+- **✓ Validate** — pre‑flights the configuration for references Vault rejects on import
+  (criteria with non‑numeric values, categories pointing at undefined lifecycles/revision
+  schemes, rules targeting missing categories, system/undefined category properties).
+  **Errors** block the `.cfg` export and are listed with their exact location; **warnings**
+  are cleaned up automatically on export. Export runs the same checks, so a `.cfg` can't
+  ship a broken reference.
 - **⬇ Download Current as JSON** — portable snapshot for re‑loading into the dashboard.
 - **⬇ Export .cfg** *(only shown after loading a `.cfg`)* — preserves the original
   package and patches your edits back into the relevant XML sections so the file

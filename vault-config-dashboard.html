@@ -259,6 +259,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
     <label title="When on, sections missing from the loaded file are cleared (full replace). When off, they keep current data (merge)." style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-muted);cursor:pointer;margin-right:2px"><input type="checkbox" id="imp-replace" style="cursor:pointer">Replace</label>
     <button class="btn btn-primary" onclick="document.getElementById('cfg-file').click()">📂 Load Data</button>
     <button class="btn btn-ghost" onclick="exportAllJSON()">⬇ Export JSON</button>
+    <button class="btn btn-ghost" onclick="runValidation()" title="Check the configuration for references Vault would reject on import (dangling lifecycles, categories, rules, bad criteria)">✓ Validate</button>
     <button class="btn btn-ghost" id="btn-export-cfg" onclick="exportCfg()" title="Patch your lifecycle edits back into an imported Vault .cfg package (load a .cfg first)">⬇ Export .cfg</button>
     <button class="btn btn-warn" onclick="printDoc()">🖨 Print / PDF</button>
     <button class="btn btn-success" onclick="saveLocal(true)">💾 Save</button>
@@ -1078,6 +1079,17 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
       <button class="btn btn-ghost" onclick="document.getElementById('cfg-export-modal').classList.remove('open')">Cancel</button>
       <button class="btn btn-success" onclick="doExportCfg()">⬇ Export .cfg</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="validate-modal">
+  <div class="modal" style="width:680px;max-width:96vw">
+    <h3>✓ Configuration validation</h3>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">Checks for references Vault rejects on import. <b style="color:var(--danger)">Errors</b> block the .cfg export; <b style="color:var(--orange)">warnings</b> are cleaned up automatically on export.</p>
+    <div id="validate-body" style="max-height:52vh;overflow:auto"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-primary" onclick="document.getElementById('validate-modal').classList.remove('open')">Close</button>
     </div>
   </div>
 </div>
@@ -3800,16 +3812,41 @@ function findInvalidRuleRefs(){
   });
   return out;
 }
+// Run every import-safety check and split into fatal errors (Vault rejects the
+// import) vs warnings (auto-cleaned on export). Each entry: {cat, msg}.
+function collectValidationIssues(){
+  const errors=[], warnings=[];
+  findInvalidCriteria().forEach(m=>errors.push({cat:'Lifecycle criteria',msg:m}));
+  findInvalidCategoryRefs().forEach(m=>errors.push({cat:'Category lifecycle / revision',msg:m}));
+  findInvalidRuleRefs().forEach(m=>errors.push({cat:'Category rules',msg:m}));
+  (CATEGORIES||[]).forEach(c=>(c.properties||[]).forEach(sn=>{ const b=catPropBad(sn); if(b){
+    const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn;
+    warnings.push({cat:'Category properties',msg:`Category “${c.name}” → “${label}” is ${b==='system'?'a system':'an undefined'} property (dropped on export)`}); } }));
+  return {errors,warnings};
+}
+function renderValidationModal(errors,warnings){
+  const grp=list=>{ const by={}; list.forEach(x=>{(by[x.cat]=by[x.cat]||[]).push(x.msg);}); return by; };
+  const block=(title,color,by)=>{ const cats=Object.keys(by); if(!cats.length)return'';
+    return `<div style="margin-bottom:10px"><div style="font-weight:700;color:${color};font-size:.82rem;margin-bottom:4px">${title}</div>`+
+      cats.map(c=>`<div style="margin:6px 0 2px;font-size:.74rem;color:var(--text-muted);font-weight:600">${esc(c)}</div>`+
+        by[c].map(m=>`<div style="font-size:.78rem;padding:3px 0 3px 14px;border-left:2px solid ${color};margin-left:2px">${esc(m)}</div>`).join('')).join('')+`</div>`; };
+  const body=document.getElementById('validate-body');
+  if(!errors.length && !warnings.length){
+    body.innerHTML=`<div style="text-align:center;padding:24px;color:var(--green);font-size:.95rem;font-weight:600">✅ No issues found — the configuration’s references all resolve.</div>`;
+  } else {
+    body.innerHTML=block(`❌ ${errors.length} error${errors.length===1?'':'s'} — must fix before export`,'var(--danger)',grp(errors))
+      +block(`⚠ ${warnings.length} warning${warnings.length===1?'':'s'} — cleaned up automatically`,'var(--orange)',grp(warnings));
+  }
+  document.getElementById('validate-modal').classList.add('open');
+}
+function runValidation(){ const {errors,warnings}=collectValidationIssues(); renderValidationModal(errors,warnings); }
 async function doExportCfg(){
   document.getElementById('cfg-export-modal').classList.remove('open');
   try{
     await ensureCfgEntries();
-    const bad=findInvalidCriteria();
-    if(bad.length){ throw new Error('Numeric criteria with non-numeric values would make Vault reject the import (nvarchar→float):\n\n'+bad.map(b=>'• '+b).join('\n')+'\n\nFix the highlighted value(s) in the Lifecycles ▸ transition ▸ Criteria tab, or change the condition.'); }
-    const badCat=findInvalidCategoryRefs();
-    if(badCat.length){ throw new Error('A category references a lifecycle or revision scheme that isn’t defined — Vault would reject the import (UnknownBehavior):\n\n'+badCat.map(b=>'• '+b).join('\n')+'\n\nIn Categories, point the category at a defined lifecycle/revision scheme (or add the missing definition).'); }
-    const badRule=findInvalidRuleRefs();
-    if(badRule.length){ throw new Error('A category-assignment rule targets a category that isn’t defined — Vault would reject the import (UnknownCategory):\n\n'+badRule.map(b=>'• '+b).join('\n')+'\n\nIn Category Rules, point the rule at a defined category (or remove the rule).'); }
+    // Consolidated pre-flight: block on fatal reference errors and show them all.
+    const {errors,warnings}=collectValidationIssues();
+    if(errors.length){ renderValidationModal(errors,warnings); notify('Export blocked — '+errors.length+' validation error'+(errors.length===1?'':'s')); return; }
     patchManifestVersion((val('cfg-build')||'').trim());
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});

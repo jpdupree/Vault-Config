@@ -50,6 +50,8 @@ The **Overview** page shows completion bars so you can see what's still blank.
 
 ## 5. Export / hand off
 
+- **✓ Validate** — checks for references Vault would reject on import and lists any problems
+  (with their exact location) before you export. Worth a click before **Export .cfg**.
 - **⬇ Download Current as JSON** — a portable file you (or a teammate) can re‑load later.
 - **⬇ Export .cfg** — *appears after you load a `.cfg`.* Writes your edits back into the
   original package so it **re‑imports into Vault**. A dialog explains what it will/won't update.
