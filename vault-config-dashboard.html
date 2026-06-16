@@ -2995,6 +2995,19 @@ function gsUpdateConditional(){
 }
 function clearFields(ids){ if(!ids)return; ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(el.type==='checkbox')el.checked=false;else if(el.tagName==='SELECT')el.selectedIndex=0;else el.value='';}); }
 
+// Categories must be unique by internal name. A merge (e.g. loading a new vault's
+// default .cfg on top of existing work) can introduce duplicates like two 'Base',
+// which Vault rejects on import ("Category already exist"). Keep the
+// most-configured entry per name so no work is lost, preserving order.
+function dedupeCategories(){
+  if(!Array.isArray(CATEGORIES)) return;
+  const score=c=>(c.lifecycle?1:0)+(c.revision?1:0)+((c.properties&&c.properties.length)||0)+(c.isDefault?1:0)+((c.notes&&c.notes.replace(/^Color\s*/,'').trim())?1:0);
+  const best=new Map();
+  CATEGORIES.forEach(c=>{ const k=c.rawName||c.name; const prev=best.get(k); if(!prev||score(c)>score(prev)) best.set(k,c); });
+  if(best.size===CATEGORIES.length) return;
+  const keep=new Set(best.values());
+  CATEGORIES=CATEGORIES.filter(c=>keep.has(c));
+}
 function applyConfig(raw,replace){
   const c=normalizeConfig(raw);
   // Arrays: present → replace; absent → keep (merge) unless replace mode → empty
@@ -3004,6 +3017,7 @@ function applyConfig(raw,replace){
   const arrKeep=(key,set)=>{ if(c[key]!==undefined) set(c[key]); };
   arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v);
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
+  dedupeCategories();
   arr('changelog',v=>CHANGELOG=v); arrKeep('users',v=>USERS=v); arrKeep('groups',v=>GROUPS=v);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('cadapps',v=>CADAPPS=v); arr('auditlog',v=>AUDITLOG=v); arr('rtmaps',v=>RTMAPS=v);
   arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
