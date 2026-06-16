@@ -3789,6 +3789,17 @@ function findInvalidCategoryRefs(){
   });
   return out;
 }
+// A category-assignment rule may only target a category that is actually
+// defined. A rule pointing at a missing category makes Vault abort the import
+// with UnknownCategory. Return human-readable locations to fix.
+function findInvalidRuleRefs(){
+  const out=[];
+  (RULES||[]).forEach(r=>{
+    if(r.category && !CATEGORIES.some(c=>c.name===r.category))
+      out.push(`Rule “${r.ruleSetName||r.category}” (${r.entityClass}) → category “${r.category}” is not defined`);
+  });
+  return out;
+}
 async function doExportCfg(){
   document.getElementById('cfg-export-modal').classList.remove('open');
   try{
@@ -3797,6 +3808,8 @@ async function doExportCfg(){
     if(bad.length){ throw new Error('Numeric criteria with non-numeric values would make Vault reject the import (nvarchar→float):\n\n'+bad.map(b=>'• '+b).join('\n')+'\n\nFix the highlighted value(s) in the Lifecycles ▸ transition ▸ Criteria tab, or change the condition.'); }
     const badCat=findInvalidCategoryRefs();
     if(badCat.length){ throw new Error('A category references a lifecycle or revision scheme that isn’t defined — Vault would reject the import (UnknownBehavior):\n\n'+badCat.map(b=>'• '+b).join('\n')+'\n\nIn Categories, point the category at a defined lifecycle/revision scheme (or add the missing definition).'); }
+    const badRule=findInvalidRuleRefs();
+    if(badRule.length){ throw new Error('A category-assignment rule targets a category that isn’t defined — Vault would reject the import (UnknownCategory):\n\n'+badRule.map(b=>'• '+b).join('\n')+'\n\nIn Category Rules, point the rule at a defined category (or remove the rule).'); }
     patchManifestVersion((val('cfg-build')||'').trim());
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
