@@ -2893,7 +2893,7 @@ function colorForState(s,i){
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
-function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,properties:(firstArr(c,'properties','Properties')||[]).map(x=>typeof x==='string'?x:(pick(x,'SystemName','systemName','name','Name')||String(x))),system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
+function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,rawName:pick(c,'rawName','RawName')||'',entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,properties:(firstArr(c,'properties','Properties')||[]).map(x=>typeof x==='string'?x:(pick(x,'SystemName','systemName','name','Name')||String(x))),system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,rawName:pick(r,'rawName','RawName')||undefined,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,rawName:pick(s,'rawName','RawName')||undefined,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
 function normNum(n){return{name:pick(n,'name','Name','scheme','Scheme')||'Scheme',resKey:pick(n,'resKey','SchemeNameResKey')||null,isActive:toBool(pick(n,'isActive','IsActive')),isDefault:toBool(pick(n,'isDefault','IsDefault')),toUpperCase:toBool(pick(n,'toUpperCase','ToUpperCase')),length:String(pick(n,'length','Length')??'6'),rangeFrom:String(pick(n,'rangeFrom','RangeFrom','start','Start')??'1'),rangeTo:String(pick(n,'rangeTo','RangeTo')??'999999'),stepSize:String(pick(n,'stepSize','StepSize','inc','Increment')??'1'),zeroPadding:toBool(pick(n,'zeroPadding','ZeroPadding')??true),system:toBool(pick(n,'system','isSystem'))};}
@@ -3274,18 +3274,19 @@ function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap){
     const properties=udpCls?[...udpCls.querySelectorAll('Behaviors > Behavior')].map(x=>xAttr(x,'Name')).filter(Boolean):[];
     const rawName=xAttr(c,'Name')||''; const cn=RES.get(xAttr(c,'ResKey'))||rawName||'';
     const entity=catEntity[rawName]||catEntity[cn]||CAT_NAME_TO_ENTITY[rawName]||CAT_NAME_TO_ENTITY[cn]||'File';
-    out.push({name:cn,entity,lifecycle:mapLC(beh('LifeCycle')),revision:mapRev(beh('RevisionScheme')),properties,
+    out.push({name:cn,rawName,entity,lifecycle:mapLC(beh('LifeCycle')),revision:mapRev(beh('RevisionScheme')),properties,
       notes:'Color '+(xAttr(c,'Color')||''),isDefault:false,system:SYSTEM_CAT_NAMES.has(cn)});
   });
   return out;
 }
 
-function cfgParseRules(text,RES){
+function cfgParseRules(text,RES,catNameMap){
   const doc=xmlDoc(text), out=[];
+  const mapCat=v=>(catNameMap&&catNameMap[v])||v;
   doc.querySelectorAll('EntityClassCategoryRuleSet').forEach(ec=>{
     const cls=xAttr(ec,'EntityClassName')||'', applyNew=xAttr(ec,'ApplyToNewEntity')==='true';
     ec.querySelectorAll('CategoryRuleSet').forEach(crs=>{
-      const cat=xAttr(crs,'CategoryName')||'';
+      const cat=mapCat(xAttr(crs,'CategoryName')||'');
       crs.querySelectorAll('RuleSet').forEach(rs=>{
         // Custom rule sets can carry a GUID Name; prefer the resx display name.
         const rsName=(RES&&RES.get(xAttr(rs,'ResKey')))||xAttr(rs,'Name')||'';
@@ -3331,7 +3332,10 @@ async function applyCfgPackage(ab, replace, sourceName){
   const lcNameMap={}; (cfg.lifecycles||[]).forEach(l=>{ if(l.rawName)lcNameMap[l.rawName]=l.name; });
   const revNameMap={}; (cfg.revisionSchemes||[]).forEach(r=>{ if(r.rawName)revNameMap[r.rawName]=r.name; });
   const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT,lcNameMap,revNameMap);
-  if(rulT) cfg.categoryRules=cfgParseRules(rulT,RES);
+  // Custom categories use a GUID internal Name; map it to the friendly name so
+  // rule assignments display (and validate) against the same name the UI shows.
+  const catNameMap={}; (cfg.categories||[]).forEach(c=>{ if(c.rawName&&c.rawName!==c.name)catNameMap[c.rawName]=c.name; });
+  if(rulT) cfg.categoryRules=cfgParseRules(rulT,RES,catNameMap);
   const csmT=entryText(entries,'ContentSourcePropDefMapping/ContentSourcePropDefMapping.xml'); if(csmT) cfg.contentSourceMappings=cfgParseCsMap(csmT);
   applyConfig(cfg, replace);
   // stash the original package AFTER applyConfig (which may reset loadedCfg)
@@ -3570,10 +3574,14 @@ function patchCategoryPackage(){
   const resolveRev=v=>{ if(!v)return''; const r=REVISIONS.find(x=>x.name===v||(x.rawName||x.name)===v); return r?(r.rawName||r.name):''; };
   [...wrap.querySelectorAll('Category')].forEach(n=>n.remove());
   CATEGORIES.forEach(c=>{
-    const match=orig[c.name];
+    // Match by internal Name (rawName = GUID for custom categories) so the
+    // original definition is reused and its Name is preserved — category rules
+    // reference this Name, so it must not change or Vault throws UnknownCategory.
+    const internalName=c.rawName||c.name;
+    const match=orig[internalName]||orig[c.name];
     let el = match ? match.cloneNode(true) : (tmpl?tmpl.cloneNode(true):mk('Category'));
     if(!match){
-      el.setAttribute('Name',c.name);
+      el.setAttribute('Name',internalName);
       const dnk='ID_CATEGORY_DISPLAYNAME_'+U(c.name); setRes(dnk,c.name); el.setAttribute('ResKey',dnk);
       const ddk='ID_CATEGORY_DESC_'+U(c.name); setRes(ddk,c.notes||''); el.setAttribute('ResKeyDescription',ddk);
     }
@@ -3707,7 +3715,11 @@ function patchRulesPackage(){
     const ecEl=mk('EntityClassCategoryRuleSet'); ecEl.setAttribute('EntityClassName',cls); ecEl.setAttribute('ApplyToNewEntity', rows[0].applyToNew?'true':'false');
     const crsWrap=mk('CategoryRuleSets');
     rows.forEach(r=>{
-      const crs=mk('CategoryRuleSet'); crs.setAttribute('CategoryName',r.category);
+      // Write the category's actual internal Name (rawName = GUID for custom
+      // categories) so the reference matches the exported Category definition.
+      const cat=CATEGORIES.find(c=>c.name===r.category||c.rawName===r.category);
+      const catName=cat?(cat.rawName||cat.name):r.category;
+      const crs=mk('CategoryRuleSet'); crs.setAttribute('CategoryName',catName);
       const rs=mk('RuleSet'); const rsName=r.ruleSetName||r.category; rs.setAttribute('Name',rsName);
       const rk='ID_RULESET_DISPLAYNAME_'+U(rsName); setRes(rk,rsName); rs.setAttribute('ResKey',rk);
       const rules=mk('Rules');
@@ -3807,7 +3819,7 @@ function findInvalidCategoryRefs(){
 function findInvalidRuleRefs(){
   const out=[];
   (RULES||[]).forEach(r=>{
-    if(r.category && !CATEGORIES.some(c=>c.name===r.category))
+    if(r.category && !CATEGORIES.some(c=>c.name===r.category||c.rawName===r.category))
       out.push(`Rule “${r.ruleSetName||r.category}” (${r.entityClass}) → category “${r.category}” is not defined`);
   });
   return out;
