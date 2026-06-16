@@ -163,6 +163,8 @@ load into the dashboard.
 | `Export-VaultConfig.ps1` | Optional PowerShell extractor (Vault API → JSON). |
 | `index.html` | Lightweight redirect to the dashboard (for static hosting). |
 | `README.md` | This document. |
+| `QUICKSTART.md` | 5‑minute getting‑started guide. |
+| `CHANGELOG.md` | Version history (what changed in each build). |
 
 ---
 
