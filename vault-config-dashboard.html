@@ -1686,7 +1686,7 @@ function renderCategories(){
   // shared datalist of property display names for the add-property search box
   let dl=document.getElementById('cat-prop-options');
   if(!dl){ dl=document.createElement('datalist'); dl.id='cat-prop-options'; document.body.appendChild(dl); }
-  dl.innerHTML=[...new Set(PROPS.map(p=>p.DisplayName).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})).map(n=>`<option value="${esc(n)}"></option>`).join('');
+  dl.innerHTML=[...new Set(PROPS.filter(p=>!p.IsSystem).map(p=>p.DisplayName).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'})).map(n=>`<option value="${esc(n)}"></option>`).join('');
   CATEGORIES.forEach((c,i)=>{
     const sec=CAT_SECTIONS.find(s=>s.match(c.entity))||CAT_SECTIONS[0];
     const tb=document.getElementById('cat-tbody-'+sec.key); if(!tb)return;
@@ -1706,6 +1706,10 @@ function renderCategories(){
   });
 }
 function catSortProps(c){ if(!Array.isArray(c.properties))return; const dn=sn=>{const p=PROPS.find(x=>x.SystemName===sn);return String((p?p.DisplayName:sn)||'');}; c.properties.sort((a,b)=>dn(a).localeCompare(dn(b),undefined,{sensitivity:'base'})); }
+// A property is "system" if Vault treats it as built-in. System properties apply
+// to all entities automatically and CANNOT be assigned to a category as a
+// UserDefinedProperty behavior — Vault rejects them on import (UnknownBehavior).
+function isSystemPropName(sn){ const p=PROPS.find(x=>x.SystemName===sn); return p?!!p.IsSystem:SYSTEM_PROP_NAMES.has(sn); }
 let CAT_PROP_CLIPBOARD=null;
 function catCopyProps(i){ const c=CATEGORIES[i]; if(!c)return; CAT_PROP_CLIPBOARD=[...(c.properties||[])]; renderCategories(); notify('Copied '+CAT_PROP_CLIPBOARD.length+' propert'+(CAT_PROP_CLIPBOARD.length===1?'y':'ies')); }
 function catPasteProps(i){ const c=CATEGORIES[i]; if(!c)return; if(!CAT_PROP_CLIPBOARD){notify('Nothing copied yet — use Copy first');return;} const cur=(c.properties||[]).length; if(cur && !confirm('Replace this category’s '+cur+' propert'+(cur===1?'y':'ies')+' with the copied set ('+CAT_PROP_CLIPBOARD.length+')?'))return; c.properties=[...CAT_PROP_CLIPBOARD]; catSortProps(c); CAT_EXPANDED.add(c); renderCategories(); notify('Property set pasted'); }
@@ -1713,8 +1717,8 @@ function catPropListHTML(c,i){
   catSortProps(c);
   const props=c.properties||[];
   const chips=props.length?props.map((sn,pi)=>{
-    const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn;
-    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:3px 4px 3px 10px;font-size:.76rem;margin:0 6px 6px 0">${esc(label)}<button class="btn btn-danger btn-icon" style="padding:0 5px" title="Remove" onclick="catDelProp(${i},${pi})">✕</button></span>`;
+    const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn; const bad=isSystemPropName(sn);
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid ${bad?'var(--danger)':'var(--border)'};border-radius:14px;padding:3px 4px 3px 10px;font-size:.76rem;margin:0 6px 6px 0"${bad?' title="System property — not valid on a category; will be dropped on .cfg export"':''}>${bad?'⚠ ':''}${esc(label)}<button class="btn btn-danger btn-icon" style="padding:0 5px" title="Remove" onclick="catDelProp(${i},${pi})">✕</button></span>`;
   }).join(''):'<span style="color:var(--text-muted);font-size:.78rem">No properties assigned.</span>';
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <div style="font-weight:600;font-size:.82rem">Property List — ${esc(c.name)}</div>
@@ -1730,6 +1734,7 @@ function catToggle(i){ const c=CATEGORIES[i]; if(!c)return; if(CAT_EXPANDED.has(
 function catAddProp(i,val){
   val=(val||'').trim(); if(!val)return; const c=CATEGORIES[i]; if(!c)return;
   const p=PROPS.find(x=>x.DisplayName===val)||PROPS.find(x=>x.SystemName===val); const sn=p?p.SystemName:val;
+  if(isSystemPropName(sn)){ notify('“'+(p?p.DisplayName:sn)+'” is a system property — it applies to every entity automatically and can’t be assigned to a category.'); return; }
   if(!Array.isArray(c.properties))c.properties=[];
   if(!c.properties.includes(sn))c.properties.push(sn);
   catSortProps(c); CAT_EXPANDED.add(c); renderCategories();
@@ -3564,7 +3569,9 @@ function patchCategoryPackage(){
       if(ucls){ let ub=ucls.querySelector('Behaviors'); if(!ub){ ub=mk('Behaviors'); ucls.appendChild(ub); }
         ub.setAttribute('Default','ALLBEHAVIORS');
         [...ub.querySelectorAll('Behavior')].forEach(n=>n.remove());
-        c.properties.forEach(sn=>{ const b=mk('Behavior'); b.setAttribute('Name',sn); ub.appendChild(b); });
+        // Only user-defined properties are valid category behaviors. System
+        // properties (CreateDate, etc.) make Vault throw UnknownBehavior on import.
+        c.properties.filter(sn=>!isSystemPropName(sn)).forEach(sn=>{ const b=mk('Behavior'); b.setAttribute('Name',sn); ub.appendChild(b); });
       }
     }
     wrap.appendChild(el);
