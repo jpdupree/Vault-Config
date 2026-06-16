@@ -3878,6 +3878,9 @@ function collectValidationIssues(){
   (CATEGORIES||[]).forEach(c=>(c.properties||[]).forEach(sn=>{ const b=catPropBad(sn); if(b){
     const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn;
     warnings.push({cat:'Category properties',msg:`Category “${c.name}” → “${label}” is ${b==='system'?'a system':'an undefined'} property (dropped on export)`}); } }));
+  // Duplicate category names — Vault rejects a second definition (Category already exist).
+  const catSeen={}; (CATEGORIES||[]).forEach(c=>{ const k=c.rawName||c.name; catSeen[k]=(catSeen[k]||0)+1; });
+  Object.keys(catSeen).filter(k=>catSeen[k]>1).forEach(k=>warnings.push({cat:'Duplicate categories',msg:`“${k}” is defined ${catSeen[k]} times (extra copies dropped on export). This usually means sample data was merged with the .cfg — reload with Replace on.`}));
   return {errors,warnings};
 }
 function renderValidationModal(errors,warnings){
