@@ -3762,30 +3762,44 @@ function patchCsMapPackage(){
   });
   ent.data=reserializeXml(doc, ent.data);
 }
-// Patch EntityClassSupportedBehavior.xml: register every category under its
-// entity class's "Category" behavior list. A category-assignment rule (and
-// category assignment in general) requires the category to be registered for
-// that entity class, or Vault throws UnknownCategory on import. We only ADD
-// missing categories (preserving existing entries and the single Default), so
-// OOTB registrations are never disturbed.
+// Patch EntityClassSupportedBehavior.xml: register each category AND every
+// behavior the category references (its lifecycle, revision scheme, assigned
+// properties) under the entity class. Vault validates that a category added to
+// an entity class only references behaviors associated with that class —
+// otherwise it throws "cannot be added… references behaviors that are not
+// associated" / UnknownCategory. We only ADD what's missing, preserving every
+// existing entry and the single Default per behavior class.
 function patchEntityClassSupportedBehavior(){
   const ent=loadedCfg.entries.find(e=>e.name==='EntityClassSupportedBehavior/EntityClassSupportedBehavior.xml'); if(!ent) return;
   const dec=new TextDecoder();
   const doc=xmlDoc(dec.decode(ent.data));
   const NS=doc.documentElement.namespaceURI, mk=t=>doc.createElementNS(NS,t);
+  const lcRaw=v=>{ if(!v)return''; const l=LIFECYCLES.find(x=>x.name===v||(x.rawName||x.name)===v); return l?(l.rawName||l.name):''; };
+  const revRaw=v=>{ if(!v)return''; const r=REVISIONS.find(x=>x.name===v||(x.rawName||x.name)===v); return r?(r.rawName||r.name):''; };
   doc.querySelectorAll('EntityClass').forEach(ec=>{
     const type=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!type) return;
-    const catCls=[...ec.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')==='Category'); if(!catCls) return;
-    let beh=catCls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); catCls.appendChild(beh); }
-    const existing=new Set([...beh.querySelectorAll('Behavior')].map(b=>xAttr(b,'Name')));
-    const hasDefault=[...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'AssignmentType')==='Default');
-    let defaultUsed=hasDefault;
-    CATEGORIES.filter(c=>c.entity===type).forEach(c=>{
-      const internalName=c.rawName||c.name; if(existing.has(internalName)) return;
-      const b=mk('Behavior'); b.setAttribute('Name',internalName);
-      const isDef=!defaultUsed && c.isDefault; if(isDef)defaultUsed=true;
-      b.setAttribute('AssignmentType', isDef?'Default':'Assignable');
-      beh.appendChild(b); existing.add(internalName);
+    const cats=CATEGORIES.filter(c=>c.entity===type);
+    const classes={}; [...ec.querySelectorAll('SupportedBehaviorClass')].forEach(x=>classes[xAttr(x,'Name')]=x);
+    // Add a behavior to a class only if not already present.
+    const ensure=(clsName,name,attrs)=>{ const cls=classes[clsName]; if(!cls||!name) return;
+      let beh=cls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); cls.appendChild(beh); }
+      if([...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'Name')===name)) return;
+      const b=mk('Behavior'); b.setAttribute('Name',name); Object.entries(attrs).forEach(([k,v])=>b.setAttribute(k,v)); beh.appendChild(b);
+    };
+    // Categories (keep exactly one Default — reuse the existing one if present).
+    const catCls=classes['Category'];
+    if(catCls){ let beh=catCls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); catCls.appendChild(beh); }
+      let defaultUsed=[...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'AssignmentType')==='Default');
+      cats.forEach(c=>{ const nm=c.rawName||c.name;
+        if([...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'Name')===nm)) return;
+        const isDef=!defaultUsed && c.isDefault; if(isDef)defaultUsed=true;
+        const b=mk('Behavior'); b.setAttribute('Name',nm); b.setAttribute('AssignmentType', isDef?'Default':'Assignable'); beh.appendChild(b); });
+    }
+    // Behaviors each category references must also be associated with the class.
+    cats.forEach(c=>{
+      ensure('LifeCycle', lcRaw(c.lifecycle), {AssignmentType:'Disabled'});
+      ensure('RevisionScheme', revRaw(c.revision), {AssignmentType:'Disabled'});
+      (c.properties||[]).forEach(sn=>{ if(!catPropBad(sn)) ensure('UserDefinedProperty', sn, {AssignmentType:'Default',SupportedMappingDir:'ReadAndWrite'}); });
     });
   });
   ent.data=reserializeXml(doc, ent.data);
