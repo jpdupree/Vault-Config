@@ -2053,6 +2053,13 @@ function propOptions(sel){
   opts.sort((a,b)=>String(a.label).localeCompare(String(b.label),undefined,{sensitivity:'base'}));
   return opts.map(o=>`<option value="${esc(o.value)}" ${o.value===sel?'selected':''}>${esc(o.label)}</option>`).join('');
 }
+// Data type (String/Numeric/Bool/DateTime) for a property by its SystemName.
+function propDataType(sn){ const p=PROPS.find(p=>p.SystemName===sn); return (p&&p.DataType)||'String'; }
+// Conditions that compare against a value (so the value must match the property type).
+// IsEmpty / IsNotEmpty ignore the value, so they never need a numeric check.
+const TX_VALUE_CONDS=new Set(['EqualTo','NotEqualTo','GreaterThan','LessThan','Contains','DoesNotContain']);
+// True when a criterion would make Vault convert a non-numeric string to a number on import.
+function critValueInvalid(r){ return r && propDataType(r.property)==='Numeric' && TX_VALUE_CONDS.has(r.condition) && String(r.value).trim()!=='' && isNaN(Number(r.value)); }
 function addRule(entityClass){ RULES.push({entityClass:entityClass||"FileMaster",applyToNew:true,category:(CATEGORIES[0]&&CATEGORIES[0].name)||"",ruleSetName:"New Rule",propDef:(PROPS[0]&&PROPS[0].SystemName)||"",condition:"EqualTo",value:""}); renderRules(); }
 function duplicateRule(i){ const s=RULES[i]; if(!s)return; RULES.splice(i+1,0,{...s,ruleSetName:(s.ruleSetName||s.category)+' Copy'}); renderRules(); notify('Rule duplicated'); }
 
@@ -2612,8 +2619,12 @@ function lcTxCriteria(t){
     ${c.rules.map((r,i)=>`<tr>
       <td><select class="inp" onchange="lcTxCrit(${i},'property',this.value)">${propOptions(r.property)}</select></td>
       <td><select class="inp" onchange="lcTxCrit(${i},'condition',this.value)">${TX_CONDITIONS.map(x=>`<option ${x===r.condition?'selected':''}>${x}</option>`).join('')}</select></td>
-      <td><input class="inp" value="${esc(r.value)}" onchange="lcTxCrit(${i},'value',this.value)"></td>
-      <td><button class="btn btn-danger btn-icon" onclick="lcTxDelCrit(${i})">✕</button></td></tr>`).join('')||'<tr><td colspan="4" style="color:var(--text-muted)">No criteria — transition always allowed.</td></tr>'}
+      <td>${(()=>{ const dt=propDataType(r.property); const noVal=!TX_VALUE_CONDS.has(r.condition);
+        if(noVal) return `<input class="inp" value="" placeholder="(not used)" disabled>`;
+        const numeric=dt==='Numeric';
+        return `<input class="inp" ${numeric?'type="number" step="any"':''} value="${esc(r.value)}" onchange="lcTxCrit(${i},'value',this.value)"${critValueInvalid(r)?' style="border-color:var(--danger)"':''}>`;
+      })()}</td>
+      <td><button class="btn btn-danger btn-icon" onclick="lcTxDelCrit(${i})">✕</button></td></tr>${critValueInvalid(r)?`<tr><td colspan="4" style="color:var(--danger);font-size:.72rem;padding-top:0">⚠ “${esc(r.value)}” isn't numeric — this property is Numeric, so Vault will reject the .cfg on import. Enter a number or change the condition.</td></tr>`:''}`).join('')||'<tr><td colspan="4" style="color:var(--text-muted)">No criteria — transition always allowed.</td></tr>'}
     </tbody></table>
     <div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcTxAddCrit()">+ Add Criteria</button></div>
     ${TX_NOTE('Criteria are written to the transition RuleSet in the .cfg lifecycle.')}`;
@@ -3729,10 +3740,25 @@ function exportCfg(){
   document.getElementById('cfg-export-modal').classList.add('open');
   const eb=document.getElementById('cfg-export-build'); if(eb) eb.textContent=val('cfg-build')||'(unset — keeps source version)';
 }
+// Scan all lifecycle transition criteria for numeric properties paired with a
+// non-numeric comparison value — Vault's AddRuleSet converts the value to the
+// property's type on import, so this would abort with nvarchar→float. Returns a
+// list of human-readable locations to fix.
+function findInvalidCriteria(){
+  const out=[];
+  (LIFECYCLES||[]).forEach(lc=>{ (lc.transitions||[]).forEach(t=>{ const c=t.criteria; if(!c||!c.rules)return;
+    const fs=lc.states.find(s=>s.id===t.from), ts=lc.states.find(s=>s.id===t.to);
+    c.rules.forEach(r=>{ if(critValueInvalid(r)){
+      const where=`${lc.name}: ${(fs&&fs.name)||'?'} → ${(ts&&ts.name)||'?'}`;
+      out.push(`${where} — “${r.property}” ${r.condition} “${r.value}” (value must be a number)`); } }); }); });
+  return out;
+}
 async function doExportCfg(){
   document.getElementById('cfg-export-modal').classList.remove('open');
   try{
     await ensureCfgEntries();
+    const bad=findInvalidCriteria();
+    if(bad.length){ throw new Error('Numeric criteria with non-numeric values would make Vault reject the import (nvarchar→float):\n\n'+bad.map(b=>'• '+b).join('\n')+'\n\nFix the highlighted value(s) in the Lifecycles ▸ transition ▸ Criteria tab, or change the condition.'); }
     patchManifestVersion((val('cfg-build')||'').trim());
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
