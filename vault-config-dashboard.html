@@ -3546,9 +3546,12 @@ function patchCategoryPackage(){
   const setRes=resxDoc?makeResxSetter(resxDoc):(()=>{});
   const U=s=>(s||'').toUpperCase();
   // Categories reference lifecycles/revision schemes by internal Name (GUID for
-  // custom); map the friendly names back so the reference matches the definition.
-  const lcRaw={}; LIFECYCLES.forEach(l=>lcRaw[l.name]=l.rawName||l.name);
-  const revRaw={}; REVISIONS.forEach(r=>revRaw[r.name]=r.rawName||r.name);
+  // custom). Resolve the category's reference to the internal name of an actually
+  // DEFINED lifecycle/revision (matched by friendly name or raw internal name).
+  // A reference that doesn't resolve is a dangling behavior Vault rejects on
+  // import (UnknownBehavior), so we never write it.
+  const resolveLc=v=>{ if(!v)return''; const l=LIFECYCLES.find(x=>x.name===v||(x.rawName||x.name)===v); return l?(l.rawName||l.name):''; };
+  const resolveRev=v=>{ if(!v)return''; const r=REVISIONS.find(x=>x.name===v||(x.rawName||x.name)===v); return r?(r.rawName||r.name):''; };
   [...wrap.querySelectorAll('Category')].forEach(n=>n.remove());
   CATEGORIES.forEach(c=>{
     const match=orig[c.name];
@@ -3561,13 +3564,14 @@ function patchCategoryPackage(){
     const setBeh=(clsName,value)=>{
       const cls=[...el.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===clsName); if(!cls) return;
       let beh=cls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); cls.appendChild(beh); }
-      if(value){
-        beh.setAttribute('Default',value);
-        if(![...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'Name')===value)){ const b=mk('Behavior'); b.setAttribute('Name',value); beh.appendChild(b); }
-      }
+      // Replace (not append) so a stale reference from the cloned original can't
+      // linger alongside the new one and trip a duplicate/unknown behavior.
+      [...beh.querySelectorAll('Behavior')].forEach(n=>n.remove());
+      if(value){ beh.setAttribute('Default',value); const b=mk('Behavior'); b.setAttribute('Name',value); beh.appendChild(b); }
+      else beh.removeAttribute('Default');
     };
-    setBeh('LifeCycle', lcRaw[c.lifecycle]||c.lifecycle);
-    setBeh('RevisionScheme', revRaw[c.revision]||c.revision);
+    setBeh('LifeCycle', resolveLc(c.lifecycle));
+    setBeh('RevisionScheme', resolveRev(c.revision));
     // Rebuild the UserDefinedProperty behavior list from the assigned property list.
     if(Array.isArray(c.properties)){
       catSortProps(c);
@@ -3767,12 +3771,28 @@ function findInvalidCriteria(){
       out.push(`${where} — “${r.property}” ${r.condition} “${r.value}” (value must be a number)`); } }); }); });
   return out;
 }
+// A category may only reference a lifecycle / revision scheme that is actually
+// defined in the export. A dangling reference (e.g. a category pointing at a
+// lifecycle that was deleted or never loaded) makes Vault abort the whole import
+// with UnknownBehavior. Return human-readable locations to fix.
+function findInvalidCategoryRefs(){
+  const out=[];
+  (CATEGORIES||[]).forEach(c=>{
+    if(c.lifecycle && !LIFECYCLES.some(l=>l.name===c.lifecycle||(l.rawName||l.name)===c.lifecycle))
+      out.push(`Category “${c.name}” → lifecycle “${c.lifecycle}” is not defined`);
+    if(c.revision && !REVISIONS.some(r=>r.name===c.revision||(r.rawName||r.name)===c.revision))
+      out.push(`Category “${c.name}” → revision scheme “${c.revision}” is not defined`);
+  });
+  return out;
+}
 async function doExportCfg(){
   document.getElementById('cfg-export-modal').classList.remove('open');
   try{
     await ensureCfgEntries();
     const bad=findInvalidCriteria();
     if(bad.length){ throw new Error('Numeric criteria with non-numeric values would make Vault reject the import (nvarchar→float):\n\n'+bad.map(b=>'• '+b).join('\n')+'\n\nFix the highlighted value(s) in the Lifecycles ▸ transition ▸ Criteria tab, or change the condition.'); }
+    const badCat=findInvalidCategoryRefs();
+    if(badCat.length){ throw new Error('A category references a lifecycle or revision scheme that isn’t defined — Vault would reject the import (UnknownBehavior):\n\n'+badCat.map(b=>'• '+b).join('\n')+'\n\nIn Categories, point the category at a defined lifecycle/revision scheme (or add the missing definition).'); }
     patchManifestVersion((val('cfg-build')||'').trim());
     const bytes=buildCfgBytes();
     const blob=new Blob([bytes],{type:'application/octet-stream'});
