@@ -1710,6 +1710,10 @@ function catSortProps(c){ if(!Array.isArray(c.properties))return; const dn=sn=>{
 // to all entities automatically and CANNOT be assigned to a category as a
 // UserDefinedProperty behavior — Vault rejects them on import (UnknownBehavior).
 function isSystemPropName(sn){ const p=PROPS.find(x=>x.SystemName===sn); return p?!!p.IsSystem:SYSTEM_PROP_NAMES.has(sn); }
+// Why a property name can't be a category behavior: '' = ok, 'system' = built-in
+// property, 'unknown' = no matching UDP definition. Both make Vault throw
+// UnknownBehavior on import, so they're flagged in the UI and dropped on export.
+function catPropBad(sn){ if(isSystemPropName(sn))return'system'; return PROPS.some(p=>p.SystemName===sn)?'':'unknown'; }
 let CAT_PROP_CLIPBOARD=null;
 function catCopyProps(i){ const c=CATEGORIES[i]; if(!c)return; CAT_PROP_CLIPBOARD=[...(c.properties||[])]; renderCategories(); notify('Copied '+CAT_PROP_CLIPBOARD.length+' propert'+(CAT_PROP_CLIPBOARD.length===1?'y':'ies')); }
 function catPasteProps(i){ const c=CATEGORIES[i]; if(!c)return; if(!CAT_PROP_CLIPBOARD){notify('Nothing copied yet — use Copy first');return;} const cur=(c.properties||[]).length; if(cur && !confirm('Replace this category’s '+cur+' propert'+(cur===1?'y':'ies')+' with the copied set ('+CAT_PROP_CLIPBOARD.length+')?'))return; c.properties=[...CAT_PROP_CLIPBOARD]; catSortProps(c); CAT_EXPANDED.add(c); renderCategories(); notify('Property set pasted'); }
@@ -1717,8 +1721,9 @@ function catPropListHTML(c,i){
   catSortProps(c);
   const props=c.properties||[];
   const chips=props.length?props.map((sn,pi)=>{
-    const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn; const bad=isSystemPropName(sn);
-    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid ${bad?'var(--danger)':'var(--border)'};border-radius:14px;padding:3px 4px 3px 10px;font-size:.76rem;margin:0 6px 6px 0"${bad?' title="System property — not valid on a category; will be dropped on .cfg export"':''}>${bad?'⚠ ':''}${esc(label)}<button class="btn btn-danger btn-icon" style="padding:0 5px" title="Remove" onclick="catDelProp(${i},${pi})">✕</button></span>`;
+    const p=PROPS.find(x=>x.SystemName===sn); const label=p?p.DisplayName:sn; const bad=catPropBad(sn);
+    const tip=bad==='system'?'System property — not valid on a category; will be dropped on .cfg export':bad==='unknown'?'No matching property definition — Vault would reject it; will be dropped on .cfg export':'';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--surface);border:1px solid ${bad?'var(--danger)':'var(--border)'};border-radius:14px;padding:3px 4px 3px 10px;font-size:.76rem;margin:0 6px 6px 0"${bad?` title="${esc(tip)}"`:''}>${bad?'⚠ ':''}${esc(label)}<button class="btn btn-danger btn-icon" style="padding:0 5px" title="Remove" onclick="catDelProp(${i},${pi})">✕</button></span>`;
   }).join(''):'<span style="color:var(--text-muted);font-size:.78rem">No properties assigned.</span>';
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap">
       <div style="font-weight:600;font-size:.82rem">Property List — ${esc(c.name)}</div>
@@ -1734,6 +1739,7 @@ function catToggle(i){ const c=CATEGORIES[i]; if(!c)return; if(CAT_EXPANDED.has(
 function catAddProp(i,val){
   val=(val||'').trim(); if(!val)return; const c=CATEGORIES[i]; if(!c)return;
   const p=PROPS.find(x=>x.DisplayName===val)||PROPS.find(x=>x.SystemName===val); const sn=p?p.SystemName:val;
+  if(!p){ notify('“'+val+'” isn’t a defined property — pick one from the list.'); return; }
   if(isSystemPropName(sn)){ notify('“'+(p?p.DisplayName:sn)+'” is a system property — it applies to every entity automatically and can’t be assigned to a category.'); return; }
   if(!Array.isArray(c.properties))c.properties=[];
   if(!c.properties.includes(sn))c.properties.push(sn);
@@ -3569,9 +3575,10 @@ function patchCategoryPackage(){
       if(ucls){ let ub=ucls.querySelector('Behaviors'); if(!ub){ ub=mk('Behaviors'); ucls.appendChild(ub); }
         ub.setAttribute('Default','ALLBEHAVIORS');
         [...ub.querySelectorAll('Behavior')].forEach(n=>n.remove());
-        // Only user-defined properties are valid category behaviors. System
-        // properties (CreateDate, etc.) make Vault throw UnknownBehavior on import.
-        c.properties.filter(sn=>!isSystemPropName(sn)).forEach(sn=>{ const b=mk('Behavior'); b.setAttribute('Name',sn); ub.appendChild(b); });
+        // Only defined user-defined properties are valid category behaviors.
+        // System properties (CreateDate) and unknown names (e.g. a typo like "pre")
+        // both make Vault throw UnknownBehavior on import, so drop them.
+        c.properties.filter(sn=>!catPropBad(sn)).forEach(sn=>{ const b=mk('Behavior'); b.setAttribute('Name',sn); ub.appendChild(b); });
       }
     }
     wrap.appendChild(el);
