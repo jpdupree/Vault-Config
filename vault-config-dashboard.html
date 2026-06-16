@@ -1673,7 +1673,7 @@ function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolde
 // ═══════════════════════════════════════════════════════════════
 //  CATEGORIES / REVISIONS / NUMBERING / CHANGELOG
 // ═══════════════════════════════════════════════════════════════
-function lcOptions(sel){ return '<option value="">— None —</option>'+LIFECYCLES.map(l=>`<option ${l.name===sel?'selected':''}>${esc(l.name)}</option>`).join(''); }
+function lcOptions(sel){ return '<option value="">— None —</option>'+LIFECYCLES.map(l=>`<option value="${esc(l.name)}" ${l.name===sel?'selected':''}>${esc(l.name)}</option>`).join(''); }
 const CAT_SECTIONS=[
   {key:'File',match:e=>e==='File'},
   {key:'Folder',match:e=>e==='Folder'},
@@ -1701,6 +1701,10 @@ function renderCategories(){
     const cb=tr.querySelector('input[type=checkbox]'); cb.onchange=e=>c.isDefault=e.target.checked;
     const el=tr.querySelectorAll('td input.inp, select');
     el[0].onchange=e=>c.name=e.target.value; el[1].onchange=e=>c.lifecycle=e.target.value; el[2].onchange=e=>c.revision=e.target.value;
+    // Force the selects to reflect the model explicitly — names with special
+    // characters (e.g. "Library & Hardware Lifecycle") can otherwise fail to
+    // bind to the matching option on re-render in some browsers.
+    el[1].value=c.lifecycle||''; el[2].value=c.revision||'';
     tb.appendChild(tr);
     if(expanded){ const er=document.createElement('tr'); er.className='cat-exp'; er.innerHTML=`<td colspan="5" style="background:var(--surface2);padding:12px 16px">${catPropListHTML(c,i)}</td>`; tb.appendChild(er); }
   });
@@ -1733,7 +1737,7 @@ function catPropListHTML(c,i){
       </div>
     </div>
     <div style="margin-bottom:10px">${chips}</div>
-    <input class="inp" style="max-width:300px" list="cat-prop-options" placeholder="🔍 Search & add property…" onchange="catAddProp(${i},this.value);this.value='';">`;
+    <input class="inp" style="max-width:300px" list="cat-prop-options" placeholder="🔍 Search &amp; add property…" onchange="catAddProp(${i},this.value);this.value='';">`;
 }
 function catToggle(i){ const c=CATEGORIES[i]; if(!c)return; if(CAT_EXPANDED.has(c))CAT_EXPANDED.delete(c); else CAT_EXPANDED.add(c); renderCategories(); }
 function catAddProp(i,val){
@@ -1750,7 +1754,7 @@ function addCategory(entity){ CATEGORIES.push({name:"New Category",entity:entity
 function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,isDefault:false,properties:[...(s.properties||[])],system:false}); renderCategories(); updateMetrics(); notify('Category duplicated'); }
 
 function seqOptions(sel){ return '<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${s.name===sel?'selected':''}>${esc(s.name)}</option>`).join(''); }
-function revOptions(sel){ return '<option value="">— None —</option>'+REVISIONS.map(r=>`<option ${r.name===sel?'selected':''}>${esc(r.name)}</option>`).join(''); }
+function revOptions(sel){ return '<option value="">— None —</option>'+REVISIONS.map(r=>`<option value="${esc(r.name)}" ${r.name===sel?'selected':''}>${esc(r.name)}</option>`).join(''); }
 function renderRevisions(){
   markSystemDefaults();
   const tb=document.getElementById('rev-tbody'); if(!tb)return; tb.innerHTML='';
