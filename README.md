@@ -150,7 +150,7 @@ load into the dashboard.
 - The tool is the **single file `vault-config-dashboard.html`** — copy it anywhere
   (repo, file share, intranet) and it works.
 - Updates are a **drop‑in replacement**: replace the one file.
-- The build stamp in the sidebar footer and on the PDF cover (e.g. `v1.3 · Build 2026.06.12`)
+- The build stamp in the sidebar footer and on the PDF cover (e.g. `v1.4 · Build 2026.06.16`)
   identifies which copy someone is running — handy when reporting issues.
 
 ---
@@ -171,8 +171,8 @@ load into the dashboard.
 The version/build is set in `vault-config-dashboard.html`:
 
 ```js
-const APP_VERSION='1.3';
-const APP_BUILD='2026.06.12';   // YYYY.MM.DD
+const APP_VERSION='1.4';
+const APP_BUILD='2026.06.16';   // YYYY.MM.DD
 ```
 
 Bump these when publishing an updated copy to the team. The label updates
