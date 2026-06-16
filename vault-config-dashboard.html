@@ -3573,11 +3573,13 @@ function patchCategoryPackage(){
   const resolveLc=v=>{ if(!v)return''; const l=LIFECYCLES.find(x=>x.name===v||(x.rawName||x.name)===v); return l?(l.rawName||l.name):''; };
   const resolveRev=v=>{ if(!v)return''; const r=REVISIONS.find(x=>x.name===v||(x.rawName||x.name)===v); return r?(r.rawName||r.name):''; };
   [...wrap.querySelectorAll('Category')].forEach(n=>n.remove());
+  const writtenCats=new Set(); // dedupe: a duplicate <Category Name> breaks the package
   CATEGORIES.forEach(c=>{
     // Match by internal Name (rawName = GUID for custom categories) so the
     // original definition is reused and its Name is preserved — category rules
     // reference this Name, so it must not change or Vault throws UnknownCategory.
     const internalName=c.rawName||c.name;
+    if(writtenCats.has(internalName)) return; writtenCats.add(internalName);
     const match=orig[internalName]||orig[c.name];
     let el = match ? match.cloneNode(true) : (tmpl?tmpl.cloneNode(true):mk('Category'));
     if(!match){
@@ -3760,7 +3762,35 @@ function patchCsMapPackage(){
   });
   ent.data=reserializeXml(doc, ent.data);
 }
-function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); patchCategoryPackage(); patchPropertyPackage(); patchNumberingPackage(); patchRulesPackage(); patchCsMapPackage(); return zipStore(loadedCfg.entries); }
+// Patch EntityClassSupportedBehavior.xml: register every category under its
+// entity class's "Category" behavior list. A category-assignment rule (and
+// category assignment in general) requires the category to be registered for
+// that entity class, or Vault throws UnknownCategory on import. We only ADD
+// missing categories (preserving existing entries and the single Default), so
+// OOTB registrations are never disturbed.
+function patchEntityClassSupportedBehavior(){
+  const ent=loadedCfg.entries.find(e=>e.name==='EntityClassSupportedBehavior/EntityClassSupportedBehavior.xml'); if(!ent) return;
+  const dec=new TextDecoder();
+  const doc=xmlDoc(dec.decode(ent.data));
+  const NS=doc.documentElement.namespaceURI, mk=t=>doc.createElementNS(NS,t);
+  doc.querySelectorAll('EntityClass').forEach(ec=>{
+    const type=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!type) return;
+    const catCls=[...ec.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')==='Category'); if(!catCls) return;
+    let beh=catCls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); catCls.appendChild(beh); }
+    const existing=new Set([...beh.querySelectorAll('Behavior')].map(b=>xAttr(b,'Name')));
+    const hasDefault=[...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'AssignmentType')==='Default');
+    let defaultUsed=hasDefault;
+    CATEGORIES.filter(c=>c.entity===type).forEach(c=>{
+      const internalName=c.rawName||c.name; if(existing.has(internalName)) return;
+      const b=mk('Behavior'); b.setAttribute('Name',internalName);
+      const isDef=!defaultUsed && c.isDefault; if(isDef)defaultUsed=true;
+      b.setAttribute('AssignmentType', isDef?'Default':'Assignable');
+      beh.appendChild(b); existing.add(internalName);
+    });
+  });
+  ent.data=reserializeXml(doc, ent.data);
+}
+function buildCfgBytes(){ patchLifecyclePackage(); patchRevisionPackage(); patchCategoryPackage(); patchEntityClassSupportedBehavior(); patchPropertyPackage(); patchNumberingPackage(); patchRulesPackage(); patchCsMapPackage(); return zipStore(loadedCfg.entries); }
 // Read/patch the Vault version stamp in Manifest.xml (PRODUCT|<ver> + ADMS_VERSION).
 function cfgManifestVersion(){
   if(!loadedCfg||!loadedCfg.entries) return '';
