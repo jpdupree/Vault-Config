@@ -13,9 +13,14 @@ an edited (or merged) `.cfg` back into Vault, and adds a **Validate** button tha
 catches those problems before you export.
 
 ### Added
-- **Manual Checklist: property “Required” flags** — added a checklist item noting
-  that a property’s Required/mandatory setting isn’t carried by the `.cfg` and must
-  be set per category in Vault. (List/enumerated property values *do* carry.)
+- **Properties: list-value count badge** — a property row now shows a `📋 N` badge
+  when it has list/enumerated values, so they're visible without expanding. (The
+  dedicated **List Values** editor already exists in the expanded row — values
+  round-trip in the `.cfg`.)
+- **Manual Checklist: property initial value / required + per-user security** — a
+  property’s initial/default value and Required flag aren’t modeled or written to
+  the `.cfg`; and per-user object/folder ACLs are environment-specific. Both added
+  as hand-apply checklist items. (List values *do* carry.)
 - **Validation: non-portable user ACEs** — Validate now warns when lifecycle
   state or transition security grants to a **user** (not a group); user accounts
   are environment-specific and Vault drops them on `.cfg` import.

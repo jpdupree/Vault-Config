@@ -1562,7 +1562,7 @@ function renderPropsTable(tbodyId,data,compact){
     tr.innerHTML=`<td style="white-space:nowrap;cursor:pointer"><span style="color:var(--text-muted)">${expanded?'▾':'▸'}</span> <input class="inp" value="${esc(p.DisplayName)}" data-f="DisplayName" style="display:inline-block;width:calc(100% - 18px)"/></td>
       <td><select class="inp" data-f="DataType">${(PROP_TYPES.includes(p.DataType)?PROP_TYPES:PROP_TYPES.concat(p.DataType)).map(x=>`<option ${x===p.DataType?'selected':''}>${esc(x)}</option>`).join('')}</select></td>
       <td>${src}</td>
-      <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}" data-act="1" style="cursor:pointer">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}</td>
+      <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}" data-act="1" style="cursor:pointer">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}${(p.valueList&&p.valueList.length)?`<span class="badge" style="margin-left:5px" title="${p.valueList.length} list value(s) — expand to edit">📋 ${p.valueList.length}</span>`:''}</td>
       <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}" data-f="notes"/></td>
       <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="event.stopPropagation();PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button></td>`;
     tr.querySelectorAll('input.inp,select.inp').forEach(elm=>{ elm.onclick=e=>e.stopPropagation(); elm.onchange=e=>{ p[elm.getAttribute('data-f')]=e.target.value; }; });
@@ -1975,7 +1975,8 @@ const CHECKLIST_ITEMS=[
   {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review and Email Notifications are documented but not written to the .cfg.'},
   {id:'lcreimport',label:'Re-import Changed Lifecycles (delete first)',page:'lifecycles',note:'Vault won\'t overwrite a lifecycle that already exists — delete or rename it in Vault before importing the .cfg, or the change is a no-op. State/transition security binds only to groups present in the target vault.'},
   {id:'revtable',label:'Revision Table Control',page:'revtable',note:'Drawing revision table mappings, content and filters — configured in the Vault add-in, not the .cfg.'},
-  {id:'propreq',label:'Property “Required” / Mandatory Flags',page:'properties',note:'A property’s Required (mandatory) setting is not carried by the .cfg — set it per category in Vault’s property/category behaviors after import. (Note: list/enumerated values DO carry in the .cfg.)'}
+  {id:'propreq',label:'Property Initial Value & Required Flag',page:'properties',note:'A property’s initial/default value and Required (mandatory) flag are not modeled by this tool or written to the .cfg — set them per category in Vault after import. (List/enumerated values DO carry — edit them in a property’s List Values panel.)'},
+  {id:'peruser',label:'Per-User Security (object/folder ACLs)',page:'users',note:'Permissions and ACLs assigned to specific users on folders/files are environment-specific (resolved by account SID) — not in the .cfg. Re-apply them by hand in Vault, preferring groups for portability.'}
 ];
 let CHECKLIST={};
 function renderChecklist(){
