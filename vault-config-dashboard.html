@@ -1974,7 +1974,8 @@ const CHECKLIST_ITEMS=[
   {id:'general',label:'General Settings (file handling)',page:'general',note:'Unique file names, duplicate search, trash bin, design check-in restrictions, etc.'},
   {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review and Email Notifications are documented but not written to the .cfg.'},
   {id:'lcreimport',label:'Re-import Changed Lifecycles (delete first)',page:'lifecycles',note:'Vault won\'t overwrite a lifecycle that already exists — delete or rename it in Vault before importing the .cfg, or the change is a no-op. State/transition security binds only to groups present in the target vault.'},
-  {id:'revtable',label:'Revision Table Control',page:'revtable',note:'Drawing revision table mappings, content and filters — configured in the Vault add-in, not the .cfg.'}
+  {id:'revtable',label:'Revision Table Control',page:'revtable',note:'Drawing revision table mappings, content and filters — configured in the Vault add-in, not the .cfg.'},
+  {id:'propreq',label:'Property “Required” / Mandatory Flags',page:'properties',note:'A property’s Required (mandatory) setting is not carried by the .cfg — set it per category in Vault’s property/category behaviors after import. (Note: list/enumerated values DO carry in the .cfg.)'}
 ];
 let CHECKLIST={};
 function renderChecklist(){

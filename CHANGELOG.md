@@ -13,6 +13,9 @@ an edited (or merged) `.cfg` back into Vault, and adds a **Validate** button tha
 catches those problems before you export.
 
 ### Added
+- **Manual Checklist: property “Required” flags** — added a checklist item noting
+  that a property’s Required/mandatory setting isn’t carried by the `.cfg` and must
+  be set per category in Vault. (List/enumerated property values *do* carry.)
 - **Validation: non-portable user ACEs** — Validate now warns when lifecycle
   state or transition security grants to a **user** (not a group); user accounts
   are environment-specific and Vault drops them on `.cfg` import.
