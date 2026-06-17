@@ -42,6 +42,7 @@ The left sidebar covers the configuration areas:
 | **Revision Table** | Drawing revision‑table control: column mappings, content, filters (documented) |
 | **Property Definitions** | Properties (System vs UDP) and their content‑source mappings |
 | **Folder Structure** | Planned folder tree, with library‑folder marking |
+| **Content Center Libraries** | Inventor Content Center libraries loaded into the vault (Standard / Custom) |
 | **CAD Integration** | CAD applications and per‑app workspace |
 | **Email & Notifications** | Vault email (SMTP) configuration |
 | **Vault Connector (Fusion Manage)** | Tenant, property mappings, attachment options, state mappings |

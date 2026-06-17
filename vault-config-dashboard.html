@@ -291,6 +291,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
 
   <div class="nav-section">Structure</div>
   <div class="nav-item" onclick="showPage('folders')" id="nav-folders"><span class="ni">📁</span> Folder Structure</div>
+  <div class="nav-item" onclick="showPage('cclibs')" id="nav-cclibs"><span class="ni">📚</span> Content Center Libraries</div>
 
   <div class="nav-section">Integrations</div>
   <div class="nav-item" onclick="showPage('cad')" id="nav-cad"><span class="ni">📐</span> CAD Integration</div>
@@ -622,6 +623,23 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
     <h3>Folder Tree <span class="badge" id="folder-count-badge">0</span></h3>
     <div id="folder-tree"></div>
     <div style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="addFolder()">+ Add Top-Level Folder</button></div>
+  </div>
+</div>
+
+<!-- CONTENT CENTER LIBRARIES -->
+<div class="page" id="page-cclibs">
+  <div class="page-title">Content Center Libraries</div>
+  <div class="page-sub">Inventor Content Center libraries loaded into this Vault. Mark each as <b>Standard</b> (Autodesk‑shipped, read‑only) or <b>Custom</b> (editable / company content). Documentation only — Content Center libraries are loaded via ADMS, not the Global Settings <b>.cfg</b>.</div>
+  <div class="card">
+    <h3>Libraries <span class="badge" id="cclib-count-badge">0</span></h3>
+    <table class="tbl">
+      <thead><tr><th>Library Name</th><th style="width:160px">Type</th><th style="width:40px"></th></tr></thead>
+      <tbody id="cclib-tbody"></tbody>
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="addCCLib()">+ Add Library</button>
+      <button class="btn btn-ghost btn-sm" onclick="loadCCLibDefaults()" title="Load the standard Inventor Content Center library set">↺ Load Defaults</button>
+    </div>
   </div>
 </div>
 
@@ -1481,7 +1499,7 @@ function renderAll(){
   renderPropsTable('prop-tbody',PROPS,false);
   document.getElementById('prop-count-badge').textContent=PROPS.length;
   document.getElementById('folder-count-badge').textContent=countFolders(FOLDERS);
-  renderLCList(); renderFolders(); renderCategories(); renderRevisions(); renderRevSeqs();
+  renderLCList(); renderFolders(); renderCCLibs(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderCadApps();
   renderRules(); renderFmProps(); renderFmStates(); renderChecklist(); renderRtMaps(); rtUpdateEnabled();
@@ -1681,6 +1699,30 @@ function renderFolders(){
   const badge=document.getElementById('folder-count-badge'); if(badge)badge.textContent=countFolders(FOLDERS);
 }
 function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolders(); }
+
+// ── CONTENT CENTER LIBRARIES (Inventor) ──
+// Documentation only — loaded via ADMS, not carried in the Global Settings .cfg.
+const CCLIB_DEFAULTS=["Other","RoutedSystems","Feature","JISGB","DIN","GOST","ANSI","Custom","Parker","SheetMetal","ISO"]
+  .map(n=>({name:n+" Standard 2027",type:"Standard"}));
+let CCLIBS=CCLIB_DEFAULTS.map(l=>({...l}));
+function renderCCLibs(){
+  const tb=document.getElementById('cclib-tbody'); if(!tb)return; tb.innerHTML='';
+  CCLIBS.forEach((lib,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input class="inp" value="${esc(lib.name)}"/></td>
+      <td><select class="inp">${['Standard','Custom'].map(t=>`<option ${t===lib.type?'selected':''}>${t}</option>`).join('')}</select></td>
+      <td><button class="btn btn-danger btn-icon" title="Remove">✕</button></td>`;
+    const inp=tr.querySelector('input.inp'), sel=tr.querySelector('select');
+    inp.onchange=e=>lib.name=e.target.value;
+    sel.onchange=e=>lib.type=e.target.value;
+    tr.querySelector('button').onclick=()=>{ CCLIBS.splice(i,1); renderCCLibs(); };
+    tb.appendChild(tr);
+  });
+  if(!CCLIBS.length) tb.innerHTML='<tr><td colspan="3" style="color:var(--text-muted);font-size:.8rem">No libraries. Use <b>+ Add Library</b> or <b>Load Defaults</b>.</td></tr>';
+  const badge=document.getElementById('cclib-count-badge'); if(badge)badge.textContent=CCLIBS.length;
+}
+function addCCLib(){ CCLIBS.push({name:"New Library",type:"Standard"}); renderCCLibs(); }
+function loadCCLibDefaults(){ if(CCLIBS.length && !confirm('Replace the current library list with the standard Inventor Content Center set?')) return; CCLIBS=CCLIB_DEFAULTS.map(l=>({...l})); renderCCLibs(); notify('Loaded default Content Center libraries'); }
 
 // ═══════════════════════════════════════════════════════════════
 //  CATEGORIES / REVISIONS / NUMBERING / CHANGELOG
@@ -2850,7 +2892,7 @@ function collectConfig(){
     vault:{name:val('cfg-vault-name'),server:val('cfg-server'),version:val('cfg-version'),buildNumber:val('cfg-build'),administrator:val('cfg-admin'),organization:val('cfg-org'),documentDate:val('cfg-date'),preparedBy:val('cfg-consultant'),notes:val('cfg-notes')},
     lifecycles:LIFECYCLES.map(lcExportData),
     categories:CATEGORIES,revisionSchemes:REVISIONS,revisionSequences:REVSEQS,numberingSchemes:NUMBERING,
-    properties:PROPS,folders:FOLDERS,
+    properties:PROPS,folders:FOLDERS,contentCenterLibraries:CCLIBS,
     users:USERS,groups:GROUPS,roles:ROLES,
     server:collectFields(SETTING_FIELDS.server),
     security:collectFields(SETTING_FIELDS.security),
@@ -2893,6 +2935,7 @@ function colorForState(s,i){
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
+function normCCLib(l){if(typeof l==='string')return{name:l,type:'Standard'};const t=pick(l,'type','Type','classification','Classification')||'Standard';return{name:pick(l,'name','Name','library','Library')||'(unnamed)',type:/custom/i.test(t)?'Custom':'Standard'};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,rawName:pick(c,'rawName','RawName')||'',entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,properties:(firstArr(c,'properties','Properties')||[]).map(x=>typeof x==='string'?x:(pick(x,'SystemName','systemName','name','Name')||String(x))),system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,rawName:pick(r,'rawName','RawName')||undefined,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,rawName:pick(s,'rawName','RawName')||undefined,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
@@ -2955,6 +2998,7 @@ function normalizeConfig(raw){
   const out={}; let idc=1; const nid=()=>idc++;
   const props=firstArr(raw,'properties','Properties','propertyDefinitions','PropertyDefinitions');           if(props) out.properties=props.map(normProp);
   const folders=firstArr(raw,'folders','Folders');                                                          if(folders) out.folders=folders.map(normFolder);
+  const cclibs=firstArr(raw,'contentCenterLibraries','ccLibs','ContentCenterLibraries');                    if(cclibs) out.cclibs=cclibs.map(normCCLib);
   const cats=firstArr(raw,'categories','Categories');                                                       if(cats) out.categories=cats.map(normCat);
   const revs=firstArr(raw,'revisionSchemes','revisions','RevisionSchemes','Revisions');                     if(revs) out.revisions=revs.map(normRev);
   const seqs=firstArr(raw,'revisionSequences','RevisionSequences');                                         if(seqs) out.revseqs=seqs.map(normRevSeq);
@@ -3015,7 +3059,7 @@ function applyConfig(raw,replace){
   // Users/Groups are environment-specific and not carried in the .cfg, so never
   // clear them on replace — only overwrite when the import explicitly provides them.
   const arrKeep=(key,set)=>{ if(c[key]!==undefined) set(c[key]); };
-  arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v);
+  arr('properties',v=>PROPS=v); arr('folders',v=>FOLDERS=v); arr('cclibs',v=>CCLIBS=v);
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   dedupeCategories();
   arr('changelog',v=>CHANGELOG=v); arrKeep('users',v=>USERS=v); arrKeep('groups',v=>GROUPS=v);
@@ -4170,6 +4214,12 @@ function buildPrintDoc(){
   html+=prSection(S(),'Folder Structure',`${countFolders(FOLDERS)} folder(s).`)+`
     <table class="pr-tbl"><thead><tr><th>Folder</th><th style="width:90px">Library</th></tr></thead><tbody>
     ${folderRows.map(r=>`<tr><td style="padding-left:${8+r.depth*18}px">${r.depth?'└ ':(r.library?'📚 ':'📁 ')}${esc(r.name)}</td><td style="text-align:center">${r.library?'Yes':''}</td></tr>`).join('')}
+    </tbody></table></div>`;
+
+  // CONTENT CENTER LIBRARIES
+  if(CCLIBS.length) html+=prSection(S(),'Content Center Libraries',`${CCLIBS.length} librar${CCLIBS.length===1?'y':'ies'} (Inventor).`)+`
+    <table class="pr-tbl"><thead><tr><th>Library</th><th style="width:120px">Type</th></tr></thead><tbody>
+    ${CCLIBS.map(l=>`<tr><td>📚 ${esc(l.name)}</td><td>${esc(l.type||'Standard')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // CAD INTEGRATION
