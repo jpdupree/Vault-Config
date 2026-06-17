@@ -14,8 +14,9 @@ catches those problems before you export.
 
 ### Added
 - **Content Center Libraries** section (under Structure) — lists the Inventor
-  Content Center libraries loaded into the vault, each marked **Standard** or
-  **Custom**, with **+ Add Library** and **Load Defaults** (the standard Inventor
+  Content Center libraries loaded into the vault, each with a **Type**
+  (Standard / Custom) and a free‑text **Notes** field (e.g. which release years
+  are loaded), plus **+ Add Library** and **Load Defaults** (the standard Inventor
   set). Documentation only (loaded via ADMS, not the Global Settings `.cfg`);
   included in the PDF.
 - **✓ Validate** toolbar button + results dialog — pre-flights the whole config

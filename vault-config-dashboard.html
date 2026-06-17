@@ -633,7 +633,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
   <div class="card">
     <h3>Libraries <span class="badge" id="cclib-count-badge">0</span></h3>
     <table class="tbl">
-      <thead><tr><th>Library Name</th><th style="width:160px">Type</th><th style="width:40px"></th></tr></thead>
+      <thead><tr><th style="width:30%">Library Name</th><th style="width:130px">Type</th><th>Notes</th><th style="width:40px"></th></tr></thead>
       <tbody id="cclib-tbody"></tbody>
     </table>
     <div style="margin-top:12px;display:flex;gap:8px">
@@ -1703,7 +1703,7 @@ function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolde
 // ── CONTENT CENTER LIBRARIES (Inventor) ──
 // Documentation only — loaded via ADMS, not carried in the Global Settings .cfg.
 const CCLIB_DEFAULTS=["Other","RoutedSystems","Feature","JISGB","DIN","GOST","ANSI","Custom","Parker","SheetMetal","ISO"]
-  .map(n=>({name:n+" Standard 2027",type:"Standard"}));
+  .map(n=>({name:n+" Standard",type:"Standard",notes:""}));
 let CCLIBS=CCLIB_DEFAULTS.map(l=>({...l}));
 function renderCCLibs(){
   const tb=document.getElementById('cclib-tbody'); if(!tb)return; tb.innerHTML='';
@@ -1711,17 +1711,19 @@ function renderCCLibs(){
     const tr=document.createElement('tr');
     tr.innerHTML=`<td><input class="inp" value="${esc(lib.name)}"/></td>
       <td><select class="inp">${['Standard','Custom'].map(t=>`<option ${t===lib.type?'selected':''}>${t}</option>`).join('')}</select></td>
+      <td><input class="inp" value="${esc(lib.notes||'')}" placeholder="e.g. 2026 + 2027 versions loaded"/></td>
       <td><button class="btn btn-danger btn-icon" title="Remove">✕</button></td>`;
-    const inp=tr.querySelector('input.inp'), sel=tr.querySelector('select');
-    inp.onchange=e=>lib.name=e.target.value;
+    const inps=tr.querySelectorAll('input.inp'), sel=tr.querySelector('select');
+    inps[0].onchange=e=>lib.name=e.target.value;
     sel.onchange=e=>lib.type=e.target.value;
+    inps[1].onchange=e=>lib.notes=e.target.value;
     tr.querySelector('button').onclick=()=>{ CCLIBS.splice(i,1); renderCCLibs(); };
     tb.appendChild(tr);
   });
-  if(!CCLIBS.length) tb.innerHTML='<tr><td colspan="3" style="color:var(--text-muted);font-size:.8rem">No libraries. Use <b>+ Add Library</b> or <b>Load Defaults</b>.</td></tr>';
+  if(!CCLIBS.length) tb.innerHTML='<tr><td colspan="4" style="color:var(--text-muted);font-size:.8rem">No libraries. Use <b>+ Add Library</b> or <b>Load Defaults</b>.</td></tr>';
   const badge=document.getElementById('cclib-count-badge'); if(badge)badge.textContent=CCLIBS.length;
 }
-function addCCLib(){ CCLIBS.push({name:"New Library",type:"Standard"}); renderCCLibs(); }
+function addCCLib(){ CCLIBS.push({name:"New Library",type:"Standard",notes:""}); renderCCLibs(); }
 function loadCCLibDefaults(){ if(CCLIBS.length && !confirm('Replace the current library list with the standard Inventor Content Center set?')) return; CCLIBS=CCLIB_DEFAULTS.map(l=>({...l})); renderCCLibs(); notify('Loaded default Content Center libraries'); }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2935,7 +2937,7 @@ function colorForState(s,i){
 }
 function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
-function normCCLib(l){if(typeof l==='string')return{name:l,type:'Standard'};const t=pick(l,'type','Type','classification','Classification')||'Standard';return{name:pick(l,'name','Name','library','Library')||'(unnamed)',type:/custom/i.test(t)?'Custom':'Standard'};}
+function normCCLib(l){if(typeof l==='string')return{name:l,type:'Standard',notes:''};const t=pick(l,'type','Type','classification','Classification')||'Standard';return{name:pick(l,'name','Name','library','Library')||'(unnamed)',type:/custom/i.test(t)?'Custom':'Standard',notes:pick(l,'notes','Notes')||''};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,rawName:pick(c,'rawName','RawName')||'',entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,properties:(firstArr(c,'properties','Properties')||[]).map(x=>typeof x==='string'?x:(pick(x,'SystemName','systemName','name','Name')||String(x))),system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
 function normRev(r){const nm=pick(r,'name','Name','DispName')||'';const sysv=pick(r,'system','isSystem');return{name:nm,rawName:pick(r,'rawName','RawName')||undefined,description:pick(r,'description','Description','notes','Notes')||'',separator:pick(r,'separator','Separator','delimiter')||'.',primary:pick(r,'primary','Primary','primarySequence','PrimarySequence')||'',secondary:pick(r,'secondary','Secondary','secondarySequence','SecondarySequence')||'',tertiary:pick(r,'tertiary','Tertiary','tertiarySequence','TertiarySequence')||'',comments:firstArr(r,'comments','Comments')||[],system:sysv!=null?toBool(sysv):SYSTEM_REV_NAMES.has(nm)};}
 function normRevSeq(s){const nm=pick(s,'name','Name')||'';const sysv=pick(s,'system','isSystem');let labels=firstArr(s,'labels','Labels')||[];labels=labels.map(l=>typeof l==='string'?l:(pick(l,'label','Label')||String(l)));return{name:nm,rawName:pick(s,'rawName','RawName')||undefined,displayName:pick(s,'displayName','DisplayName')||nm,labels,system:sysv!=null?toBool(sysv):SYSTEM_SEQ_NAMES.has(nm)};}
@@ -4218,8 +4220,8 @@ function buildPrintDoc(){
 
   // CONTENT CENTER LIBRARIES
   if(CCLIBS.length) html+=prSection(S(),'Content Center Libraries',`${CCLIBS.length} librar${CCLIBS.length===1?'y':'ies'} (Inventor).`)+`
-    <table class="pr-tbl"><thead><tr><th>Library</th><th style="width:120px">Type</th></tr></thead><tbody>
-    ${CCLIBS.map(l=>`<tr><td>📚 ${esc(l.name)}</td><td>${esc(l.type||'Standard')}</td></tr>`).join('')}
+    <table class="pr-tbl"><thead><tr><th>Library</th><th style="width:90px">Type</th><th>Notes</th></tr></thead><tbody>
+    ${CCLIBS.map(l=>`<tr><td>📚 ${esc(l.name)}</td><td>${esc(l.type||'Standard')}</td><td>${esc(l.notes||'')}</td></tr>`).join('')}
     </tbody></table></div>`;
 
   // CAD INTEGRATION
