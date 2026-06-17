@@ -2779,7 +2779,7 @@ function lcStateSecToggle(id,on){if(lcReadOnly)return;const s=lcStateSecGet(id);
 function lcStateSec(id,i,k,v){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s||!s.security.entries[i])return;s.security.entries[i][k]=v;}
 const ACL_PERMS=[{key:'read',label:'Read'},{key:'modify',label:'Modify'},{key:'delete',label:'Delete'},{key:'download',label:'Download'}];
 const ACL_LEVELS=['','Allow','Deny'];
-function lcStateAddSec(id){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=true;s.security.entries.push({name:'',read:'',modify:'',delete:'',download:''});lcShowStateSecPanel(s);}
+function lcStateAddSec(id){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.useStateBased=true;s.security.entries.push({name:'',isGroup:true,read:'',modify:'',delete:'',download:''});lcShowStateSecPanel(s);}
 function lcStateDelSec(id,i){if(lcReadOnly)return;const s=lcStateSecGet(id);if(!s)return;s.security.entries.splice(i,1);lcShowStateSecPanel(s);}
 function lcCloseStateSecPanel(){const p=document.getElementById('lc-state-sec-panel');if(p)p.style.display='none';}
 function lcShowStateSecPanel(s){
@@ -2789,10 +2789,11 @@ function lcShowStateSecPanel(s){
   const body=document.getElementById('lc-state-sec-body');
   body.innerHTML=`
     <div class="toggle-wrap" style="gap:8px;margin-bottom:8px"><input type="checkbox" id="lc-state-usesb-${s.id}" ${sec.useStateBased?'checked':''} onchange="lcStateSecToggle(${s.id},this.checked)"><span style="cursor:default">Use state-based security</span></div>
-    ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th>${ACL_PERMS.map(pm=>`<th style="width:96px;text-align:center">${pm.label}</th>`).join('')}<th style="width:48px"></th></tr></thead><tbody>
+    ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th><th style="width:64px;text-align:center">Is Group</th>${ACL_PERMS.map(pm=>`<th style="width:96px;text-align:center">${pm.label}</th>`).join('')}<th style="width:48px"></th></tr></thead><tbody>
       ${sec.entries.map((e,i)=>`<tr><td><input class="inp" value="${esc(e.name)}" onchange="lcStateSec(${s.id},${i},'name',this.value)"></td>
+        <td style="text-align:center"><input type="checkbox" ${e.isGroup?'checked':''} onchange="lcStateSec(${s.id},${i},'isGroup',this.checked)"></td>
         ${ACL_PERMS.map(pm=>`<td style="text-align:center"><select class="inp" onchange="lcStateSec(${s.id},${i},'${pm.key}',this.value)">${ACL_LEVELS.map(lv=>`<option value="${lv}" ${((e[pm.key]||'')===lv)?'selected':''}>${lv||'—'}</option>`).join('')}</select></td>`).join('')}
-        <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||`<tr><td colspan="${ACL_PERMS.length+2}" style="color:var(--text-muted)">No entries.</td></tr>`}
+        <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||`<tr><td colspan="${ACL_PERMS.length+3}" style="color:var(--text-muted)">No entries.</td></tr>`}
       </tbody></table><div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcStateAddSec(${s.id})">+ Add User/Group</button></div>`
       :'<div style="color:var(--text-muted);font-size:.78rem">Object-based (folder) security applies while in this state. Enable state-based security to grant or restrict specific users and groups.</div>'}
     <div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">Read from and written back to the .cfg (UseStateBasedSecurity + StateACL). Note: Vault state ACEs grant permissions, so only <b>Allow</b> round-trips — Deny/Empty both export as “not granted”.</div>`;

@@ -26,6 +26,13 @@ catches those problems before you export.
   the `.cfg` export and are listed with their exact location; **warnings** are
   cleaned up automatically on export. The **Export .cfg** path runs the same checks.
 
+### Fixed
+- **State security: User vs Group flag** — the State Security editor now has an
+  **Is Group** column (matching transition security), and hand-added entries default
+  to a group. Previously every manually added state ACE exported as `IsGroup="false"`
+  (a user), so group-targeted state ACLs wouldn't bind on import. Entries read from a
+  `.cfg` already preserved the flag; this closes the editor-side gap.
+
 ### Fixed — import errors (`ConfigurationError [232]` family)
 - **Lifecycle criteria → `nvarchar→float`** — transition criteria RuleSets are now
   preserved verbatim from the source `.cfg` (the rebuild was dropping per-rule
