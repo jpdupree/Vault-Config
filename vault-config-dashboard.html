@@ -1091,6 +1091,10 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
       Property mappings keep the exact <b>moniker</b> but not the friendly file-property name / classification.
       Roles &amp; user accounts are server-level, never part of this .cfg.
     </div>
+    <div style="background:rgba(231,76,60,.1);border:1px solid var(--danger);border-radius:6px;padding:8px 12px;margin-top:12px;font-size:.74rem;color:var(--text)">
+      <b style="color:var(--danger)">Re-importing a changed lifecycle:</b>
+      Vault will <b>not</b> overwrite a lifecycle definition that already exists (matched by name) — the import is a no-op for that scheme. To apply edits, <b>delete or rename the existing lifecycle in Vault first</b>, then import. Also note state/transition security only binds to <b>groups</b> that exist in the target vault; <b>user</b> entries don't resolve across vaults and are dropped on import.
+    </div>
     <div style="margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);font-size:.74rem;color:var(--text)">
       🎯 The exported <b>.cfg</b> is stamped with the <b>Build Number</b> from Overview ▸ Vault Details (<span id="cfg-export-build" style="font-weight:700">—</span>). Set that to the <b>target</b> Vault's build number so it accepts the file; leave it as the source version to keep the original.
     </div>
@@ -1969,6 +1973,7 @@ const CHECKLIST_ITEMS=[
   {id:'backup',label:'Backup & Restore',page:'backup',note:'Set up the backup schedule / script on the server (ADMS).'},
   {id:'general',label:'General Settings (file handling)',page:'general',note:'Unique file names, duplicate search, trash bin, design check-in restrictions, etc.'},
   {id:'lctx',label:'Lifecycle Transition Extras',page:'lifecycles',note:'Custom Job Types, Peer Review and Email Notifications are documented but not written to the .cfg.'},
+  {id:'lcreimport',label:'Re-import Changed Lifecycles (delete first)',page:'lifecycles',note:'Vault won\'t overwrite a lifecycle that already exists — delete or rename it in Vault before importing the .cfg, or the change is a no-op. State/transition security binds only to groups present in the target vault.'},
   {id:'revtable',label:'Revision Table Control',page:'revtable',note:'Drawing revision table mappings, content and filters — configured in the Vault add-in, not the .cfg.'}
 ];
 let CHECKLIST={};
@@ -2789,14 +2794,14 @@ function lcShowStateSecPanel(s){
   const body=document.getElementById('lc-state-sec-body');
   body.innerHTML=`
     <div class="toggle-wrap" style="gap:8px;margin-bottom:8px"><input type="checkbox" id="lc-state-usesb-${s.id}" ${sec.useStateBased?'checked':''} onchange="lcStateSecToggle(${s.id},this.checked)"><span style="cursor:default">Use state-based security</span></div>
-    ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th><th style="width:64px;text-align:center">Is Group</th>${ACL_PERMS.map(pm=>`<th style="width:96px;text-align:center">${pm.label}</th>`).join('')}<th style="width:48px"></th></tr></thead><tbody>
+    ${sec.useStateBased?`<table class="tbl"><thead><tr><th>User / Group</th><th style="width:64px;text-align:center">Is Group</th>${ACL_PERMS.map(pm=>`<th style="width:80px;text-align:center">${pm.label}</th>`).join('')}<th style="width:48px"></th></tr></thead><tbody>
       ${sec.entries.map((e,i)=>`<tr><td><input class="inp" value="${esc(e.name)}" onchange="lcStateSec(${s.id},${i},'name',this.value)"></td>
         <td style="text-align:center"><input type="checkbox" ${e.isGroup?'checked':''} onchange="lcStateSec(${s.id},${i},'isGroup',this.checked)"></td>
-        ${ACL_PERMS.map(pm=>`<td style="text-align:center"><select class="inp" onchange="lcStateSec(${s.id},${i},'${pm.key}',this.value)">${ACL_LEVELS.map(lv=>`<option value="${lv}" ${((e[pm.key]||'')===lv)?'selected':''}>${lv||'—'}</option>`).join('')}</select></td>`).join('')}
+        ${ACL_PERMS.map(pm=>`<td style="text-align:center"><input type="checkbox" ${e[pm.key]==='Allow'?'checked':''} onchange="lcStateSec(${s.id},${i},'${pm.key}',this.checked?'Allow':'')" title="Grant ${pm.label}"></td>`).join('')}
         <td><button class="btn btn-danger btn-icon" onclick="lcStateDelSec(${s.id},${i})">✕</button></td></tr>`).join('')||`<tr><td colspan="${ACL_PERMS.length+3}" style="color:var(--text-muted)">No entries.</td></tr>`}
       </tbody></table><div style="margin-top:8px"><button class="btn btn-primary btn-sm" onclick="lcStateAddSec(${s.id})">+ Add User/Group</button></div>`
       :'<div style="color:var(--text-muted);font-size:.78rem">Object-based (folder) security applies while in this state. Enable state-based security to grant or restrict specific users and groups.</div>'}
-    <div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">Read from and written back to the .cfg (UseStateBasedSecurity + StateACL). Note: Vault state ACEs grant permissions, so only <b>Allow</b> round-trips — Deny/Empty both export as “not granted”.</div>`;
+    <div style="font-size:.71rem;color:var(--text-muted);margin-top:8px">Read from and written back to the .cfg (UseStateBasedSecurity + StateACL). Each permission is a <b>grant</b> (checked) or not — Vault has no separate “deny”. State-based security is <b>exclusive</b>, so a group with nothing checked is dropped on export rather than written as a deny-all. Use <b>groups</b>; user entries don’t resolve across vaults.</div>`;
   if(lcReadOnly){ body.querySelectorAll('input,select,textarea').forEach(x=>x.disabled=true); body.querySelectorAll('button').forEach(x=>x.style.display='none'); }
   p.style.display='block';
 }
@@ -3514,9 +3519,11 @@ function patchLifecyclePackage(){
       const ssec=s.security;
       [...el.querySelectorAll('StateACL')].forEach(e=>e.remove());
       el.setAttribute('UseStateBasedSecurity', ssec&&ssec.useStateBased?'true':'false');
-      if(ssec&&ssec.useStateBased&&ssec.entries&&ssec.entries.length){
+      // Drop entries that grant nothing — a listed-but-empty group reads as a deny-all in Vault.
+      const grants=ssec&&ssec.entries?ssec.entries.filter(en=>en.name&&['read','modify','delete','download'].some(k=>en[k]==='Allow')):[];
+      if(ssec&&ssec.useStateBased&&grants.length){
         const aclEl=mk('StateACL');
-        ssec.entries.forEach(en=>{ const ace=mk('StateACE'); ace.setAttribute('UserOrGroupName',en.name||'');
+        grants.forEach(en=>{ const ace=mk('StateACE'); ace.setAttribute('UserOrGroupName',en.name||'');
           [['read','Read'],['modify','Modify'],['delete','Delete'],['download','Download']].forEach(([k,A])=>{ ace.setAttribute(A, en[k]==='Allow'?'true':'false'); });
           ace.setAttribute('IsGroup',en.isGroup?'true':'false'); aclEl.appendChild(ace); });
         el.appendChild(aclEl);
@@ -3943,6 +3950,18 @@ function collectValidationIssues(){
   // Duplicate category names — Vault rejects a second definition (Category already exist).
   const catSeen={}; (CATEGORIES||[]).forEach(c=>{ const k=c.rawName||c.name; catSeen[k]=(catSeen[k]||0)+1; });
   Object.keys(catSeen).filter(k=>catSeen[k]>1).forEach(k=>warnings.push({cat:'Duplicate categories',msg:`“${k}” is defined ${catSeen[k]} times (extra copies dropped on export). This usually means sample data was merged with the .cfg — reload with Replace on.`}));
+  // User (non-group) ACEs in lifecycle security don't resolve across vaults — Vault drops them on import.
+  (LIFECYCLES||[]).forEach(lc=>{
+    (lc.states||[]).forEach(st=>(((st.security&&st.security.entries)||[]).forEach(en=>{
+      if(en.name && !en.isGroup && ['read','modify','delete','download'].some(k=>en[k]==='Allow'))
+        warnings.push({cat:'State security — user entries',msg:`“${lc.name}” ▸ state “${st.name}” grants to user “${en.name}” — users don't resolve across vaults (dropped on import). Use a group.`});
+    })));
+    const nm=id=>(lc.states||[]).find(s=>s.id===id)?.name||'?';
+    (lc.transitions||[]).forEach(tr=>{ if(tr.security&&tr.security.restrict) (((tr.security.entries)||[]).forEach(en=>{
+      if(en.name && !en.isGroup)
+        warnings.push({cat:'Transition security — user entries',msg:`“${lc.name}” ▸ ${nm(tr.from)} → ${nm(tr.to)} restricts to user “${en.name}” — users don't resolve across vaults (dropped on import). Use a group.`});
+    })); });
+  });
   return {errors,warnings};
 }
 function renderValidationModal(errors,warnings){

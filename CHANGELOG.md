@@ -13,6 +13,12 @@ an edited (or merged) `.cfg` back into Vault, and adds a **Validate** button tha
 catches those problems before you export.
 
 ### Added
+- **Validation: non-portable user ACEs** — Validate now warns when lifecycle
+  state or transition security grants to a **user** (not a group); user accounts
+  are environment-specific and Vault drops them on `.cfg` import.
+- **Delete-first lifecycle note** — the Export `.cfg` dialog and the Manual
+  Checklist now flag that Vault won't overwrite an existing lifecycle on import
+  (delete or rename it in Vault first, or the change is a no-op).
 - **Content Center Libraries** section (under Structure) — lists the Inventor
   Content Center libraries loaded into the vault, each with a **Type**
   (Standard / Custom) and a free‑text **Notes** field (e.g. which release years
@@ -27,6 +33,12 @@ catches those problems before you export.
   cleaned up automatically on export. The **Export .cfg** path runs the same checks.
 
 ### Fixed
+- **State security: grant model** — the State Security editor now uses a **grant
+  checkbox** per permission (Read/Modify/Delete/Download) instead of an
+  —/Allow/Deny dropdown. Vault state ACEs are grant-only and *exclusive*, so the
+  old "Deny"/blank options were misleading (both exported as "not granted", which
+  reads as a deny). Rows that grant nothing are now **dropped on export** so a
+  listed-but-empty group can't become an accidental deny-all.
 - **State security: User vs Group flag** — the State Security editor now has an
   **Is Group** column (matching transition security), and hand-added entries default
   to a group. Previously every manually added state ACE exported as `IsGroup="false"`
