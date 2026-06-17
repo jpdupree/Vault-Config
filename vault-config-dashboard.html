@@ -1702,7 +1702,7 @@ function addFolder(){ FOLDERS.push({name:"New Folder",children:[]}); renderFolde
 
 // ── CONTENT CENTER LIBRARIES (Inventor) ──
 // Documentation only — loaded via ADMS, not carried in the Global Settings .cfg.
-const CCLIB_DEFAULTS=["Other","RoutedSystems","Feature","JISGB","DIN","GOST","ANSI","Custom","Parker","SheetMetal","ISO"]
+const CCLIB_DEFAULTS=["ANSI","Custom","DIN","Feature","GOST","ISO","JISGB","Other","Parker","RoutedSystems","SheetMetal"]
   .map(n=>({name:n+" Standard",type:"Standard",notes:""}));
 let CCLIBS=CCLIB_DEFAULTS.map(l=>({...l}));
 function renderCCLibs(){
