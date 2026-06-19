@@ -300,6 +300,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
 
   <div class="nav-section">Maintenance</div>
   <div class="nav-item" onclick="showPage('backup')" id="nav-backup"><span class="ni">💾</span> Backup &amp; Restore</div>
+  <div class="nav-item" onclick="showPage('dbgrowth')" id="nav-dbgrowth"><span class="ni">📈</span> Database Growth</div>
 
   <div class="nav-section">Settings</div>
   <div class="nav-item" onclick="showPage('general')" id="nav-general"><span class="ni">⚙️</span> General Settings</div>
@@ -934,6 +935,37 @@ CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -
   </div>
 </div>
 
+<!-- DATABASE GROWTH -->
+<div class="page" id="page-dbgrowth">
+  <div class="page-title">Database Growth</div>
+  <div class="page-sub">Track the Vault SQL database(s) and file store sizes over time. Record a measurement and they're plotted so you can watch growth and plan capacity. Stored in this browser and your saved/exported JSON — these are operational metrics and are <b>not</b> written to the Vault .cfg.</div>
+
+  <div class="card">
+    <h3>Record a Measurement</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Date</label><input id="dbm-date" type="date"></div>
+      <div class="form-group"><label>Total Vault Database (GB)</label><input id="dbm-total" type="number" step="0.01" min="0" placeholder="e.g. 120.5"></div>
+      <div class="form-group"><label>File Store (GB)</label><input id="dbm-fstore" type="number" step="0.01" min="0" placeholder="e.g. 850"></div>
+    </div>
+    <div style="margin-top:6px;font-weight:600;font-size:.82rem">Individual Databases</div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px">Each Vault has its own SQL database (plus the ADMS master). Add a row per database you want to trend; names are remembered for the next measurement.</div>
+    <div id="dbm-dbrows"></div>
+    <div style="margin:8px 0"><button class="btn btn-sm" onclick="dbsAddDbRow('','')">+ Add Database</button></div>
+    <div style="margin-top:10px"><button class="btn btn-primary" onclick="dbsAddMeasurement()">Add Measurement</button></div>
+  </div>
+
+  <div class="card">
+    <h3>Growth Over Time</h3>
+    <div id="dbs-summary" style="font-size:.8rem;color:var(--text-muted);margin-bottom:8px"></div>
+    <div id="dbs-chart"></div>
+  </div>
+
+  <div class="card">
+    <h3>Recorded Measurements <button class="btn btn-sm" style="float:right" onclick="dbsExportCsv()">Download CSV</button></h3>
+    <div id="dbs-history"></div>
+  </div>
+</div>
+
 <!-- NOTES -->
 <div class="page" id="page-notes">
   <div class="page-title">Notes &amp; Change Log</div>
@@ -1506,7 +1538,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCCLibs(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderCadApps();
-  renderRules(); renderFmProps(); renderFmStates(); renderChecklist(); renderRtMaps(); rtUpdateEnabled();
+  renderRules(); renderFmProps(); renderFmStates(); renderChecklist(); renderRtMaps(); rtUpdateEnabled(); dbsRender();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator(); updateConnectorVisibility(); gsUpdateConditional();
 }
 
@@ -1528,6 +1560,7 @@ function showPage(id){
   document.getElementById('page-'+id).classList.add('active');
   document.getElementById('nav-'+id).classList.add('active');
   if(id==='lifecycles'&&activeLCId!==null){ setTimeout(()=>{lcResizeCanvas();lcDraw();},50); }
+  if(id==='dbgrowth'){ dbsPrefillForm(); dbsRender(); }
   if(id==='overview') renderCompletionBars();
 }
 // Hide the Vault Connector (Fusion Manage) page/nav when its connection is unchecked.
@@ -1979,6 +2012,8 @@ const CHECKLIST_ITEMS=[
   {id:'peruser',label:'Per-User Security (object/folder ACLs)',page:'users',note:'Permissions and ACLs assigned to specific users on folders/files are environment-specific (resolved by account SID) — not in the .cfg. Re-apply them by hand in Vault, preferring groups for portability.'}
 ];
 let CHECKLIST={};
+// Operational DB/file-store size measurements — environment metrics, not part of the .cfg.
+let DBSIZES=[];
 function renderChecklist(){
   const host=document.getElementById('checklist-list'); if(!host)return;
   host.innerHTML=CHECKLIST_ITEMS.map(it=>`
@@ -2897,6 +2932,116 @@ function doImportJSON(){
   }catch(err){alert('Invalid JSON: '+err.message);}
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  DATABASE GROWTH  (operational metrics — not written to the .cfg)
+// ═══════════════════════════════════════════════════════════════
+function dbsToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dbsNum(v){ const n=parseFloat(v); return isFinite(n)?n:null; }
+function dbsFmtNum(n){ return (Math.round(n*100)/100).toLocaleString(); }
+function dbsFmt(n){ return n==null?'—':dbsFmtNum(n)+' GB'; }
+function dbsAddDbRow(name,size){
+  const wrap=document.getElementById('dbm-dbrows'); if(!wrap)return;
+  const row=document.createElement('div'); row.className='dbm-dbrow'; row.style.cssText='display:flex;gap:8px;margin-bottom:6px';
+  row.innerHTML=`<input class="inp dbm-name" placeholder="Database name (e.g. Vault, ADMS master)" value="${esc(name||'')}" style="flex:2">
+    <input class="inp dbm-size" type="number" step="0.01" min="0" placeholder="Size (GB)" value="${(size===''||size==null)?'':esc(String(size))}" style="flex:1">
+    <button class="btn btn-danger btn-icon" title="Remove" onclick="this.parentNode.remove()">✕</button>`;
+  wrap.appendChild(row);
+}
+function dbsPrefillForm(){
+  const dt=document.getElementById('dbm-date'); if(dt&&!dt.value) dt.value=dbsToday();
+  const wrap=document.getElementById('dbm-dbrows'); if(!wrap||wrap.children.length)return; // don't disturb in-progress entry
+  const last=DBSIZES.length?DBSIZES[DBSIZES.length-1]:null;
+  if(last&&last.dbs&&last.dbs.length) last.dbs.forEach(d=>dbsAddDbRow(d.name,''));
+  else dbsAddDbRow('','');
+}
+function dbsAddMeasurement(){
+  const date=val('dbm-date')||dbsToday();
+  const total=dbsNum(val('dbm-total')), fstore=dbsNum(val('dbm-fstore'));
+  const dbs=[];
+  document.querySelectorAll('#dbm-dbrows .dbm-dbrow').forEach(r=>{
+    const name=(r.querySelector('.dbm-name')?.value||'').trim();
+    if(name) dbs.push({name,size:dbsNum(r.querySelector('.dbm-size')?.value)});
+  });
+  if(total==null&&fstore==null&&!dbs.some(d=>d.size!=null)){ notify('Enter at least one size to record'); return; }
+  const snap={date,totalDb:total,fileStore:fstore,dbs};
+  const i=DBSIZES.findIndex(s=>s.date===date);
+  if(i>=0){ if(!confirm('A measurement for '+date+' already exists. Replace it?'))return; DBSIZES[i]=snap; }
+  else DBSIZES.push(snap);
+  DBSIZES.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  saveLocal(false); dbsRender(); notify('Measurement recorded for '+date);
+  setVal('dbm-total',''); setVal('dbm-fstore','');
+  document.querySelectorAll('#dbm-dbrows .dbm-size').forEach(el=>el.value='');
+}
+function dbsDelMeasurement(i){ if(i<0||i>=DBSIZES.length)return; if(!confirm('Delete the measurement for '+DBSIZES[i].date+'?'))return; DBSIZES.splice(i,1); saveLocal(false); dbsRender(); }
+const DBS_PALETTE=['#f59e0b','#a855f7','#ec4899','#14b8a6','#ef4444','#06b6d4','#eab308','#8b5cf6'];
+function dbsSeries(){
+  const snaps=[...DBSIZES].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const series=[{label:'Total Vault DB',color:'#4f8ef7',get:s=>dbsNum(s.totalDb)},
+                {label:'File Store',color:'#22c55e',get:s=>dbsNum(s.fileStore)}];
+  const names=[]; snaps.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); }));
+  names.forEach((nm,i)=>series.push({label:nm,color:DBS_PALETTE[i%DBS_PALETTE.length],get:s=>{const d=(s.dbs||[]).find(x=>x.name===nm);return d?dbsNum(d.size):null;}}));
+  return {snaps,series};
+}
+function dbsRender(){ dbsRenderChart(); dbsRenderHistory(); }
+function dbsRenderChart(){
+  const host=document.getElementById('dbs-chart'), sum=document.getElementById('dbs-summary'); if(!host)return;
+  const {snaps,series}=dbsSeries();
+  if(!snaps.length){ host.innerHTML='<div style="color:var(--text-muted);padding:24px 0">No measurements yet — record one above to start trending.</div>'; if(sum)sum.textContent=''; return; }
+  const W=820,H=340,padL=60,padR=170,padT=16,padB=42, pw=W-padL-padR, ph=H-padT-padB;
+  const times=snaps.map(s=>Date.parse(s.date)).filter(t=>!isNaN(t));
+  let tMin=Math.min(...times), tMax=Math.max(...times); if(tMin===tMax){ tMin-=86400000; tMax+=86400000; }
+  let vMax=0; series.forEach(se=>snaps.forEach(s=>{const v=se.get(s); if(v!=null&&v>vMax)vMax=v;})); if(vMax<=0)vMax=1;
+  const mag=Math.pow(10,Math.floor(Math.log10(vMax))); vMax=Math.ceil(vMax/mag)*mag;
+  const X=t=>padL+((t-tMin)/(tMax-tMin))*pw, Y=v=>padT+ph-(v/vMax)*ph;
+  let grid='',ticks=5;
+  for(let i=0;i<=ticks;i++){ const v=vMax*i/ticks, y=Y(v); grid+=`<line x1="${padL}" y1="${y}" x2="${padL+pw}" y2="${y}" stroke="var(--border)" stroke-width="1"/><text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--text-muted)">${dbsFmtNum(v)}</text>`; }
+  let xl='',maxLbl=8,step=Math.max(1,Math.ceil(snaps.length/maxLbl));
+  snaps.forEach((s,i)=>{ if(i%step!==0&&i!==snaps.length-1)return; const t=Date.parse(s.date); if(isNaN(t))return; xl+=`<text x="${X(t)}" y="${padT+ph+18}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${esc(s.date)}</text>`; });
+  let paths='',legend='',ly=padT+8;
+  series.forEach(se=>{
+    const pts=snaps.map(s=>({t:Date.parse(s.date),v:se.get(s)})).filter(p=>!isNaN(p.t)&&p.v!=null);
+    if(pts.length){
+      const d=pts.map((p,i)=>(i?'L':'M')+X(p.t).toFixed(1)+' '+Y(p.v).toFixed(1)).join(' ');
+      paths+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2"/>`;
+      pts.forEach(p=>{ paths+=`<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="${se.color}"><title>${esc(se.label)}: ${dbsFmt(p.v)}</title></circle>`; });
+    }
+    legend+=`<rect x="${padL+pw+18}" y="${ly-9}" width="11" height="11" rx="2" fill="${se.color}"/><text x="${padL+pw+34}" y="${ly}" font-size="11" fill="var(--text)">${esc(se.label)}</text>`;
+    ly+=20;
+  });
+  const axis=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ph}" stroke="var(--border)"/><line x1="${padL}" y1="${padT+ph}" x2="${padL+pw}" y2="${padT+ph}" stroke="var(--border)"/>`;
+  const yTitle=`<text x="14" y="${padT+ph/2}" transform="rotate(-90 14 ${padT+ph/2})" text-anchor="middle" font-size="11" fill="var(--text-muted)">Size (GB)</text>`;
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block">${grid}${axis}${yTitle}${xl}${paths}${legend}</svg>`;
+  if(sum){
+    const first=snaps[0], last=snaps[snaps.length-1];
+    let txt='Latest ('+esc(last.date)+'): Total Vault DB '+dbsFmt(dbsNum(last.totalDb))+', File Store '+dbsFmt(dbsNum(last.fileStore))+'.';
+    const ft=dbsNum(first.totalDb), lt=dbsNum(last.totalDb);
+    if(ft!=null&&lt!=null&&snaps.length>1){ const delta=lt-ft; txt+=' Total DB '+(delta>=0?'+':'−')+dbsFmtNum(Math.abs(delta))+' GB since '+esc(first.date)+'.'; }
+    sum.textContent=txt;
+  }
+}
+function dbsRenderHistory(){
+  const host=document.getElementById('dbs-history'); if(!host)return;
+  if(!DBSIZES.length){ host.innerHTML='<div style="color:var(--text-muted)">No measurements recorded.</div>'; return; }
+  const names=[]; DBSIZES.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); }));
+  const rows=DBSIZES.map((s,i)=>({s,i})).sort((a,b)=>a.s.date<b.s.date?1:a.s.date>b.s.date?-1:0).map(({s,i})=>`<tr>
+    <td>${esc(s.date)}</td><td>${dbsFmt(dbsNum(s.totalDb))}</td><td>${dbsFmt(dbsNum(s.fileStore))}</td>
+    ${names.map(nm=>{const d=(s.dbs||[]).find(x=>x.name===nm);return `<td>${d?dbsFmt(dbsNum(d.size)):'—'}</td>`;}).join('')}
+    <td><button class="btn btn-danger btn-icon" onclick="dbsDelMeasurement(${i})">✕</button></td></tr>`).join('');
+  host.innerHTML=`<table class="tbl"><thead><tr><th>Date</th><th>Total Vault DB</th><th>File Store</th>${names.map(nm=>`<th>${esc(nm)}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function dbsExportCsv(){
+  if(!DBSIZES.length){ notify('No measurements to export'); return; }
+  const names=[]; DBSIZES.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); }));
+  const head=['Date','Total Vault DB (GB)','File Store (GB)',...names.map(n=>n+' (GB)')];
+  const cell=v=>{ const t=String(v); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
+  const lines=[head.map(cell).join(',')];
+  [...DBSIZES].sort((a,b)=>a.date<b.date?-1:1).forEach(s=>{
+    lines.push([s.date,s.totalDb??'',s.fileStore??'',...names.map(nm=>{const d=(s.dbs||[]).find(x=>x.name===nm);return d&&d.size!=null?d.size:'';})].map(cell).join(','));
+  });
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'}), url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='vault-db-growth.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
 function collectConfig(){
   return {
     schema:"vault-config-dashboard/1",
@@ -2915,6 +3060,7 @@ function collectConfig(){
     fusionConnector:{fields:collectFields(FM_FIELDS),propertyMappings:FMPROPMAPS,stateMappings:FMSTATEMAPS},
     revisionTable:{settings:collectFields(SETTING_FIELDS.revtable),mappings:RTMAPS},
     generalSettings:collectGeneral(),changeLog:CHANGELOG,generalNotes:val('general-notes'),checklist:CHECKLIST,
+    dbSizes:DBSIZES,
     // Embed the original Vault .cfg package so a single JSON is a complete,
     // reload-proof snapshot and re-arms Export .cfg when loaded.
     cfgPackageB64: loadedCfg?loadedCfg.rawB64:undefined,
@@ -3037,6 +3183,7 @@ function normalizeConfig(raw){
   const rules=firstArr(raw,'categoryRules','CategoryRules'); if(rules) out.rules=rules.map(normRule);
   const csm=firstArr(raw,'contentSourceMappings','ContentSourceMappings'); if(csm) out.csmaps=csm.map(normCsMap);
   const fm=raw.fusionConnector||raw.FusionConnector; if(fm){ out.fmFields=fm.fields; const fp=firstArr(fm,'propertyMappings','PropertyMappings'); if(fp) out.fmpropmaps=fp.map(normFmProp); const fst=firstArr(fm,'stateMappings','StateMappings'); if(fst) out.fmstatemaps=fst.map(normFmState); }
+  if(Array.isArray(raw.dbSizes)) out.dbSizes=raw.dbSizes;
   const pkg=pick(raw,'cfgPackageB64','CfgPackageB64'); if(pkg) out.cfgPackageB64=pkg;
   const psn=pick(raw,'cfgSourceName'); if(psn) out.cfgSourceName=psn;
   return out;
@@ -3074,6 +3221,8 @@ function applyConfig(raw,replace){
   arr('categories',v=>CATEGORIES=v); arr('revisions',v=>REVISIONS=v); arr('revseqs',v=>REVSEQS=v); arr('numbering',v=>NUMBERING=v);
   dedupeCategories();
   arr('changelog',v=>CHANGELOG=v); arrKeep('users',v=>USERS=v); arrKeep('groups',v=>GROUPS=v);
+  // DB size history is environment-specific telemetry — keep it across imports, never clear on replace.
+  arrKeep('dbSizes',v=>DBSIZES=Array.isArray(v)?v:[]);
   arr('roles',v=>ROLES=v); arr('propmaps',v=>PROPMAPS=v); arr('cadapps',v=>CADAPPS=v); arr('auditlog',v=>AUDITLOG=v); arr('rtmaps',v=>RTMAPS=v);
   arr('rules',v=>RULES=v); arr('csmaps',v=>CSMAPS=v);
   arr('fmpropmaps',v=>FMPROPMAPS=v); arr('fmstatemaps',v=>FMSTATEMAPS=v);

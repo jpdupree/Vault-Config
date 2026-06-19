@@ -4,6 +4,17 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 
 ---
 
+## Unreleased
+
+### Added
+- **Database Growth page** (Maintenance → 📈 Database Growth) — record the total
+  Vault SQL database size, individual database sizes (one row per vault/ADMS DB),
+  and the file store size with a date. Each measurement is plotted on a line chart
+  so you can watch growth and plan capacity, with a history table and **Download
+  CSV**. Database names carry forward to the next entry; re-recording a date updates
+  it. Data is stored in this browser and in saved/exported JSON (kept across `.cfg`
+  imports) but is *not* written to the Vault `.cfg` — it's operational telemetry.
+
 ## v1.4 — 2026-06-16
 
 **Theme: reliable `.cfg` round-trip into a fresh/target vault, plus a one-click pre-flight.**
