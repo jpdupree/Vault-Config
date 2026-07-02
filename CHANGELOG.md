@@ -6,6 +6,13 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 
 ## Unreleased
 
+### Changed
+- **Default backup script** replaced with the three-generation cascade routine
+  (Temp → A → B) that logs to `VaultBackup.log`, closes the ADMS console, runs
+  `Connectivity.ADMSConsole.exe -Obackup` with `-DBSC -IVAL`, and only rotates the
+  generations on success (resetting `Temp` on failure). Applies to fresh/sample
+  loads; existing saved configs keep their stored script.
+
 ### Added
 - **Database Growth page** (Maintenance → 📈 Database Growth) — record the total
   Vault SQL database size, individual database sizes (one row per vault/ADMS DB),

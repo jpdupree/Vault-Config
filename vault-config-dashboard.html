@@ -832,19 +832,61 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
   <div class="card">
     <h3>Backup Script</h3>
     <p style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 10px">Paste the backup/restore script (e.g. a PowerShell or batch routine that runs the ADMS backup).</p>
-    <textarea id="bk-script" rows="16" spellcheck="false" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-family:monospace;font-size:.78rem;resize:vertical;white-space:pre">@ECHO OFF
-REM Modified for use with Vault 2026
-SET ADMS_CONSOLE_LOC=C:\Program Files\Autodesk\Vault Server 2026\ADMS Console
-SET BACKUP_LOC_A=C:\ADMS\Backups\A
-SET BACKUP_LOC_B=C:\ADMS\Backups\B
-SET BACKUP_LOG_LOC=C:\Backups\ADMS_Backup_Logs.txt
-SET ACCOUNT=Administrator
-SET PSSWD=
-RMDIR %BACKUP_LOC_B% /Q /S
-Ren %BACKUP_LOC_A% "B"
-MKDIR %BACKUP_LOC_A%
-CD %ADMS_CONSOLE_LOC%
-CONNECTIVITY.ADMSCONSOLE.EXE -Obackup -B%BACKUP_LOC_A% -VU%ACCOUNT% -VP%PSSWD% -L%BACKUP_LOG_LOC% -S</textarea>
+    <textarea id="bk-script" rows="40" spellcheck="false" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:10px;font-family:monospace;font-size:.78rem;resize:vertical;white-space:pre">@ECHO OFF
+ECHO +++++++++++++++++++++++++++++++++++++>> "E:\Vault_Backups\VaultBackup.log"
+ECHO Begin Backup >> "E:\Vault_Backups\VaultBackup.log"
+DATE /T >> "E:\Vault_Backups\VaultBackup.log"
+TIME /T >> "E:\Vault_Backups\VaultBackup.log"
+
+REM CLOSE CONSOLE IF OPEN
+taskkill /IM Connectivity.ADMSConsole.exe
+
+REM CREATE FOLDER FOR BACKUP
+MKDIR E:\Vault_Backups\Temp
+
+REM RUN BACKUP
+
+"C:\Program Files\Autodesk\Vault Server 2026\ADMS Console\Connectivity.ADMSConsole.exe" -Obackup -B"E:\Vault_Backups\TEMP" -VU"Administrator" -VP -DBSC -IVAL -S -L"E:\Vault_Backups\Backuplog.txt"
+
+ECHO Backup Complete >> "E:\Vault_Backups\VaultBackup.log"
+DATE /T >> "E:\Vault_Backups\VaultBackup.log"
+TIME /T >> "E:\Vault_Backups\VaultBackup.log"
+
+IF '%ERRORLEVEL%'=='0' GOTO OverwriteLastBackup
+IF '%ERRORLEVEL%'=='-1' GOTO End
+
+:OverwriteLastBackup
+ECHO Backup Confirmed Good >> "E:\Vault_Backups\VaultBackup.log"
+ECHO Cascade Begins.. >> "E:\Vault_Backups\VaultBackup.log"
+DATE /T >> "E:\Vault_Backups\VaultBackup.log"
+TIME /T >> "E:\Vault_Backups\VaultBackup.log"
+
+REM DELETE C AND CASCADE A AND B BACKUP SUBDIRECTORIES
+RMDIR /Q /S "E:\Vault_Backups\B"
+REM REN "E:\Vault_Backups\B" "C"
+REN "E:\Vault_Backups\A" "B"
+REN "E:\Vault_Backups\Temp" "A"
+ECHO Cascade Ends.. >> "E:\Vault_Backups\VaultBackup.log"
+DATE /T >> "E:\Vault_Backups\VaultBackup.log"
+TIME /T >> "E:\Vault_Backups\VaultBackup.log"
+REM CREATE A NEW DIRECTORY FOR THE BACKUP
+MKDIR "E:\Vault_Backups\Temp"
+
+REM START THE WEB SERVER (OPTIONAL)
+REM IISRESET /START
+EXIT
+
+:End
+ECHO Backup Failed, Resetting... >> "E:\Vault_Backups\VaultBackup.log"
+DATE /T >> "E:\Vault_Backups\VaultBackup.log"
+TIME /T >> "E:\Vault_Backups\VaultBackup.log"
+REM Purge E:\Vault_Backups\Temp
+RMDIR /Q /S "E:\Vault_Backups\Temp"
+MKDIR "E:\Vault_Backups\Temp"
+
+REM START THE WEB SERVER (OPTIONAL)
+REM IISRESET /START
+EXIT</textarea>
   </div>
 </div>
 
