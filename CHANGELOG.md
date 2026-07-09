@@ -6,7 +6,17 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 
 ## Unreleased
 
+### Added
+- **Thin Client (Web Client) page** (Integrations) — Administrator Settings → Files
+  toggles (Hide Files workspace, Make default landing page, Show released files only,
+  Show latest version of file only) plus a **Notes** field. Gated by a new **Thin
+  Client (Web Client)** checkbox in Overview → Connections & Integrations: the page
+  (and nav item) only appear when it's ticked, mirroring the Fusion connector. Prints
+  to the PDF when enabled. Applied in the Thin Client admin UI, not the `.cfg`.
+
 ### Changed
+- **Nav order** — the **Lifecycles** item now sits after **Categories** and
+  **Category Rules** under Behaviors.
 - **Default backup script** replaced with the three-generation cascade routine
   (Temp → A → B) that logs to `VaultBackup.log`, closes the ADMS console, runs
   `Connectivity.ADMSConsole.exe -Obackup` with `-DBSC -IVAL`, and only rotates the
