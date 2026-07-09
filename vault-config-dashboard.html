@@ -4086,6 +4086,11 @@ function patchEntityClassSupportedBehavior(){
   const NS=doc.documentElement.namespaceURI, mk=t=>doc.createElementNS(NS,t);
   const lcRaw=v=>{ if(!v)return''; const l=LIFECYCLES.find(x=>x.name===v||(x.rawName||x.name)===v); return l?(l.rawName||l.name):''; };
   const revRaw=v=>{ if(!v)return''; const r=REVISIONS.find(x=>x.name===v||(x.rawName||x.name)===v); return r?(r.rawName||r.name):''; };
+  // Parse the just-patched Category.xml (patchCategoryPackage runs first in
+  // buildCfgBytes) so ESB registers behaviors EXACTLY as categories reference
+  // them there — the authoritative source Vault reads. Keyed by internal Name.
+  const catEnt=loadedCfg.entries.find(e=>e.name==='Category/Category.xml');
+  const catNodes={}; if(catEnt){ try{ const cdoc=xmlDoc(dec.decode(catEnt.data)); [...cdoc.querySelectorAll('Categories > Category')].forEach(cn=>catNodes[xAttr(cn,'Name')]=cn); }catch(e){} }
   doc.querySelectorAll('EntityClass').forEach(ec=>{
     const type=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!type) return;
     const cats=CATEGORIES.filter(c=>c.entity===type);
@@ -4106,10 +4111,28 @@ function patchEntityClassSupportedBehavior(){
         const b=mk('Behavior'); b.setAttribute('Name',nm); b.setAttribute('AssignmentType', isDef?'Default':'Assignable'); beh.appendChild(b); });
     }
     // Behaviors each category references must also be associated with the class.
+    const CLASS_ATTRS={LifeCycle:{AssignmentType:'Disabled'},RevisionScheme:{AssignmentType:'Disabled'},UserDefinedProperty:{AssignmentType:'Default',SupportedMappingDir:'ReadAndWrite'}};
     cats.forEach(c=>{
-      ensure('LifeCycle', lcRaw(c.lifecycle), {AssignmentType:'Disabled'});
-      ensure('RevisionScheme', revRaw(c.revision), {AssignmentType:'Disabled'});
-      (c.properties||[]).forEach(sn=>{ if(!catPropBad(sn)) ensure('UserDefinedProperty', sn, {AssignmentType:'Default',SupportedMappingDir:'ReadAndWrite'}); });
+      ensure('LifeCycle', lcRaw(c.lifecycle), CLASS_ATTRS.LifeCycle);
+      ensure('RevisionScheme', revRaw(c.revision), CLASS_ATTRS.RevisionScheme);
+      (c.properties||[]).forEach(sn=>{ if(!catPropBad(sn)) ensure('UserDefinedProperty', sn, CLASS_ATTRS.UserDefinedProperty); });
+    });
+    // Authoritative pass: for EVERY category actually listed under this class,
+    // register each behavior it references in the patched Category.xml — across
+    // ALL behavior classes, not just the trio above. patchCategoryPackage can
+    // preserve behaviors (e.g. numbering or other classes) from the cloned source
+    // node that the model doesn't track, and any behavior a category references
+    // but ESB leaves unassociated aborts the import ("references behaviors that
+    // are not associated to the Entity Class"). We only add what's missing, so a
+    // behavior already registered (incl. ones preserved from source) is untouched;
+    // over-association is harmless, only under-association fails.
+    const catNames = catCls ? [...catCls.querySelectorAll('Behaviors > Behavior')].map(b=>xAttr(b,'Name')).filter(Boolean) : [];
+    catNames.forEach(cn=>{ const node=catNodes[cn]; if(!node) return;
+      [...node.querySelectorAll('SupportedBehaviorClass')].forEach(bcls=>{
+        const clsName=xAttr(bcls,'Name'); if(!clsName||clsName==='Category') return;
+        const attrs=CLASS_ATTRS[clsName]||{AssignmentType:'Disabled'};
+        [...bcls.querySelectorAll('Behaviors > Behavior')].map(x=>xAttr(x,'Name')).filter(Boolean).forEach(n=>ensure(clsName,n,attrs));
+      });
     });
   });
   ent.data=reserializeXml(doc, ent.data);

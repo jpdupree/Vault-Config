@@ -7,6 +7,16 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 ## Unreleased
 
 ### Fixed
+- **Category behaviors not associated with entity class (`ConfigurationError [232]` /
+  "Category.X cannot be added to the Entity Class … references behaviors that are not
+  associated")** — `EntityClassSupportedBehavior` was rebuilt from the in-memory model,
+  which can diverge from what `Category.xml` actually references (e.g. a behavior
+  preserved from the cloned source category node that the model doesn't track). The
+  exporter now takes an authoritative pass over the just-patched `Category.xml` and
+  registers every behavior each category references — across all behavior classes, not
+  just lifecycle/revision/UDP — so nothing a category points at is left unassociated.
+  It only adds what's missing (over-association is harmless; only under-association
+  fails the import).
 - **Revision scheme → missing sequence (`RevisionSequenceNotExist [3409]`)** — Validate
   and Export now catch a revision scheme whose Primary/Secondary/Tertiary points at a
   revision sequence that isn't defined (e.g. the sequence was deleted or renamed while
