@@ -14,6 +14,14 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
   blindly and Vault aborted the entire import when validating the Revision section.
   The Revision Schemes dropdowns now also show a `⚠ … (missing)` option instead of
   silently falling back to “None”, so the broken reference is visible and fixable.
+- **Revision scheme → sequence match is now whitespace/case-tolerant** — a scheme
+  reference could drift from its sequence by stray whitespace or case (e.g. a
+  sequence deleted and re-created with a re-typed name). Because `<option>` values
+  are whitespace-stripped, exact-equality matching stranded the reference even after
+  re-selecting the sequence in the dropdown — so Validate kept flagging it and export
+  kept failing. Matching (dropdown selection, Validate, and export resolution) now
+  trims and case-folds, so the reference resolves to the real sequence and the export
+  writes a consistent internal name.
 
 ### Added
 - **Thin Client (Web Client) page** (Integrations) — Administrator Settings → Files

@@ -1916,12 +1916,20 @@ function catDelProp(i,pi){ const c=CATEGORIES[i]; if(!c||!Array.isArray(c.proper
 function addCategory(entity){ CATEGORIES.push({name:"New Category",entity:entity||'File',lifecycle:"",revision:"",notes:"",isDefault:false,properties:[],system:false}); renderCategories(); updateMetrics(); }
 function duplicateCategory(i){ const s=CATEGORIES[i]; if(!s)return; CATEGORIES.splice(i+1,0,{name:'Copy of '+s.name,entity:s.entity,lifecycle:s.lifecycle,revision:s.revision,notes:s.notes,isDefault:false,properties:[...(s.properties||[])],system:false}); renderCategories(); updateMetrics(); notify('Category duplicated'); }
 
+// Match a scheme's sequence reference tolerantly (trim + case-insensitive). A
+// reference can drift from its sequence by stray whitespace/case — e.g. a
+// sequence deleted and re-created with a re-typed name — and <option> values are
+// whitespace-stripped, so exact equality would strand the reference even after
+// re-selecting it in the dropdown. Names are unique enough that this is safe.
+function seqKey(v){ return (v||'').trim().toLowerCase(); }
+function seqMatch(name,ref){ return seqKey(name)===seqKey(ref); }
 function seqOptions(sel){
-  let o='<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${s.name===sel?'selected':''}>${esc(s.name)}</option>`).join('');
-  // Surface a dangling reference (sequence deleted/renamed) instead of silently
-  // showing "None" while the broken value persists — this reference aborts the
-  // Vault import with RevisionSequenceNotExist, so make it visible to fix.
-  if(sel && !REVSEQS.some(s=>s.name===sel)) o+=`<option value="${esc(sel)}" selected>⚠ ${esc(sel)} (missing)</option>`;
+  const known=REVSEQS.some(s=>seqMatch(s.name,sel));
+  let o='<option value="">— None —</option>'+REVSEQS.map(s=>`<option ${seqMatch(s.name,sel)?'selected':''}>${esc(s.name)}</option>`).join('');
+  // Surface a genuinely dangling reference (sequence deleted/renamed) instead of
+  // silently showing "None" while the broken value persists — this reference
+  // aborts the Vault import with RevisionSequenceNotExist, so make it visible.
+  if(sel && !known) o+=`<option value="${esc(sel)}" selected>⚠ ${esc(sel)} (missing)</option>`;
   return o;
 }
 function revOptions(sel){ return '<option value="">— None —</option>'+REVISIONS.map(r=>`<option value="${esc(r.name)}" ${r.name===sel?'selected':''}>${esc(r.name)}</option>`).join(''); }
@@ -3817,8 +3825,11 @@ function patchRevisionPackage(){
   const U=s=>(s||'').toUpperCase();
   // Preserve the original internal Name (a GUID for custom objects) so re-import
   // into Vault matches the existing object instead of creating a duplicate.
-  const seqRaw={}; REVSEQS.forEach(s=>seqRaw[s.name]=s.rawName||s.name);
-  const mapSeqRef=v=>v?(seqRaw[v]||v):'';
+  // Resolve a scheme's sequence reference tolerantly (trim/case) to the actual
+  // sequence's internal Name, so whitespace/case drift can't write a dangling
+  // PrimarySequence that Vault rejects with RevisionSequenceNotExist.
+  const seqRaw={}; REVSEQS.forEach(s=>{ const iname=s.rawName||s.name; seqRaw[seqKey(s.name)]=iname; if(s.rawName) seqRaw[seqKey(s.rawName)]=iname; });
+  const mapSeqRef=v=>v?(seqRaw[seqKey(v)]||v):'';
   // sequences
   [...seqWrap.querySelectorAll('RevisionSequence')].forEach(n=>n.remove());
   REVSEQS.forEach(s=>{
@@ -4173,7 +4184,7 @@ function findInvalidRuleRefs(){
 // whole import with RevisionSequenceNotExist [3409]. Return locations to fix.
 function findInvalidRevisionSeqRefs(){
   const out=[];
-  const has=v=>REVSEQS.some(s=>s.name===v||(s.rawName||s.name)===v);
+  const has=v=>REVSEQS.some(s=>seqMatch(s.name,v)||seqMatch(s.rawName||s.name,v));
   (REVISIONS||[]).forEach(r=>{
     if(r.system) return; // system schemes reference built-in sequences already in the vault
     if(!r.primary){ out.push(`Revision scheme “${r.name}” has no primary sequence set`); }
