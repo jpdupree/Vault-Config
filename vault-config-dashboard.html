@@ -1855,7 +1855,9 @@ function renderCategories(){
     const tb=document.getElementById('cat-tbody-'+sec.key); if(!tb)return;
     const expanded=CAT_EXPANDED.has(c);
     const tr=document.createElement('tr');
-    const actions=`<button class="btn btn-ghost btn-icon" title="Property list" onclick="catToggle(${i})">${expanded?'▾':'▸'} 🔑${(c.properties||[]).length}</button> <button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
+    const curEnt=(c.entity==='File'||c.entity==='Item'||c.entity==='Folder')?c.entity:'Custom';
+    const entitySel=`<select class="inp" style="width:auto;display:inline-block" title="Entity type — which entity class this category belongs to" onchange="CATEGORIES[${i}].entity=this.value;renderCategories();updateMetrics()">${['File','Item','Folder','Custom'].map(t=>`<option ${curEnt===t?'selected':''}>${t}</option>`).join('')}</select>`;
+    const actions=`${entitySel} <button class="btn btn-ghost btn-icon" title="Property list" onclick="catToggle(${i})">${expanded?'▾':'▸'} 🔑${(c.properties||[]).length}</button> <button class="btn btn-danger btn-icon" onclick="CATEGORIES.splice(${i},1);renderCategories();updateMetrics()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="duplicateCategory(${i})">⎘</button>`;
     tr.innerHTML=`<td style="text-align:center"><input type="checkbox" ${c.isDefault?'checked':''}/></td>
       <td><input class="inp" value="${esc(c.name)}"/></td>
       <td><select class="inp">${lcOptions(c.lifecycle)}</select></td>
@@ -3560,7 +3562,7 @@ function cfgParseNumbering(text,RES){
 const ENTITY_CLASS_TO_TYPE={FileMaster:'File',ItemMaster:'Item',Folder:'Folder',ChangeOrder:'Custom',CustomEntity:'Custom',CustomEntityBase:'Custom'};
 // Categories whose entity type is known by name even when no rule set references them.
 const CAT_NAME_TO_ENTITY={Folder:'Folder',Project:'Folder',ChangeOrder:'Custom',CustomEntityBase:'Custom'};
-function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap){
+function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap,esbText){
   const doc=xmlDoc(text), out=[];
   const mapLC=v=>(lcNameMap&&lcNameMap[v])||v;
   const mapRev=v=>(revNameMap&&revNameMap[v])||v;
@@ -3572,13 +3574,40 @@ function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap){
       ec.querySelectorAll('CategoryRuleSet').forEach(crs=>{ const cn=xAttr(crs,'CategoryName'); if(cn&&!catEntity[cn])catEntity[cn]=t; });
     });
   }catch(e){} }
+  // EntityClassSupportedBehavior is the authoritative source of a category's entity
+  // class — rules only cover categories that have an assignment rule, so a rule-less
+  // category (e.g. the standard "Document" item category) would otherwise fall back to
+  // the generic 'File' default and get written under FileMaster, where its (item)
+  // lifecycle isn't valid and Vault aborts. Map each category to the class(es) that
+  // list it, and each class to the lifecycles it supports (for the tie-break below).
+  const esbCatTypes={}, esbClassLc={};
+  if(esbText){ try{ const ed=xmlDoc(esbText);
+    ed.querySelectorAll('EntityClass').forEach(ec=>{ const t=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!t)return;
+      [...ec.querySelectorAll('SupportedBehaviorClass')].forEach(sbc=>{
+        const cls=xAttr(sbc,'Name');
+        const names=[...sbc.querySelectorAll('Behaviors > Behavior')].map(b=>xAttr(b,'Name')).filter(Boolean);
+        if(cls==='Category') names.forEach(n=>{ (esbCatTypes[n]=esbCatTypes[n]||[]).push(t); });
+        else if(cls==='LifeCycle'){ esbClassLc[t]=esbClassLc[t]||new Set(); names.forEach(n=>esbClassLc[t].add(n)); }
+      });
+    });
+  }catch(e){} }
+  const esbEntity=(rawName,cn,lcRawBeh)=>{
+    const types=esbCatTypes[rawName]||esbCatTypes[cn]; if(!types||!types.length) return '';
+    if(types.length===1) return types[0];
+    // Registered under multiple classes: prefer the one whose LifeCycle supports this
+    // category's lifecycle, and prefer a non-File class ('File' over-claims as the default).
+    const supp=types.filter(t=>esbClassLc[t]&&esbClassLc[t].has(lcRawBeh));
+    return supp.find(t=>t!=='File')||supp[0]||types.find(t=>t!=='File')||types[0];
+  };
   doc.querySelectorAll('Categories > Category').forEach(c=>{
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
     // Assigned property list = the UserDefinedProperty behavior names (SystemNames).
     const udpCls=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')==='UserDefinedProperty');
     const properties=udpCls?[...udpCls.querySelectorAll('Behaviors > Behavior')].map(x=>xAttr(x,'Name')).filter(Boolean):[];
     const rawName=xAttr(c,'Name')||''; const cn=RES.get(xAttr(c,'ResKey'))||rawName||'';
-    const entity=catEntity[rawName]||catEntity[cn]||CAT_NAME_TO_ENTITY[rawName]||CAT_NAME_TO_ENTITY[cn]||'File';
+    // Rules win when present (explicit assignment); otherwise the ESB registration
+    // is authoritative; then name-based defaults; then 'File' as a last resort.
+    const entity=catEntity[rawName]||catEntity[cn]||esbEntity(rawName,cn,beh('LifeCycle'))||CAT_NAME_TO_ENTITY[rawName]||CAT_NAME_TO_ENTITY[cn]||'File';
     out.push({name:cn,rawName,entity,lifecycle:mapLC(beh('LifeCycle')),revision:mapRev(beh('RevisionScheme')),properties,
       notes:'Color '+(xAttr(c,'Color')||''),isDefault:false,system:SYSTEM_CAT_NAMES.has(cn)});
   });
@@ -3636,7 +3665,8 @@ async function applyCfgPackage(ab, replace, sourceName){
   // custom ones); map those to the friendly names so assignments display correctly.
   const lcNameMap={}; (cfg.lifecycles||[]).forEach(l=>{ if(l.rawName)lcNameMap[l.rawName]=l.name; });
   const revNameMap={}; (cfg.revisionSchemes||[]).forEach(r=>{ if(r.rawName)revNameMap[r.rawName]=r.name; });
-  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT,lcNameMap,revNameMap);
+  const esbT=entryText(entries,'EntityClassSupportedBehavior/EntityClassSupportedBehavior.xml');
+  const catT=entryText(entries,'Category/Category.xml'); if(catT) cfg.categories=cfgParseCategories(catT,RES,rulT,lcNameMap,revNameMap,esbT);
   // Custom categories use a GUID internal Name; map it to the friendly name so
   // rule assignments display (and validate) against the same name the UI shows.
   const catNameMap={}; (cfg.categories||[]).forEach(c=>{ if(c.rawName&&c.rawName!==c.name)catNameMap[c.rawName]=c.name; });
@@ -4091,6 +4121,9 @@ function patchEntityClassSupportedBehavior(){
   // them there — the authoritative source Vault reads. Keyed by internal Name.
   const catEnt=loadedCfg.entries.find(e=>e.name==='Category/Category.xml');
   const catNodes={}; if(catEnt){ try{ const cdoc=xmlDoc(dec.decode(catEnt.data)); [...cdoc.querySelectorAll('Categories > Category')].forEach(cn=>catNodes[xAttr(cn,'Name')]=cn); }catch(e){} }
+  // Model's category → entity type, so we can drop a category from an entity class
+  // it's no longer classified under (self-heal a misplaced/stale registration).
+  const modelType={}; CATEGORIES.forEach(c=>{ modelType[c.rawName||c.name]=c.entity; });
   doc.querySelectorAll('EntityClass').forEach(ec=>{
     const type=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!type) return;
     const cats=CATEGORIES.filter(c=>c.entity===type);
@@ -4104,30 +4137,29 @@ function patchEntityClassSupportedBehavior(){
     // Categories (keep exactly one Default — reuse the existing one if present).
     const catCls=classes['Category'];
     if(catCls){ let beh=catCls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); catCls.appendChild(beh); }
+      // Self-heal: remove any category the MODEL now classifies under a different
+      // entity class (e.g. an Item category like "Document" that was misclassified
+      // and written under FileMaster). Registering a category under the wrong class
+      // makes Vault reject it — its lifecycle/behaviors aren't valid for that class
+      // ("references behaviors that are not associated to the Entity Class"). Only
+      // touch categories the model knows about; leave source-only ones untouched.
+      [...beh.querySelectorAll('Behavior')].forEach(b=>{ const nm=xAttr(b,'Name'); if(modelType[nm]!==undefined && modelType[nm]!==type) b.remove(); });
       let defaultUsed=[...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'AssignmentType')==='Default');
       cats.forEach(c=>{ const nm=c.rawName||c.name;
         if([...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'Name')===nm)) return;
         const isDef=!defaultUsed && c.isDefault; if(isDef)defaultUsed=true;
         const b=mk('Behavior'); b.setAttribute('Name',nm); b.setAttribute('AssignmentType', isDef?'Default':'Assignable'); beh.appendChild(b); });
     }
-    // Behaviors each category references must also be associated with the class.
+    // Register the behaviors each correctly-classified category references, sourced
+    // from the just-patched Category.xml (authoritative — exactly what Vault reads),
+    // across ALL behavior classes. Only categories of THIS entity type are pulled in,
+    // so a category reclassified away from here no longer drags its behaviors along.
     const CLASS_ATTRS={LifeCycle:{AssignmentType:'Disabled'},RevisionScheme:{AssignmentType:'Disabled'},UserDefinedProperty:{AssignmentType:'Default',SupportedMappingDir:'ReadAndWrite'}};
     cats.forEach(c=>{
       ensure('LifeCycle', lcRaw(c.lifecycle), CLASS_ATTRS.LifeCycle);
       ensure('RevisionScheme', revRaw(c.revision), CLASS_ATTRS.RevisionScheme);
       (c.properties||[]).forEach(sn=>{ if(!catPropBad(sn)) ensure('UserDefinedProperty', sn, CLASS_ATTRS.UserDefinedProperty); });
-    });
-    // Authoritative pass: for EVERY category actually listed under this class,
-    // register each behavior it references in the patched Category.xml — across
-    // ALL behavior classes, not just the trio above. patchCategoryPackage can
-    // preserve behaviors (e.g. numbering or other classes) from the cloned source
-    // node that the model doesn't track, and any behavior a category references
-    // but ESB leaves unassociated aborts the import ("references behaviors that
-    // are not associated to the Entity Class"). We only add what's missing, so a
-    // behavior already registered (incl. ones preserved from source) is untouched;
-    // over-association is harmless, only under-association fails.
-    const catNames = catCls ? [...catCls.querySelectorAll('Behaviors > Behavior')].map(b=>xAttr(b,'Name')).filter(Boolean) : [];
-    catNames.forEach(cn=>{ const node=catNodes[cn]; if(!node) return;
+      const node=catNodes[c.rawName||c.name]; if(!node) return;
       [...node.querySelectorAll('SupportedBehaviorClass')].forEach(bcls=>{
         const clsName=xAttr(bcls,'Name'); if(!clsName||clsName==='Category') return;
         const attrs=CLASS_ATTRS[clsName]||{AssignmentType:'Disabled'};

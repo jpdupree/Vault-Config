@@ -7,6 +7,20 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 ## Unreleased
 
 ### Fixed
+- **Category on wrong entity class → `ConfigurationError [232]` ("Category.X cannot be
+  added to the Entity Class … references behaviors that are not associated")** — a
+  category with no assignment rule (e.g. the standard **Document** item category) was
+  defaulting to the generic `File` entity type, so the exporter wrote it under
+  FileMaster where its item lifecycle isn't valid and Vault aborted. Category entity is
+  now classified from the authoritative **EntityClassSupportedBehavior** section (which
+  class actually lists the category, with a lifecycle-aware tie-break for categories
+  registered under more than one), falling back to rules/name/File only when the ESB is
+  silent. On export, a category is also **removed** from any entity class the model no
+  longer classifies it under, and behaviors are registered only for correctly-typed
+  categories — so a stale/misplaced registration self-heals. Added a per-category
+  **Entity type** selector so a misclassified category can be reassigned in the UI.
+
+### Fixed (previous attempt, superseded above)
 - **Category behaviors not associated with entity class (`ConfigurationError [232]` /
   "Category.X cannot be added to the Entity Class … references behaviors that are not
   associated")** — `EntityClassSupportedBehavior` was rebuilt from the in-memory model,
