@@ -6,6 +6,15 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 
 ## Unreleased
 
+### Fixed
+- **Revision scheme → missing sequence (`RevisionSequenceNotExist [3409]`)** — Validate
+  and Export now catch a revision scheme whose Primary/Secondary/Tertiary points at a
+  revision sequence that isn't defined (e.g. the sequence was deleted or renamed while
+  a scheme still referenced it). Previously the exporter wrote the dangling reference
+  blindly and Vault aborted the entire import when validating the Revision section.
+  The Revision Schemes dropdowns now also show a `⚠ … (missing)` option instead of
+  silently falling back to “None”, so the broken reference is visible and fixable.
+
 ### Added
 - **Thin Client (Web Client) page** (Integrations) — Administrator Settings → Files
   toggles (Hide Files workspace, Make default landing page, Show released files only,
