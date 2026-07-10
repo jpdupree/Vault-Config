@@ -3594,10 +3594,13 @@ function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap,esbText){
   const esbEntity=(rawName,cn,lcRawBeh)=>{
     const types=esbCatTypes[rawName]||esbCatTypes[cn]; if(!types||!types.length) return '';
     if(types.length===1) return types[0];
-    // Registered under multiple classes: prefer the one whose LifeCycle supports this
-    // category's lifecycle, and prefer a non-File class ('File' over-claims as the default).
+    // Registered under multiple entity classes (the model tracks only one): keep File
+    // when it's one of them — the historical, least-surprising default — otherwise the
+    // class whose LifeCycle supports this category's lifecycle, else the first. The
+    // per-category Entity selector lets the user override either way.
+    if(types.includes('File')) return 'File';
     const supp=types.filter(t=>esbClassLc[t]&&esbClassLc[t].has(lcRawBeh));
-    return supp.find(t=>t!=='File')||supp[0]||types.find(t=>t!=='File')||types[0];
+    return supp[0]||types[0];
   };
   doc.querySelectorAll('Categories > Category').forEach(c=>{
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
@@ -4124,6 +4127,12 @@ function patchEntityClassSupportedBehavior(){
   // Model's category → entity type, so we can drop a category from an entity class
   // it's no longer classified under (self-heal a misplaced/stale registration).
   const modelType={}; CATEGORIES.forEach(c=>{ modelType[c.rawName||c.name]=c.entity; });
+  // Which entity types each lifecycle / revision scheme is actually used by (per the
+  // model), so we can strip a behavior that a previous export wrongly associated with
+  // an entity class it doesn't belong to (e.g. the item lifecycle "Item Release Process"
+  // left under FileMaster). A behavior no category uses is left alone (still available).
+  const lcUse={}, revUse={};
+  CATEGORIES.forEach(c=>{ const L=lcRaw(c.lifecycle); if(L){(lcUse[L]=lcUse[L]||new Set()).add(c.entity);} const R=revRaw(c.revision); if(R){(revUse[R]=revUse[R]||new Set()).add(c.entity);} });
   doc.querySelectorAll('EntityClass').forEach(ec=>{
     const type=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!type) return;
     const cats=CATEGORIES.filter(c=>c.entity===type);
@@ -4137,13 +4146,12 @@ function patchEntityClassSupportedBehavior(){
     // Categories (keep exactly one Default — reuse the existing one if present).
     const catCls=classes['Category'];
     if(catCls){ let beh=catCls.querySelector('Behaviors'); if(!beh){ beh=mk('Behaviors'); catCls.appendChild(beh); }
-      // Self-heal: remove any category the MODEL now classifies under a different
-      // entity class (e.g. an Item category like "Document" that was misclassified
-      // and written under FileMaster). Registering a category under the wrong class
-      // makes Vault reject it — its lifecycle/behaviors aren't valid for that class
-      // ("references behaviors that are not associated to the Entity Class"). Only
-      // touch categories the model knows about; leave source-only ones untouched.
-      [...beh.querySelectorAll('Behavior')].forEach(b=>{ const nm=xAttr(b,'Name'); if(modelType[nm]!==undefined && modelType[nm]!==type) b.remove(); });
+      // Reconcile to the model: the category list for this entity class must be exactly
+      // the model categories of this type. Remove any behavior that isn't one of them —
+      // a category the model reclassified elsewhere, or one deleted from the model — so a
+      // stale entry from a previous (polluted) export can't linger and keep Vault rejecting
+      // the import. Guarded so an empty model can't wipe the lists.
+      if(CATEGORIES.length) [...beh.querySelectorAll('Behavior')].forEach(b=>{ const nm=xAttr(b,'Name'); if(!cats.some(c=>(c.rawName||c.name)===nm)) b.remove(); });
       let defaultUsed=[...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'AssignmentType')==='Default');
       cats.forEach(c=>{ const nm=c.rawName||c.name;
         if([...beh.querySelectorAll('Behavior')].some(b=>xAttr(b,'Name')===nm)) return;
@@ -4166,6 +4174,15 @@ function patchEntityClassSupportedBehavior(){
         [...bcls.querySelectorAll('Behaviors > Behavior')].map(x=>xAttr(x,'Name')).filter(Boolean).forEach(n=>ensure(clsName,n,attrs));
       });
     });
+    // Strip a lifecycle / revision scheme that belongs to a DIFFERENT entity class:
+    // one that some category uses, but not under this class (e.g. the item lifecycle
+    // "Item Release Process" left under FileMaster by an earlier export). A behavior no
+    // category uses at all is left in place — it may be a legitimately available one.
+    if(CATEGORIES.length){
+      const strip=(clsName,use)=>{ const cls=classes[clsName]; const b=cls&&cls.querySelector('Behaviors'); if(!b)return;
+        [...b.querySelectorAll('Behavior')].forEach(x=>{ const nm=xAttr(x,'Name'); const u=use[nm]; if(u&&!u.has(type)) x.remove(); }); };
+      strip('LifeCycle',lcUse); strip('RevisionScheme',revUse);
+    }
   });
   ent.data=reserializeXml(doc, ent.data);
 }

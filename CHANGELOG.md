@@ -7,6 +7,18 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 ## Unreleased
 
 ### Fixed
+- **Stale entity-class registrations never cleared on export** — the ESB patcher only
+  ever *added* to the entity-class behavior lists, so a bad entry from a previous
+  (polluted) export — e.g. a category or its item lifecycle wrongly under FileMaster —
+  survived even after the category was reclassified or deleted in the model, and kept
+  failing the import. Export now reconciles each entity class to the model: the category
+  list is exactly the model's categories of that type (stale/reclassified ones removed,
+  guarded against an empty model), and a lifecycle/revision that a category uses under a
+  *different* entity class is stripped from this one (a behavior no category uses is left
+  alone as still-available). Dual-registered categories now default to File (with the
+  per-category Entity selector to override).
+
+### Fixed
 - **Category on wrong entity class → `ConfigurationError [232]` ("Category.X cannot be
   added to the Entity Class … references behaviors that are not associated")** — a
   category with no assignment rule (e.g. the standard **Document** item category) was
