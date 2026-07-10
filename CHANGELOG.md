@@ -15,8 +15,10 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
   list is exactly the model's categories of that type (stale/reclassified ones removed,
   guarded against an empty model), and a lifecycle/revision that a category uses under a
   *different* entity class is stripped from this one (a behavior no category uses is left
-  alone as still-available). Dual-registered categories now default to File (with the
-  per-category Entity selector to override).
+  alone as still-available). A category registered under more than one entity class is
+  classified to the class where it's the **default** (e.g. Document is the default Item
+  category), then by which class's lifecycles it actually uses, then File — with the
+  per-category Entity selector to override.
 
 ### Fixed
 - **Category on wrong entity class → `ConfigurationError [232]` ("Category.X cannot be

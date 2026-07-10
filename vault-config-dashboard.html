@@ -3580,27 +3580,27 @@ function cfgParseCategories(text,RES,rulText,lcNameMap,revNameMap,esbText){
   // the generic 'File' default and get written under FileMaster, where its (item)
   // lifecycle isn't valid and Vault aborts. Map each category to the class(es) that
   // list it, and each class to the lifecycles it supports (for the tie-break below).
-  const esbCatTypes={}, esbClassLc={};
+  const esbCatTypes={}, esbClassLc={}, esbCatDefault={};
   if(esbText){ try{ const ed=xmlDoc(esbText);
     ed.querySelectorAll('EntityClass').forEach(ec=>{ const t=ENTITY_CLASS_TO_TYPE[xAttr(ec,'Name')]; if(!t)return;
       [...ec.querySelectorAll('SupportedBehaviorClass')].forEach(sbc=>{
         const cls=xAttr(sbc,'Name');
-        const names=[...sbc.querySelectorAll('Behaviors > Behavior')].map(b=>xAttr(b,'Name')).filter(Boolean);
-        if(cls==='Category') names.forEach(n=>{ (esbCatTypes[n]=esbCatTypes[n]||[]).push(t); });
-        else if(cls==='LifeCycle'){ esbClassLc[t]=esbClassLc[t]||new Set(); names.forEach(n=>esbClassLc[t].add(n)); }
+        if(cls==='Category') [...sbc.querySelectorAll('Behaviors > Behavior')].forEach(b=>{ const n=xAttr(b,'Name'); if(!n)return; (esbCatTypes[n]=esbCatTypes[n]||[]).push(t); if(xAttr(b,'AssignmentType')==='Default') esbCatDefault[n]=t; });
+        else if(cls==='LifeCycle'){ esbClassLc[t]=esbClassLc[t]||new Set(); [...sbc.querySelectorAll('Behaviors > Behavior')].forEach(b=>{ const n=xAttr(b,'Name'); if(n)esbClassLc[t].add(n); }); }
       });
     });
   }catch(e){} }
   const esbEntity=(rawName,cn,lcRawBeh)=>{
     const types=esbCatTypes[rawName]||esbCatTypes[cn]; if(!types||!types.length) return '';
     if(types.length===1) return types[0];
-    // Registered under multiple entity classes (the model tracks only one): keep File
-    // when it's one of them — the historical, least-surprising default — otherwise the
-    // class whose LifeCycle supports this category's lifecycle, else the first. The
-    // per-category Entity selector lets the user override either way.
-    if(types.includes('File')) return 'File';
+    // Registered under multiple entity classes (the model tracks only one). Prefer the
+    // class where the category is the DEFAULT (e.g. "Document" is the default Item
+    // category), then the class whose LifeCycle actually supports the category's assigned
+    // lifecycle, then File, then the first. The per-category Entity selector overrides.
+    const def=esbCatDefault[rawName]||esbCatDefault[cn]; if(def&&types.includes(def)) return def;
     const supp=types.filter(t=>esbClassLc[t]&&esbClassLc[t].has(lcRawBeh));
-    return supp[0]||types[0];
+    if(supp.length) return supp[0];
+    return types.includes('File')?'File':types[0];
   };
   doc.querySelectorAll('Categories > Category').forEach(c=>{
     const beh=cls=>{ const b=[...c.querySelectorAll('SupportedBehaviorClass')].find(x=>xAttr(x,'Name')===cls); if(!b)return''; const bs=b.querySelector('Behaviors'); const def=xAttr(bs,'Default'); if(def&&def!=='ALLBEHAVIORS'&&def!=='NONE')return def; const first=b.querySelector('Behavior'); return first?xAttr(first,'Name'):''; };
