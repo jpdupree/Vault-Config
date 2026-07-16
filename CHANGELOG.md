@@ -62,6 +62,15 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
   writes a consistent internal name.
 
 ### Added
+- **Properties: Basic Search flag** — new **Basic Search** column on Property
+  Definitions (click to toggle). Read from and written back to the `.cfg`
+  (`BasicSearch` attribute); **new/duplicated properties default to ON**. Configs
+  saved before the flag existed don't clobber the original attribute on export.
+- **Vault Connector: default property mappings updated** — now includes
+  `Revision → PDM_ITEM_REVISION` (Item) and `State → PDM_STATUS_NAME` (Item)
+  alongside the previous defaults, matching the Vault Connector Configurations
+  dialog. Added a **⤓ Load Defaults** button to the Property Mappings table so an
+  existing saved config can pick up the new defaults.
 - **Thin Client (Web Client) page** (Integrations) — Administrator Settings → Files
   toggles (Hide Files workspace, Make default landing page, Show released files only,
   Show latest version of file only) plus a **Notes** field. Gated by a new **Thin

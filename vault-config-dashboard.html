@@ -601,7 +601,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
       </select>
     </div>
     <table class="tbl" id="prop-tbl">
-      <thead><tr><th>Display Name</th><th>Data Type</th><th>Source</th><th>Active</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th>Display Name</th><th>Data Type</th><th>Source</th><th>Active</th><th title="Include in Vault's Basic Search">Basic Search</th><th>Notes</th><th></th></tr></thead>
       <tbody id="prop-tbody"></tbody>
     </table>
     <div style="margin-top:10px" id="prop-add-bar"><button class="btn btn-primary btn-sm" onclick="showAddProp()">+ Add Property</button></div>
@@ -784,7 +784,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
       <thead><tr><th>Vault Property</th><th>Fusion Manage Property</th><th>Entity Type</th><th></th></tr></thead>
       <tbody id="fmprop-tbody"></tbody>
     </table>
-    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addFmProp()">+ Add Mapping</button></div>
+    <div style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="addFmProp()">+ Add Mapping</button> <button class="btn btn-ghost btn-sm" onclick="loadDefaultFmProps()">⤓ Load Defaults</button></div>
   </div>
   <div class="card">
     <h3>Attachments</h3>
@@ -1450,20 +1450,23 @@ let CSMAPS=[
 ];
 
 // Fusion Manage connector: property mappings + state mappings (form fields handled separately)
-let FMPROPMAPS=[
-  {vault:"Title (Item,CO)",fusion:"Title",entity:"Item"},
-  {vault:"Description (Item,CO)",fusion:"Description",entity:"Item"},
+const DEFAULT_FMPROPMAPS=[
+  {vault:"BOMOrder",fusion:"Row Order",entity:"BOM"},
   {vault:"Category Name",fusion:"PDM Category",entity:"Item"},
   {vault:"Date Modified",fusion:"PDM Last Modification Date",entity:"Item"},
-  {vault:"Material",fusion:"Material",entity:"Item"},
-  {vault:"Last Updated By",fusion:"Responsible Designer",entity:"Item"},
-  {vault:"Units",fusion:"PDM_UNIT_OF_MEASURE",entity:"Item"},
-  {vault:"BOMOrder",fusion:"Row Order",entity:"BOM"},
-  {vault:"QuantityNumber",fusion:"Qty Pos",entity:"BOM"},
+  {vault:"Description (Item,CO)",fusion:"Description",entity:"Item"},
   {vault:"File Name",fusion:"Primary File Name",entity:"File"},
+  {vault:"Folder Path",fusion:"PDM Location",entity:"File"},
+  {vault:"Last Updated By",fusion:"Responsible Designer",entity:"Item"},
+  {vault:"Material",fusion:"Material",entity:"Item"},
+  {vault:"QuantityNumber",fusion:"Qty Pos",entity:"BOM"},
+  {vault:"Revision",fusion:"PDM_ITEM_REVISION",entity:"Item"},
   {vault:"Revision",fusion:"Primary File Revision / Version",entity:"File"},
-  {vault:"Folder Path",fusion:"PDM Location",entity:"File"}
+  {vault:"State",fusion:"PDM_STATUS_NAME",entity:"Item"},
+  {vault:"Title (Item,CO)",fusion:"Title",entity:"Item"},
+  {vault:"Units",fusion:"PDM_UNIT_OF_MEASURE",entity:"Item"}
 ];
+let FMPROPMAPS=DEFAULT_FMPROPMAPS.map(m=>({...m}));
 let FMSTATEMAPS=[
   {name:"Change Vault State to WIP for Initiate",description:"",workspace:"Change Orders",fromState:"Results Review",toState:"Change Control Board Review",action:"Change Item State",itemLifecycle:"",filesLifecycle:""}
 ];
@@ -1666,13 +1669,15 @@ function renderPropsTable(tbodyId,data,compact){
       <td><select class="inp" data-f="DataType">${(PROP_TYPES.includes(p.DataType)?PROP_TYPES:PROP_TYPES.concat(p.DataType)).map(x=>`<option ${x===p.DataType?'selected':''}>${esc(x)}</option>`).join('')}</select></td>
       <td>${src}</td>
       <td><span class="tag ${p.Active?'tag-released':'tag-obsolete'}" data-act="1" style="cursor:pointer">${p.Active?'Yes':'No'}</span>${mapN?`<span class="badge" style="margin-left:5px" title="${mapN} mapping(s)">🔗 ${mapN}</span>`:''}${(p.valueList&&p.valueList.length)?`<span class="badge" style="margin-left:5px" title="${p.valueList.length} list value(s) — expand to edit">📋 ${p.valueList.length}</span>`:''}</td>
+      <td><span class="tag ${p.BasicSearch?'tag-released':'tag-obsolete'}" data-bs="1" style="cursor:pointer" title="Include this property in Vault's Basic Search">${p.BasicSearch?'Yes':'No'}</span></td>
       <td><input class="inp" placeholder="Notes..." value="${esc(p.notes||'')}" data-f="notes"/></td>
       <td style="white-space:nowrap"><button class="btn btn-danger btn-icon" onclick="event.stopPropagation();PROPS.splice(${idx},1);renderAll()">✕</button> <button class="btn btn-warn btn-icon" title="Duplicate" onclick="event.stopPropagation();duplicateProperty(${idx})">⎘</button></td>`;
     tr.querySelectorAll('input.inp,select.inp').forEach(elm=>{ elm.onclick=e=>e.stopPropagation(); elm.onchange=e=>{ p[elm.getAttribute('data-f')]=e.target.value; }; });
     const actTag=tr.querySelector('[data-act]'); if(actTag) actTag.onclick=e=>{ e.stopPropagation(); p.Active=!p.Active; renderPropsTable('prop-tbody',PROPS,false); };
+    const bsTag=tr.querySelector('[data-bs]'); if(bsTag) bsTag.onclick=e=>{ e.stopPropagation(); p.BasicSearch=!p.BasicSearch; renderPropsTable('prop-tbody',PROPS,false); };
     tr.onclick=()=>toggleProp(p.SystemName);
     tb.appendChild(tr);
-    if(expanded){ const er=document.createElement('tr'); er.className='prop-exp'; er.innerHTML=`<td colspan="6" style="background:var(--surface2);padding:12px 16px">${propValueListHTML(p)}${propMappingHTML(p)}</td>`; tb.appendChild(er); }
+    if(expanded){ const er=document.createElement('tr'); er.className='prop-exp'; er.innerHTML=`<td colspan="7" style="background:var(--surface2);padding:12px 16px">${propValueListHTML(p)}${propMappingHTML(p)}</td>`; tb.appendChild(er); }
   });
 }
 let selectedPropSys=null;
@@ -1754,13 +1759,13 @@ function submitAddProp(){
   if(!name){ notify('Enter a display name'); document.getElementById('np-name').focus(); return; }
   const sn='Prop_'+Math.random().toString(36).slice(2,8);
   PROPS.push({Id:'—',DisplayName:name,SystemName:sn,DataType:document.getElementById('np-type').value,
-    IsSystem:false,Active:true,
+    IsSystem:false,Active:true,BasicSearch:true,
     notes:(document.getElementById('np-notes').value||'').trim()});
   cancelAddProp(); selectedPropSys=null; renderAll(); notify('Property added');
 }
 function duplicateProperty(i){
   const s=PROPS[i]; if(!s)return;
-  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy_'+Math.random().toString(36).slice(2,5),DataType:s.DataType,IsSystem:false,Active:true,valueList:(s.valueList||[]).map(m=>({...m})),notes:''});
+  PROPS.splice(i+1,0,{Id:'—',DisplayName:'Copy of '+s.DisplayName,SystemName:(s.SystemName||'Prop')+'_Copy_'+Math.random().toString(36).slice(2,5),DataType:s.DataType,IsSystem:false,Active:true,BasicSearch:s.BasicSearch!==false,valueList:(s.valueList||[]).map(m=>({...m})),notes:''});
   renderAll(); notify('Property duplicated');
 }
 function reFilterProps(){ filterProps(document.querySelector('#page-properties .search-bar input').value,'prop-tbl'); }
@@ -2279,6 +2284,11 @@ function renderFmProps(){
   });
 }
 function addFmProp(){ FMPROPMAPS.push({vault:"",fusion:"",entity:"Item"}); renderFmProps(); }
+function loadDefaultFmProps(){
+  if(FMPROPMAPS.length && !confirm('Replace the current property mappings with the defaults?')) return;
+  FMPROPMAPS=DEFAULT_FMPROPMAPS.map(m=>({...m}));
+  renderFmProps(); notify('Default property mappings loaded');
+}
 function renderFmStates(){
   const tb=document.getElementById('fmstate-tbody'); if(!tb)return; tb.innerHTML='';
   const ACTIONS=['Change Item State','Change Primary Linked File States','Change Secondary Linked File States','Change Tertiary Linked File States'];
@@ -3178,7 +3188,7 @@ function colorForState(s,i){
   if(n.includes('pre-release')||n.includes('prerelease')) return '#1abc9c';
   return ['#f39c12','#4f8ef7','#9b59b6','#1abc9c','#7c5ff5','#2ecc71'][i%6];
 }
-function normProp(p){return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
+function normProp(p){const bs=pick(p,'BasicSearch','basicSearch');return{Id:String(pick(p,'Id','id','SysName')??''),DisplayName:pick(p,'DisplayName','displayName','DispName','name')??'',SystemName:pick(p,'SystemName','systemName','SysName')??'',DataType:String(pick(p,'DataType','dataType','Typ','type')??'String'),IsSystem:toBool(pick(p,'IsSystem','isSystem','IsSys','System')??false),Active:(pick(p,'Active','active','IsActive')??true)!==false&&toBool(pick(p,'Active','active','IsActive')??true),BasicSearch:bs==null?undefined:toBool(bs),valueList:(firstArr(p,'valueList','ValueList')||[]).map(m=>(typeof m==='string'?{value:'',label:m}:{value:pick(m,'value','Value')??'',label:pick(m,'label','Label')||''})),notes:pick(p,'notes','Notes')||''};}
 function normFolder(f){return{name:pick(f,'name','Name','Label','FullName')||'(unnamed)',library:toBool(pick(f,'library','Library','isLibrary')??false),children:(firstArr(f,'children','Children')||[]).map(normFolder)};}
 function normCCLib(l){if(typeof l==='string')return{name:l,type:'Standard',notes:''};const t=pick(l,'type','Type','classification','Classification')||'Standard';return{name:pick(l,'name','Name','library','Library')||'(unnamed)',type:/custom/i.test(t)?'Custom':'Standard',notes:pick(l,'notes','Notes')||''};}
 function normCat(c){const nm=pick(c,'name','Name')||'';const sysv=pick(c,'system','isSystem');const defv=pick(c,'isDefault','default','Default');return{name:nm,rawName:pick(c,'rawName','RawName')||'',entity:pick(c,'entity','Entity','EntityType','entityType')||'File',lifecycle:pick(c,'lifecycle','Lifecycle','lifeCycle','LifeCycle')||'',revision:pick(c,'revision','Revision','revisionScheme','RevisionScheme')||'',notes:pick(c,'notes','Notes')||'',isDefault:defv!=null?toBool(defv):false,properties:(firstArr(c,'properties','Properties')||[]).map(x=>typeof x==='string'?x:(pick(x,'SystemName','systemName','name','Name')||String(x))),system:sysv!=null?toBool(sysv):SYSTEM_CAT_NAMES.has(nm)};}
@@ -3519,7 +3529,7 @@ function cfgParseProps(text,RES){
     const isSystem=SYSTEM_PROP_NAMES.has(sys);
     const valueList=[...p.querySelectorAll('ValueList > Member')].map(m=>({value:xAttr(m,'Value')||'',label:RES.get(xAttr(m,'ResKey'))||xAttr(m,'Value')||''}));
     out.push({Id:String(id++),SystemName:sys,DisplayName:RES.get(resKey)||sys,DataType:xAttr(p,'DataType')||'String',
-      IsSystem:isSystem,Active:xAttr(p,'Active')!=='false',valueList});
+      IsSystem:isSystem,Active:xAttr(p,'Active')!=='false',BasicSearch:xAttr(p,'BasicSearch')==='true',valueList});
   });
   return out;
 }
@@ -3977,12 +3987,17 @@ function patchPropertyPackage(){
   PROPS.forEach(p=>{
     const match=orig[p.SystemName];
     let el;
-    if(match){ el=match.cloneNode(true); el.setAttribute('Active', p.Active?'true':'false'); }
+    if(match){ el=match.cloneNode(true); el.setAttribute('Active', p.Active?'true':'false');
+      // Only write BasicSearch when the model tracks it — a config saved before the
+      // flag existed must not clobber the original attribute.
+      if(p.BasicSearch!==undefined) el.setAttribute('BasicSearch', p.BasicSearch?'true':'false');
+    }
     else {
       el=tmpl?tmpl.cloneNode(true):mk('UserDefinedProperty');
       el.setAttribute('Name', p.SystemName||p.DisplayName||'Prop');
       el.setAttribute('DataType', p.DataType||'String');
       el.setAttribute('Active', p.Active!==false?'true':'false');
+      el.setAttribute('BasicSearch', p.BasicSearch!==false?'true':'false'); // new props default to searchable
       const rk='ID_UDPDEF_DISPLAYNAME_'+U(p.DisplayName||p.SystemName||'PROP');
       setRes(rk, p.DisplayName||p.SystemName); el.setAttribute('ResKey',rk);
     }
