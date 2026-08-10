@@ -132,6 +132,11 @@ function Get-ProgIdReport {
     }
 }
 
+Write-Output ''
+Write-Output 'NOTE: ProgIDs carry the MAJOR release number, so consecutive releases share one.'
+Write-Output '      AutoCAD 2026 is R25.1 and 2025 is R25.0 — both use ...Application.25 and'
+Write-Output '      ...AxDbDocument.25. There is no ".26". Do not read a missing .26 as a fault.'
+
 foreach ($view in @('Registry64', 'Registry32')) {
     if ($view -eq 'Registry64' -and -not [Environment]::Is64BitOperatingSystem) { continue }
     Write-Output ''
@@ -208,7 +213,29 @@ if ($worked) {
 } else {
     Write-Output 'AutoCAD appears installed but its COM server is not registered.'
     Write-Output 'Fix: close AutoCAD, open an ADMIN command prompt, and run:'
-    Write-Output '    "C:\Program Files\Autodesk\AutoCAD 20XX\acad.exe" /regserver'
-    Write-Output '(use the AcadLocation path printed above), then re-run this script.'
+    $exe = $null
+    foreach ($root in @('HKLM:\SOFTWARE\Autodesk\AutoCAD',
+                        'HKLM:\SOFTWARE\WOW6432Node\Autodesk\AutoCAD')) {
+        if ($exe -or -not (Test-Path $root)) { continue }
+        $releases = Get-ChildItem $root -ErrorAction SilentlyContinue |
+            Sort-Object {
+                $v = $null
+                if ([version]::TryParse(($_.PSChildName -replace '^R', ''), [ref]$v)) { $v }
+                else { [version]'0.0' }
+            } -Descending
+        foreach ($rel in $releases) {
+            foreach ($lang in (Get-ChildItem $rel.PSPath -ErrorAction SilentlyContinue)) {
+                $loc = (Get-ItemProperty $lang.PSPath -ErrorAction SilentlyContinue).AcadLocation
+                if ($loc -and (Test-Path (Join-Path $loc 'acad.exe'))) {
+                    $exe = Join-Path $loc 'acad.exe'
+                    break
+                }
+            }
+            if ($exe) { break }
+        }
+    }
+    if (-not $exe) { $exe = 'C:\Program Files\Autodesk\AutoCAD 2026\acad.exe' }
+    Write-Output "    `"$exe`" /regserver"
+    Write-Output 'Then re-run this script.'
 }
 Write-Output ''

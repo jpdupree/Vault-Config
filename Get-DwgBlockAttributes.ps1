@@ -184,6 +184,33 @@ begin {
         throw 'AutoCAD stayed busy and kept rejecting COM calls. Close any modal dialog in AutoCAD and try again.'
     }
 
+    function Get-AcadExePath {
+        # Real acad.exe path from the install registry, so the /regserver hint
+        # names the actual folder rather than a placeholder. Newest release
+        # first — key names look like 'R25.1' (AutoCAD 2026), 'R25.0' (2025).
+        foreach ($root in @('HKLM:\SOFTWARE\Autodesk\AutoCAD',
+                            'HKLM:\SOFTWARE\WOW6432Node\Autodesk\AutoCAD')) {
+            if (-not (Test-Path $root)) { continue }
+            $releases = Get-ChildItem $root -ErrorAction SilentlyContinue |
+                Sort-Object {
+                    # Unparsable key names sort last instead of throwing.
+                    $v = $null
+                    if ([version]::TryParse(($_.PSChildName -replace '^R', ''), [ref]$v)) { $v }
+                    else { [version]'0.0' }
+                } -Descending
+            foreach ($rel in $releases) {
+                foreach ($lang in (Get-ChildItem $rel.PSPath -ErrorAction SilentlyContinue)) {
+                    $loc = (Get-ItemProperty $lang.PSPath -ErrorAction SilentlyContinue).AcadLocation
+                    if ($loc) {
+                        $exe = Join-Path $loc 'acad.exe'
+                        if (Test-Path $exe) { return $exe }
+                    }
+                }
+            }
+        }
+        return $null
+    }
+
     function New-AcadComObject {
         # The version-independent ProgID is not always registered even when the
         # versioned ones are (side-by-side installs, repaired installs, and
@@ -226,7 +253,9 @@ begin {
         } elseif ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
             'This is a 32-bit PowerShell host on a 64-bit OS, so it cannot see 64-bit AutoCAD''s registration. Relaunch 64-bit Windows PowerShell / ISE (not the "(x86)" shortcut).'
         } else {
-            'AutoCAD''s COM server does not appear to be registered. Close AutoCAD, then from an elevated command prompt run:  "C:\Program Files\Autodesk\AutoCAD 20XX\acad.exe" /regserver'
+            $exe = Get-AcadExePath
+            if (-not $exe) { $exe = 'C:\Program Files\Autodesk\AutoCAD 20XX\acad.exe' }
+            "AutoCAD's COM server does not appear to be registered. Close AutoCAD, then from an ELEVATED command prompt run:  `"$exe`" /regserver"
         }
         throw "Could not start AutoCAD via COM (tried: $(($candidates | Select-Object -Unique) -join ', ')). $hint Run .\Test-AutoCADCom.ps1 for a full diagnosis. Underlying error: $($lastError.Exception.Message)"
     }
