@@ -184,6 +184,53 @@ begin {
         throw 'AutoCAD stayed busy and kept rejecting COM calls. Close any modal dialog in AutoCAD and try again.'
     }
 
+    function New-AcadComObject {
+        # The version-independent ProgID is not always registered even when the
+        # versioned ones are (side-by-side installs, repaired installs, and
+        # deployments that ran without elevation all produce this). Try it
+        # first, then every AutoCAD.Application.<n> found in the registry,
+        # newest first.
+        $candidates = @('AutoCAD.Application')
+        try {
+            $hkcr = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+                [Microsoft.Win32.RegistryHive]::ClassesRoot,
+                [Microsoft.Win32.RegistryView]::Default)
+            try {
+                $candidates += ($hkcr.GetSubKeyNames() |
+                        Where-Object { $_ -match '^AutoCAD\.Application\.\d+$' } |
+                        Sort-Object { [int]($_ -replace '\D') } -Descending)
+            } finally {
+                $hkcr.Close()
+            }
+        } catch {
+            Write-Verbose "Could not enumerate AutoCAD ProgIDs from the registry: $($_.Exception.Message)"
+        }
+
+        $lastError = $null
+        foreach ($progId in ($candidates | Select-Object -Unique)) {
+            try {
+                $obj = New-Object -ComObject $progId -ErrorAction Stop
+                Write-Verbose "Created AutoCAD COM object via ProgID '$progId'."
+                return $obj
+            } catch {
+                $lastError = $_
+                Write-Verbose "ProgID '$progId' failed: $($_.Exception.Message)"
+            }
+        }
+
+        # Nothing worked — say which of the three usual causes applies.
+        $ltOnly = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\acadlt.exe') -and
+                  -not (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\acad.exe')
+        $hint = if ($ltOnly) {
+            'AutoCAD LT appears to be the installed product. LT ships no COM/ActiveX automation interface, so this script cannot read its drawings — convert DWG to DXF (e.g. with the free ODA File Converter) and parse that instead.'
+        } elseif ([Environment]::Is64BitOperatingSystem -and -not [Environment]::Is64BitProcess) {
+            'This is a 32-bit PowerShell host on a 64-bit OS, so it cannot see 64-bit AutoCAD''s registration. Relaunch 64-bit Windows PowerShell / ISE (not the "(x86)" shortcut).'
+        } else {
+            'AutoCAD''s COM server does not appear to be registered. Close AutoCAD, then from an elevated command prompt run:  "C:\Program Files\Autodesk\AutoCAD 20XX\acad.exe" /regserver'
+        }
+        throw "Could not start AutoCAD via COM (tried: $(($candidates | Select-Object -Unique) -join ', ')). $hint Run .\Test-AutoCADCom.ps1 for a full diagnosis. Underlying error: $($lastError.Exception.Message)"
+    }
+
     function Get-AcadApplication {
         # Whether AutoCAD was already running decides whether we may Quit() it
         # at the end. Check the process list rather than relying on how we got
@@ -201,15 +248,11 @@ begin {
             } catch {
                 # PS7, or the instance is not in the running object table yet.
                 Write-Verbose "GetActiveObject unavailable ($($_.Exception.Message)); falling back to New-Object."
-                $app = New-Object -ComObject 'AutoCAD.Application'
+                $app = New-AcadComObject
             }
         } else {
             Write-Verbose 'No running AutoCAD found; starting a hidden instance.'
-            try {
-                $app = New-Object -ComObject 'AutoCAD.Application'
-            } catch {
-                throw "Could not start AutoCAD via COM. Is AutoCAD installed and has it been launched at least once (to register its type library)? Underlying error: $($_.Exception.Message)"
-            }
+            $app = New-AcadComObject
             $script:StartedAcad = $true
             # A freshly created instance defaults to hidden, but be explicit.
             try { $app.Visible = $false } catch { }
