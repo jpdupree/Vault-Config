@@ -136,6 +136,37 @@ load into the dashboard.
 
 ---
 
+## Extracting DWG title block attributes (optional)
+
+**`Get-DwgBlockAttributes.ps1`** pulls block attributes — the `DWG_NO`, `REV`,
+`SHEET`, `DRAWN BY` fields in a title block — out of AutoCAD drawings, so you can
+audit them or line them up against Vault file properties.
+
+It needs **AutoCAD installed** on the machine that runs it, and is happiest in
+**64‑bit Windows PowerShell 5.1**. By default it reads drawings through ObjectDBX,
+which never opens them in the editor — fast enough to sweep a whole folder, and it
+takes no file locks.
+
+```powershell
+# Everything in one drawing, one row per attribute
+.\Get-DwgBlockAttributes.ps1 -Path 'C:\Drawings\A-101.dwg'
+
+# One row per title block, a column per tag, straight to CSV
+.\Get-DwgBlockAttributes.ps1 -Path C:\Drawings -Recurse `
+    -BlockName 'TITLEBLOCK*' -Pivot -OutFile titleblocks.csv
+
+# Just the two tags you care about, from a pipeline
+Get-ChildItem C:\Vault\Designs -Filter *.dwg -Recurse |
+    .\Get-DwgBlockAttributes.ps1 -Tag DWG_NO,REV
+```
+
+Model space and every paper space layout are read, dynamic blocks are reported
+under their effective (user‑visible) name, and a drawing that fails to open logs a
+warning instead of stopping the run. `Get-Help .\Get-DwgBlockAttributes.ps1 -Full`
+has the rest.
+
+---
+
 ## Data & privacy
 
 - 100% client‑side. Data is held in the browser (local storage / in‑memory) and in
@@ -162,6 +193,7 @@ load into the dashboard.
 |---|---|
 | `vault-config-dashboard.html` | The dashboard (the deliverable). |
 | `Export-VaultConfig.ps1` | Optional PowerShell extractor (Vault API → JSON). |
+| `Get-DwgBlockAttributes.ps1` | Optional PowerShell extractor (AutoCAD DWG block attributes → objects/CSV). |
 | `index.html` | Lightweight redirect to the dashboard (for static hosting). |
 | `README.md` | This document. |
 | `QUICKSTART.md` | 5‑minute getting‑started guide. |
