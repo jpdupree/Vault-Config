@@ -3251,6 +3251,31 @@ function sqlLevelParse(s){
 }
 // Vault database migration supports jumping at most 2 releases per hop (e.g. 2020→2022).
 const VAULT_MAX_HOP=2;
+// Sort key for an OS/SQL version string, so "2012 R2" ranks above "2012".
+function upgRank(k){ const m=String(k).match(/(\d+)/); return (m?+m[1]:0)*10+(/r2/i.test(k)?1:0); }
+// Work out the fewest platform builds that carry a stepped migration. Walks the
+// hops keeping a running intersection of supported versions; when it empties, that
+// span is as far as one platform can go, so a new one starts. Greedy longest-run
+// gives the minimum number of changes. Within a span, keep what's already installed
+// if it qualifies, otherwise take the newest option (fewest future rebuilds).
+function upgPlatformPlan(hops,key,current){
+  const segs=[]; let i=0;
+  while(i<hops.length){
+    let inter=null,j=i;
+    for(;j<hops.length;j++){
+      const rq=VAULT_SYSREQ[hops[j]]; if(!rq)break;
+      const next=inter===null?rq[key].slice():inter.filter(v=>rq[key].includes(v));
+      if(!next.length)break;
+      inter=next;
+    }
+    if(inter===null){ i++; continue; }
+    const keep=segs.length===0&&current&&inter.includes(current);
+    const pick=keep?current:inter.slice().sort((a,b)=>upgRank(b)-upgRank(a))[0];
+    segs.push({hops:hops.slice(i,j),pick,keep:!!keep,options:inter});
+    i=j;
+  }
+  return segs;
+}
 const SQL_EXPRESS_LIMIT_GB=10;
 // Parse a size entry to GB. The unit must follow the number ("386 MB", "1.5TB");
 // a bare number is taken as GB. Binary factors (1024) are used deliberately: SQL
@@ -3377,12 +3402,30 @@ function upgCheckReqs(){
       <table class="tbl"><thead><tr><th style="width:26px"></th><th>Check</th><th>Current</th><th>Required</th><th>Action needed</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${icon[r.s]}</td><td>${esc(r.area)}</td><td>${esc(r.cur)}</td><td>${esc(r.req)}</td><td style="${r.s==='fail'?'color:var(--danger)':r.s==='warn'?'color:var(--orange)':''}">${esc(r.action)||'—'}</td></tr>`).join('')}
       </tbody></table>
-      ${ladder.length>2?`<div style="margin-top:10px;font-weight:600;font-size:.78rem">Stepped migration: ${ladder.join(' → ')}</div>
-      <div style="font-size:.72rem;color:var(--text-muted);margin:2px 0 6px">Each intermediate version must be installed and its databases migrated before the next hop. An old hop may need an older OS/SQL than the final server supports — plan a temporary VM if no supported overlap exists.</div>
-      <table class="tbl"><thead><tr><th>Hop</th><th>Server OS supported</th><th>SQL supported</th></tr></thead><tbody>
-      ${ladder.slice(1).map(y=>{ const r=VAULT_SYSREQ[y];
-        return `<tr><td>Vault ${y}${r&&r.provisional?' <span style="color:var(--orange)" title="Historical values — verify against the official article">*</span>':''}</td><td>${r?esc(r.serverOS.map(v=>'Server '+v).join(', ')):'— no data —'}</td><td>${r?esc('SQL '+r.sql.join(', SQL ')):'— no data —'}</td></tr>`; }).join('')}
-      </tbody></table>`:''}
+      ${ladder.length>2?(()=>{
+        const hops=ladder.slice(1);
+        const osPlan=upgPlatformPlan(hops,'serverOS',(os&&os.kind==='server')?os.key:null);
+        const sqlPlan=upgPlatformPlan(hops,'sql',sqlY);
+        const span=s=>s.hops.length>1?`Vault ${s.hops[0]} → ${s.hops[s.hops.length-1]}`:`Vault ${s.hops[0]}`;
+        const tag=s=>s.keep?' <span style="color:var(--green);font-size:.7rem;font-weight:600">keep current</span>':'';
+        const line=(label,plan,fmt)=>plan.map((s,ix)=>`<tr>
+          <td style="color:var(--text-muted)">${ix===0?esc(label):''}</td>
+          <td><b>${esc(fmt(s.pick))}</b>${tag(s)}</td><td>${esc(span(s))}</td>
+          <td style="color:var(--text-muted);font-size:.72rem">${ix===0?(s.keep?'No rebuild needed yet':'Build first'):'Rebuild / move here'}</td></tr>`).join('');
+        const builds=osPlan.length, sqls=sqlPlan.length;
+        return `<div style="margin-top:10px;font-weight:600;font-size:.78rem">Stepped migration: ${ladder.join(' → ')}</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin:2px 0 8px">Each intermediate version must be installed and its databases migrated before the next hop. The plan below is the path of least resistance — the fewest platform changes that cover every hop: <b>${builds} server build${builds===1?'':'s'}</b> and <b>${sqls} SQL version${sqls===1?'':'s'}</b>.</div>
+      <table class="tbl"><thead><tr><th style="width:110px">Component</th><th style="width:190px">Use</th><th>Carries</th><th style="width:150px">Action</th></tr></thead><tbody>
+      ${line('Server OS',osPlan,v=>'Windows Server '+v)}
+      ${line('SQL Server',sqlPlan,v=>'SQL Server '+v)}
+      </tbody></table>
+      <div style="font-size:.71rem;color:var(--text-muted);margin-top:6px">Each row is the version supported by <i>every</i> hop it carries, so nothing is rebuilt mid-span. Verify the Windows/SQL pairing against Microsoft's own compatibility (e.g. SQL 2016 doesn't install on Server 2022) — where an old hop and the final target share no platform, run the early hops on a temporary VM.</div>
+      <details style="margin-top:6px"><summary style="cursor:pointer;font-size:.73rem;color:var(--text-muted)">All supported versions per hop</summary>
+      <table class="tbl" style="margin-top:6px"><thead><tr><th>Hop</th><th>Server OS supported</th><th>SQL supported</th></tr></thead><tbody>
+      ${hops.map(y=>{ const r=VAULT_SYSREQ[y];
+        return `<tr><td>Vault ${y}${r&&r.provisional?' <span style="color:var(--orange)" title="Interpolated — verify against the official article">*</span>':''}</td><td>${r?esc(r.serverOS.map(v=>'Server '+v).join(', ')):'— no data —'}</td><td>${r?esc('SQL '+r.sql.join(', SQL ')):'— no data —'}</td></tr>`; }).join('')}
+      </tbody></table></details>`;
+      })():''}
       </div>`;
   }));
   html+=`<div style="font-size:.71rem;color:var(--text-muted)">Requirements transcribed from Autodesk's official per-version “System requirements for Autodesk Vault &lt;year&gt; products” articles (2011–2027, retrieved Aug 2026). Only <b>Vault 2016</b> is interpolated (marked *) — Autodesk's 2016 article returns 404. SQL patch level is checked against the documented minimum when you fill in <b>SQL Patch Level</b>; where Autodesk lists several CUs the lowest is treated as the minimum. RAM follows the <b>Deployment</b> toggle (single site vs full replication). Not checked here: CPU, disk sizing, and Vault File Server / client specs — see <code>SYSTEM-REQUIREMENTS.md</code> in the repo. Vault migrates forward at most ${VAULT_MAX_HOP} releases per hop.</div>`;
