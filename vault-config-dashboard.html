@@ -3252,7 +3252,21 @@ function sqlLevelParse(s){
 // Vault database migration supports jumping at most 2 releases per hop (e.g. 2020→2022).
 const VAULT_MAX_HOP=2;
 const SQL_EXPRESS_LIMIT_GB=10;
-function upgNum(s){ const m=String(s||'').replace(/,/g,'').match(/([\d.]+)/); if(!m)return null; let n=parseFloat(m[1]); if(/tb/i.test(s))n*=1000; return n; }
+// Parse a size entry to GB. The unit must follow the number ("386 MB", "1.5TB");
+// a bare number is taken as GB. Binary factors (1024) are used deliberately: SQL
+// Server reports database size in binary MB and the Express cap is 10 GB = 10240 MB,
+// so decimal conversion would misjudge sizes sitting just under the limit.
+function upgNum(s){
+  const t=String(s||'').replace(/,/g,'').trim();
+  const m=t.match(/([\d.]+)\s*(tib|tb|gib|gb|mib|mb|kib|kb|t|g|m|k)?/i);
+  if(!m) return null;
+  const n=parseFloat(m[1]); if(!isFinite(n)) return null;
+  const u=(m[2]||'').toLowerCase();
+  if(u.startsWith('t')) return n*1024;
+  if(u.startsWith('m')) return n/1024;
+  if(u.startsWith('k')) return n/1048576;
+  return n; // GB, or unitless
+}
 // Parse an OS string to a comparable key. Handles "Windows Server 2008 R2" (the
 // R2 is a distinct version from 2008) and legacy client OSes for old Vaults.
 function upgOsParse(s){
