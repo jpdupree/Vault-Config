@@ -82,6 +82,13 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
   with the required stepping ladder (e.g. 2015 → 2017 → 2019 → 2021 → 2023 → 2025 →
   2027) and a per-hop table of each intermediate version's supported OS/SQL, with a
   note that old hops may need a temporary VM when no supported overlap exists.
+  A **Deployment** toggle (single site / full replication) switches the RAM check to
+  the replication requirement (16/32 GB from Vault 2017 on, 8/16 for 2015–2016,
+  4/8 before that) and flags **SQL Express with replication**, which Autodesk
+  supports for single site only. A **SQL Patch Level** field (accepts `CU18`, `SP3`,
+  `SP2 CU14`, `RTM`) is checked against the documented per-version minimum from
+  `VAULT_SQL_LEVEL` — a supported SQL version at too low a CU/SP still fails the
+  installer, e.g. Vault 2026 needs SQL 2019 **CU29**.
   Seven expandable **upgrade runbooks** (Basic notes/in-place; Professional in-place,
   server move, filestore replication, full replication, replication server move) with
   per-step checkboxes; progress and all fields persist with the configuration.

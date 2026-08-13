@@ -1079,6 +1079,7 @@ EXIT</textarea>
       <div class="form-group"><label>SQL Machine Name</label><input id="up-sql-name" placeholder="Same as ADMS, or remote SQL host"></div>
       <div class="form-group"><label>SQL Year</label><input id="up-sql-year" placeholder="e.g. 2019"></div>
       <div class="form-group"><label>SQL Type</label><select id="up-sql-type"><option></option><option>Standard</option><option>Express</option><option>Enterprise</option></select></div>
+      <div class="form-group"><label>SQL Patch Level</label><input id="up-sql-cu" placeholder="e.g. CU18, SP3, SP2 CU14, RTM"></div>
       <div class="form-group"><label>SQL User</label><input id="up-sql-user" placeholder="e.g. sa"></div>
       <div class="form-group"><label>SQL Password</label><input id="up-sql-pass" placeholder=""></div>
       <div class="form-group"><label>SQL Service Account</label><input id="up-sql-svc" placeholder="e.g. NT Service\MSSQL$AUTODESKVAULT"></div>
@@ -1176,6 +1177,11 @@ EXIT</textarea>
         <div style="font-weight:600;font-size:.8rem;margin-bottom:6px">Edition</div>
         <label class="toggle-wrap" style="gap:8px;margin-bottom:6px"><input type="checkbox" id="up-tgt-basic"><span>Vault Basic</span></label><br>
         <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="up-tgt-pro"><span>Vault Professional</span></label>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:.8rem;margin-bottom:6px">Deployment</div>
+        <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="up-replication"><span>Full replication (publisher/subscriber)</span></label>
+        <div style="font-size:.68rem;color:var(--text-muted);max-width:220px;margin-top:2px">Raises the RAM/disk requirement and rules out SQL Express.</div>
       </div>
       <div>
         <div style="font-weight:600;font-size:.8rem;margin-bottom:6px">Year</div>
@@ -1618,7 +1624,7 @@ const SETTING_FIELDS={
   email:['email-enable','email-account','email-from','email-user','email-domain','email-smtp','email-port','email-interval','email-ssl'],
   connections:['conn-vaultconnector','conn-thinclient','conn-vds','conn-forgeflow','conn-powerplm','conn-jitterbit','conn-desktop','conn-sovelia','conn-jobq','conn-powerjobs','conn-powergate','conn-ruler'],
   thinclient:['tc-hide-files','tc-default-landing','tc-released-only','tc-latest-only','tc-notes'],
-  upgrade:['up-adms-name','up-adms-ip','up-adms-os','up-adms-ram','up-sql-name','up-sql-year','up-sql-type','up-sql-user','up-sql-pass','up-sql-svc','up-sql-dir',
+  upgrade:['up-adms-name','up-adms-ip','up-adms-os','up-adms-ram','up-sql-name','up-sql-year','up-sql-type','up-sql-cu','up-sql-user','up-sql-pass','up-sql-svc','up-sql-dir','up-replication',
     'up-vault-year','up-vault-type','up-vault-build','up-vault-names','up-inv-libs','up-custom-libs',
     'up-sym-user','up-sym-pass','up-imp-user','up-imp-pass','up-gateway','up-email-notif','up-content-idx','up-purge',
     'up-db-size','up-fs-size','up-fs-loc','up-file-qty','up-bk-routine','up-bk-folder','up-bk-script','up-bk-log','up-bk-ranas',
@@ -3206,6 +3212,43 @@ const VAULT_SYSREQ={
   2026:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2019','2022'],ramMinGB:8,ramRecGB:16,provisional:false},
   2027:{serverOS:['2022','2025'],clientOSBasic:['11'],sql:['2022'],ramMinGB:8,ramRecGB:16,provisional:false}
 };
+// Full-replication (publisher/subscriber) Vault Server sizing — higher than single
+// site. Disk is 300/500 GB across all years. Replication also requires SQL
+// Standard/Enterprise: Express is single-site only, in every version.
+const VAULT_REPL_RAM={2011:[4,8],2012:[4,8],2013:[4,8],2014:[4,8],2015:[8,16],2016:[8,16],
+  2017:[16,32],2018:[16,32],2019:[16,32],2020:[16,32],2021:[16,32],2022:[16,32],
+  2023:[16,32],2024:[16,32],2025:[16,32],2026:[16,32],2027:[16,32]};
+// Minimum SQL service pack / cumulative update per Vault year and SQL version.
+// {sp:n} = service pack n, {cu:n} = cumulative update n, {} = base release fine.
+// Where Autodesk lists several (e.g. "CU8, CU13, CU18") the lowest is the minimum.
+const VAULT_SQL_LEVEL={
+  2011:{'2005':{sp:3},'2008':{sp:1}},
+  2012:{'2008':{sp:2},'2008 R2':{}},
+  2013:{'2008':{sp:2},'2008 R2':{sp:1}},
+  2014:{'2008':{sp:3},'2008 R2':{sp:2},'2012':{sp:1}},
+  2015:{'2008':{sp:3},'2008 R2':{sp:2},'2012':{sp:1}},
+  2016:{'2012':{sp:2},'2014':{}},
+  2017:{'2012':{sp:2},'2014':{sp:1}},
+  2018:{'2012':{sp:3},'2014':{sp:2,cu:14},'2016':{sp:1}},
+  2019:{'2014':{sp:2,cu:14},'2016':{sp:1},'2017':{}},
+  2020:{'2014':{sp:2,cu:14},'2016':{sp:1},'2017':{}},
+  2021:{'2014':{sp:2,cu:14},'2016':{sp:2,cu:15},'2017':{}},
+  2022:{'2016':{sp:3,cu:15},'2017':{cu:22},'2019':{cu:8}},
+  2023:{'2016':{sp:3},'2017':{cu:27},'2019':{cu:13}},
+  2024:{'2016':{sp:3},'2017':{cu:31},'2019':{cu:18}},
+  2025:{'2017':{cu:31},'2019':{cu:23},'2022':{cu:10}},
+  2026:{'2019':{cu:29},'2022':{cu:16}},
+  2027:{'2022':{cu:18}}
+};
+function sqlLevelText(r){ if(!r)return''; const p=[]; if(r.sp)p.push('SP'+r.sp); if(r.cu)p.push('CU'+r.cu); return p.join(' + ')||'base release'; }
+// Parse a user-entered patch level: "CU18", "SP3", "SP2 CU14", "RTM".
+function sqlLevelParse(s){
+  const t=String(s||'').trim(); if(!t) return null;
+  if(/^rtm$/i.test(t)) return {sp:0,cu:0};
+  const sp=t.match(/sp\s*(\d+)/i), cu=t.match(/cu\s*(\d+)/i);
+  if(!sp&&!cu) return {unparsed:true};
+  return {sp:sp?+sp[1]:null,cu:cu?+cu[1]:null};
+}
 // Vault database migration supports jumping at most 2 releases per hop (e.g. 2020→2022).
 const VAULT_MAX_HOP=2;
 const SQL_EXPRESS_LIMIT_GB=10;
@@ -3232,6 +3275,7 @@ function upgCheckReqs(){
   const dataFree=upgNum(val('up-data-free'));
   const curYear=upgNum(val('up-vault-year'));
   const curType=val('up-vault-type');
+  const repl=chk('up-replication');
   const admsName=(val('up-adms-name')||'').trim().toLowerCase();
   const sqlName=(val('up-sql-name')||'').trim().toLowerCase();
   let html='';
@@ -3251,10 +3295,33 @@ function upgCheckReqs(){
     } else add('unknown','Operating system',val('up-adms-os'),osList,'Could not parse the OS — check manually.');
     // SQL version
     const sqlList=rq.sql.join(', ');
+    const sqlOK=sqlY!=null&&rq.sql.includes(sqlY);
     if(sqlY==null) add('unknown','SQL Server','— not filled in —','SQL '+sqlList,'Enter the SQL Year to check.');
-    else if(rq.sql.includes(sqlY)) add('ok','SQL Server','SQL '+val('up-sql-year')+(sqlType?' '+sqlType:''),'SQL '+sqlList,'');
+    else if(sqlOK) add('ok','SQL Server','SQL '+val('up-sql-year')+(sqlType?' '+sqlType:''),'SQL '+sqlList,'');
     else add('fail','SQL Server','SQL '+val('up-sql-year')+(sqlType?' '+sqlType:''),'SQL '+sqlList,`SQL ${val('up-sql-year')} is not supported by Vault ${ty} — upgrade (or move) SQL to ${sqlList}. Plan the SQL upgrade before the Vault upgrade.`);
-    // SQL Express size limit
+    // SQL patch level (CU/SP) — a supported SQL version at too low a patch level
+    // still fails the installer, so check it whenever the version itself is valid.
+    if(sqlOK){
+      const need=(VAULT_SQL_LEVEL[ty]||{})[sqlY];
+      const needTxt=sqlLevelText(need);
+      if(!need) { /* no documented minimum for this pair */ }
+      else if(!need.sp&&!need.cu) add('ok','SQL patch level',val('up-sql-cu')||'(base release)',`SQL ${sqlY} base release is acceptable`,'');
+      else {
+        const got=sqlLevelParse(val('up-sql-cu'));
+        const label=`SQL ${sqlY} ${needTxt}`;
+        if(!got) add('unknown','SQL patch level','— not filled in —',label,`Enter the SQL Patch Level to check (needs ${needTxt}).`);
+        else if(got.unparsed) add('unknown','SQL patch level',val('up-sql-cu'),label,`Could not read that patch level — expected e.g. “CU18” or “SP3”. Needs ${needTxt}.`);
+        else {
+          const spBad=need.sp&&(got.sp==null||got.sp<need.sp);
+          const cuBad=need.cu&&(got.cu==null||got.cu<need.cu);
+          if(spBad||cuBad) add('fail','SQL patch level',val('up-sql-cu'),label,`SQL ${sqlY} must be at ${needTxt} for Vault ${ty} — apply the update before upgrading.`);
+          else add('ok','SQL patch level',val('up-sql-cu'),label,'');
+        }
+      }
+    }
+    // SQL edition vs replication / Express limits
+    if(repl&&sqlType==='Express')
+      add('fail','SQL edition','Express','Standard or Enterprise','SQL Express is single-site only — full replication requires SQL Standard or Enterprise.');
     if(sqlType==='Express'&&dbGB!=null){
       if(dbGB>SQL_EXPRESS_LIMIT_GB) add('fail','SQL edition',`Express, largest DB ${val('up-db-size')}`,`Express limit ${SQL_EXPRESS_LIMIT_GB} GB per DB`,`The largest database exceeds SQL Express's ${SQL_EXPRESS_LIMIT_GB} GB limit — move to SQL Standard before upgrading.`);
       else add('ok','SQL edition',`Express, largest DB ${val('up-db-size')}`,`Express limit ${SQL_EXPRESS_LIMIT_GB} GB per DB`,'');
@@ -3262,11 +3329,13 @@ function upgCheckReqs(){
     // Remote SQL with Basic
     if(ed==='Basic'&&admsName&&sqlName&&admsName!==sqlName)
       add('fail','SQL location',`SQL on ${val('up-sql-name')}, ADMS on ${val('up-adms-name')}`,'Local SQL only','Remote SQL is not supported with Vault Basic — consolidate SQL onto the ADMS server or move to Vault Professional.');
-    // RAM
-    if(ram==null) add('unknown','RAM','— not filled in —',`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,'Enter the ADMS Machine RAM to check.');
-    else if(ram<rq.ramMinGB) add('fail','RAM',val('up-adms-ram'),`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,`Below the ${rq.ramMinGB} GB minimum — add memory (target ${rq.ramRecGB} GB+).`);
-    else if(ram<rq.ramRecGB) add('warn','RAM',val('up-adms-ram'),`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,`Meets the minimum but below the recommended ${rq.ramRecGB} GB.`);
-    else add('ok','RAM',val('up-adms-ram'),`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,'');
+    // RAM — full replication carries a higher requirement than single site.
+    const rr=repl&&VAULT_REPL_RAM[ty]?VAULT_REPL_RAM[ty]:[rq.ramMinGB,rq.ramRecGB];
+    const ramMin=rr[0], ramRec=rr[1], ramReq=`${ramMin} GB min, ${ramRec} GB recommended${repl?' (full replication)':''}`;
+    if(ram==null) add('unknown','RAM','— not filled in —',ramReq,'Enter the ADMS Machine RAM to check.');
+    else if(ram<ramMin) add('fail','RAM',val('up-adms-ram'),ramReq,`Below the ${ramMin} GB minimum${repl?' for a replicated deployment':''} — add memory (target ${ramRec} GB+).`);
+    else if(ram<ramRec) add('warn','RAM',val('up-adms-ram'),ramReq,`Meets the minimum but below the recommended ${ramRec} GB.`);
+    else add('ok','RAM',val('up-adms-ram'),ramReq,'');
     // Disk space
     if(cFree!=null){ if(cFree<40) add('warn','C:\\ free space',val('up-c-free'),'≥ 40 GB free for install + updates','Free up space on C:\\ before installing the new ADMS.'); else add('ok','C:\\ free space',val('up-c-free'),'≥ 40 GB free',''); }
     if(dataFree!=null&&dbGB!=null){ if(dataFree<dbGB*2) add('warn','Data drive space',`${val('up-data-free')} free, largest DB ${val('up-db-size')}`,'≥ 2× largest DB free for migration + backup','Migration needs working space — free up the data drive or stage backups elsewhere.'); else add('ok','Data drive space',`${val('up-data-free')} free`,'≥ 2× largest DB free',''); }
@@ -3289,7 +3358,7 @@ function upgCheckReqs(){
       :`<span style="color:var(--green);font-weight:700">✓ Meets the system requirements — in-place upgrade looks viable</span>`;
     const icon={ok:'✅',warn:'⚠️',fail:'❌',unknown:'❔'};
     html+=`<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px">
-      <div style="font-weight:700;margin-bottom:2px">Vault ${esc(ed)} ${ty}${rq.provisional?' <span style="color:var(--orange);font-weight:600;font-size:.72rem">(provisional requirements — verify)</span>':''}</div>
+      <div style="font-weight:700;margin-bottom:2px">Vault ${esc(ed)} ${ty} <span style="font-weight:500;font-size:.75rem;color:var(--text-muted)">· ${repl?'full replication':'single site'}</span>${rq.provisional?' <span style="color:var(--orange);font-weight:600;font-size:.72rem">(interpolated requirements — verify)</span>':''}</div>
       <div style="font-size:.82rem;margin-bottom:8px">${verdict}</div>
       <table class="tbl"><thead><tr><th style="width:26px"></th><th>Check</th><th>Current</th><th>Required</th><th>Action needed</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${icon[r.s]}</td><td>${esc(r.area)}</td><td>${esc(r.cur)}</td><td>${esc(r.req)}</td><td style="${r.s==='fail'?'color:var(--danger)':r.s==='warn'?'color:var(--orange)':''}">${esc(r.action)||'—'}</td></tr>`).join('')}
@@ -3302,7 +3371,7 @@ function upgCheckReqs(){
       </tbody></table>`:''}
       </div>`;
   }));
-  html+=`<div style="font-size:.71rem;color:var(--text-muted)">Requirements transcribed from Autodesk's official per-version “System requirements for Autodesk Vault &lt;year&gt; products” articles (2011–2027, retrieved Aug 2026). Only <b>Vault 2016</b> is interpolated (marked *) — Autodesk's 2016 article returns 404. Minimum SQL cumulative/service-pack levels apply and are <b>not</b> checked here (e.g. 2026 needs SQL 2019 CU29 / 2022 CU16) — see <code>SYSTEM-REQUIREMENTS.md</code> in the repo for CU levels, CPU/disk, client specs, and full-replication sizing (replication needs 16/32 GB RAM from 2017 on). RAM shown is single-site Vault Server. Vault migrates forward at most ${VAULT_MAX_HOP} releases per hop.</div>`;
+  html+=`<div style="font-size:.71rem;color:var(--text-muted)">Requirements transcribed from Autodesk's official per-version “System requirements for Autodesk Vault &lt;year&gt; products” articles (2011–2027, retrieved Aug 2026). Only <b>Vault 2016</b> is interpolated (marked *) — Autodesk's 2016 article returns 404. SQL patch level is checked against the documented minimum when you fill in <b>SQL Patch Level</b>; where Autodesk lists several CUs the lowest is treated as the minimum. RAM follows the <b>Deployment</b> toggle (single site vs full replication). Not checked here: CPU, disk sizing, and Vault File Server / client specs — see <code>SYSTEM-REQUIREMENTS.md</code> in the repo. Vault migrates forward at most ${VAULT_MAX_HOP} releases per hop.</div>`;
   out.innerHTML=html;
 }
 // ---- Upgrade runbooks (from the Symetri upgrade project plan document) ----
