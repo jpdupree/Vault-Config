@@ -3195,9 +3195,9 @@ const VAULT_SYSREQ={
   2017:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:8,ramRecGB:16,provisional:true},
   2018:{serverOS:['2008 R2','2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:8,ramRecGB:16,provisional:true},
   2019:{serverOS:['2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:true},
-  2020:{serverOS:['2012','2012 R2','2016','2019'],clientOSBasic:['8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:true},
-  2021:{serverOS:['2012','2012 R2','2016','2019'],clientOSBasic:['8.1','10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true},
-  2022:{serverOS:['2016','2019'],clientOSBasic:['10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2020:{serverOS:['2012','2012 R2','2016','2019'],clientOSBasic:['8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:false}, // verified: 2012 R2 needs KB2919442/KB2919355/KB4019990; bundles SQL Express 2017
+  2021:{serverOS:['2016','2019'],clientOSBasic:['8.1','10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true}, // OS verified: Server 2012/2012 R2 DROPPED in 2021 (Symetri blog); SQL 2019 confirmed (2012 compat level), SQL 2014 status unconfirmed
+  2022:{serverOS:['2016','2019'],clientOSBasic:['10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true}, // SQL 2019 confirmed (2012 compat level); Server 2022 arrives with Vault 2024, not here
   2023:{serverOS:['2016','2019'],clientOSBasic:['10','11'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false}, // verified: SQL 2016 SP3 / 2017 CU27 / 2019 CU13; Server 2022 NOT in the official list
   2024:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false},
   2025:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2017','2019','2022'],ramMinGB:8,ramRecGB:16,provisional:false},
