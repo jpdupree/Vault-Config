@@ -3178,23 +3178,44 @@ function doImportJSON(){
 // ═══════════════════════════════════════════════════════════════
 //  VAULT UPGRADE  (upgrade capture, sys-req check, runbooks)
 // ═══════════════════════════════════════════════════════════════
-// System requirements per Vault release year, from Autodesk's official
-// "System requirements for Autodesk Vault <year> products" articles
-// (autodesk.com/support/.../System-requirements-for-Autodesk-Vault-products.html
-// links to each year). Verified 2026-08. Notes:
-//   2024: SQL 2017 (CU31+), 2019 (CU18+). SQL 2022 NOT supported.
-//   2025: SQL 2017 (CU31+), 2019 (CU23+), 2022 (CU10+).
-//   2026: SQL 2019 (CU29+), 2022 (CU16+). SQL 2017 dropped. Server 2025 NOT supported.
-//   2027: SQL 2022 only (2019 dropped). Server 2022/2025 (2019 dropped).
+// System requirements per Vault release year. 2024–2027 verified 2026-08 against
+// Autodesk's official "System requirements for Autodesk Vault <year> products"
+// articles; 2011–2023 are historical best-effort (marked provisional) — verify
+// against the per-year article before relying on them for a stepped upgrade.
+// SQL CU minimums: 2024: 2017 CU31 / 2019 CU18 · 2025: 2017 CU31 / 2019 CU23 /
+// 2022 CU10 · 2026: 2019 CU29 / 2022 CU16. OS/SQL entries are string keys so
+// "2008 R2"-style versions compare correctly.
 const VAULT_SYSREQ={
-  2024:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019],ramMinGB:8,ramRecGB:16,provisional:false},
-  2025:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
-  2026:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
-  2027:{serverOS:[2022,2025],clientOSBasic:[11],sql:[2022],ramMinGB:8,ramRecGB:16,provisional:false}
+  2011:{serverOS:['2003','2008','2008 R2'],clientOSBasic:['XP','Vista','7'],sql:['2005','2008'],ramMinGB:2,ramRecGB:4,provisional:true},
+  2012:{serverOS:['2003','2008','2008 R2'],clientOSBasic:['XP','Vista','7'],sql:['2005','2008','2008 R2'],ramMinGB:2,ramRecGB:4,provisional:true},
+  2013:{serverOS:['2003','2008','2008 R2'],clientOSBasic:['XP','7'],sql:['2005','2008','2008 R2'],ramMinGB:2,ramRecGB:4,provisional:true},
+  2014:{serverOS:['2003','2008','2008 R2','2012'],clientOSBasic:['7','8'],sql:['2008','2008 R2','2012'],ramMinGB:4,ramRecGB:8,provisional:true},
+  2015:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8','8.1'],sql:['2008 R2','2012','2014'],ramMinGB:4,ramRecGB:8,provisional:true},
+  2016:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2008 R2','2012','2014'],ramMinGB:4,ramRecGB:8,provisional:true},
+  2017:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2018:{serverOS:['2008 R2','2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2019:{serverOS:['2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2020:{serverOS:['2012','2012 R2','2016','2019'],clientOSBasic:['8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2021:{serverOS:['2012','2012 R2','2016','2019'],clientOSBasic:['8.1','10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2022:{serverOS:['2016','2019'],clientOSBasic:['10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2023:{serverOS:['2016','2019','2022'],clientOSBasic:['10','11'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true},
+  2024:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false},
+  2025:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2017','2019','2022'],ramMinGB:8,ramRecGB:16,provisional:false},
+  2026:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2019','2022'],ramMinGB:8,ramRecGB:16,provisional:false},
+  2027:{serverOS:['2022','2025'],clientOSBasic:['11'],sql:['2022'],ramMinGB:8,ramRecGB:16,provisional:false}
 };
+// Vault database migration supports jumping at most 2 releases per hop (e.g. 2020→2022).
+const VAULT_MAX_HOP=2;
 const SQL_EXPRESS_LIMIT_GB=10;
 function upgNum(s){ const m=String(s||'').replace(/,/g,'').match(/([\d.]+)/); if(!m)return null; let n=parseFloat(m[1]); if(/tb/i.test(s))n*=1000; return n; }
-function upgOsParse(s){ const sv=String(s||'').match(/server\s*(\d{4})/i); if(sv)return{kind:'server',year:+sv[1]}; const cl=String(s||'').match(/windows\s*(10|11)/i); if(cl)return{kind:'client',year:+cl[1]}; return String(s||'').trim()?{kind:'unknown'}:null; }
+// Parse an OS string to a comparable key. Handles "Windows Server 2008 R2" (the
+// R2 is a distinct version from 2008) and legacy client OSes for old Vaults.
+function upgOsParse(s){
+  const sv=String(s||'').match(/server\s*(\d{4})(\s*R2)?/i); if(sv)return{kind:'server',key:sv[1]+(sv[2]?' R2':'')};
+  const cl=String(s||'').match(/windows\s*(xp|vista|8\.1|10|11|8|7)/i); if(cl){ const k=cl[1].toLowerCase(); return{kind:'client',key:k==='xp'?'XP':k==='vista'?'Vista':k}; }
+  return String(s||'').trim()?{kind:'unknown'}:null;
+}
+function upgSqlParse(s){ const m=String(s||'').match(/(\d{4})(\s*R2)?/); return m?m[1]+(m[2]?' R2':''):null; }
 function upgCheckReqs(){
   const out=document.getElementById('upg-req-results'); if(!out)return;
   const editions=[]; if(chk('up-tgt-basic'))editions.push('Basic'); if(chk('up-tgt-pro'))editions.push('Professional');
@@ -3202,7 +3223,7 @@ function upgCheckReqs(){
   if(!editions.length||!years.length){ out.innerHTML='<div style="color:var(--orange);font-size:.82rem">Select at least one edition and one year first.</div>'; return; }
   const os=upgOsParse(val('up-adms-os'));
   const ram=upgNum(val('up-adms-ram'));
-  const sqlY=upgNum(val('up-sql-year'));
+  const sqlY=upgSqlParse(val('up-sql-year'));
   const sqlType=val('up-sql-type');
   const dbGB=upgNum(val('up-db-size'));
   const cFree=upgNum(val('up-c-free'));
@@ -3219,11 +3240,11 @@ function upgCheckReqs(){
     const osList=rq.serverOS.map(y=>'Windows Server '+y).join(', ');
     if(!os) add('unknown','Operating system','— not filled in —',osList,'Enter the ADMS Machine OS to check.');
     else if(os.kind==='server'){
-      if(rq.serverOS.includes(os.year)) add('ok','Operating system',val('up-adms-os'),osList,'');
+      if(rq.serverOS.includes(os.key)) add('ok','Operating system',val('up-adms-os'),osList,'');
       else add('fail','Operating system',val('up-adms-os'),osList,`OS not supported by Vault ${ed} ${ty} — a server move (or in-place OS upgrade) to ${osList} is required before upgrading.`);
     } else if(os.kind==='client'){
-      if(ed==='Basic'&&rq.clientOSBasic.includes(os.year)) add('ok','Operating system',val('up-adms-os'),osList+' (or Windows '+rq.clientOSBasic.join('/')+' for Basic)','');
-      else if(ed==='Basic') add('fail','Operating system',val('up-adms-os'),'Windows '+rq.clientOSBasic.join('/')+' or '+osList,`Windows ${os.year} is not supported for Vault Basic ${ty} — move to ${osList} or Windows ${rq.clientOSBasic.join('/')}.`);
+      if(ed==='Basic'&&rq.clientOSBasic.includes(os.key)) add('ok','Operating system',val('up-adms-os'),osList+' (or Windows '+rq.clientOSBasic.join('/')+' for Basic)','');
+      else if(ed==='Basic') add('fail','Operating system',val('up-adms-os'),'Windows '+rq.clientOSBasic.join('/')+' or '+osList,`Windows ${os.key} is not supported for Vault Basic ${ty} — move to ${osList} or Windows ${rq.clientOSBasic.join('/')}.`);
       else add('fail','Operating system',val('up-adms-os'),osList,`Vault Professional requires a Windows Server OS — a server move to ${osList} is required.`);
     } else add('unknown','Operating system',val('up-adms-os'),osList,'Could not parse the OS — check manually.');
     // SQL version
@@ -3247,11 +3268,16 @@ function upgCheckReqs(){
     // Disk space
     if(cFree!=null){ if(cFree<40) add('warn','C:\\ free space',val('up-c-free'),'≥ 40 GB free for install + updates','Free up space on C:\\ before installing the new ADMS.'); else add('ok','C:\\ free space',val('up-c-free'),'≥ 40 GB free',''); }
     if(dataFree!=null&&dbGB!=null){ if(dataFree<dbGB*2) add('warn','Data drive space',`${val('up-data-free')} free, largest DB ${val('up-db-size')}`,'≥ 2× largest DB free for migration + backup','Migration needs working space — free up the data drive or stage backups elsewhere.'); else add('ok','Data drive space',`${val('up-data-free')} free`,'≥ 2× largest DB free',''); }
-    // Upgrade path (direct DB migration supported from the 3 prior releases)
+    // Upgrade path: Vault can only migrate databases forward 2 releases per hop
+    // (e.g. 2020→2022). Older sources must step through intermediate versions.
+    let ladder=[];
     if(curYear!=null){ const gap=ty-curYear;
       if(gap<=0) add('warn','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,'Target newer than current','Target year is not newer than the current version — check the selection.');
-      else if(gap>3) add('warn','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,'Direct migration from the 3 prior releases',`A ${gap}-version jump likely needs intermediate Vault version(s) — plan a stepped migration (verify the supported path with Autodesk).`);
-      else add('ok','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,'Direct migration from the 3 prior releases','');
+      else if(gap>VAULT_MAX_HOP){
+        let y=curYear; ladder=[y]; while(y<ty){ y=Math.min(y+VAULT_MAX_HOP,ty); ladder.push(y); }
+        add('fail','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,`Max ${VAULT_MAX_HOP} releases per hop`,`A direct ${gap}-version jump is not supported — a stepped migration is required: ${ladder.join(' → ')}. Each intermediate hop's requirements are listed below.`);
+      }
+      else add('ok','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,`Max ${VAULT_MAX_HOP} releases per hop`,'');
     }
     // Edition change
     if(curType==='Professional'&&ed==='Basic') add('fail','Edition',`${curType} → ${ed}`,'No downgrade path','Vault Professional cannot be downgraded to Basic.');
@@ -3265,9 +3291,16 @@ function upgCheckReqs(){
       <div style="font-size:.82rem;margin-bottom:8px">${verdict}</div>
       <table class="tbl"><thead><tr><th style="width:26px"></th><th>Check</th><th>Current</th><th>Required</th><th>Action needed</th></tr></thead><tbody>
       ${rows.map(r=>`<tr><td>${icon[r.s]}</td><td>${esc(r.area)}</td><td>${esc(r.cur)}</td><td>${esc(r.req)}</td><td style="${r.s==='fail'?'color:var(--danger)':r.s==='warn'?'color:var(--orange)':''}">${esc(r.action)||'—'}</td></tr>`).join('')}
-      </tbody></table></div>`;
+      </tbody></table>
+      ${ladder.length>2?`<div style="margin-top:10px;font-weight:600;font-size:.78rem">Stepped migration: ${ladder.join(' → ')}</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin:2px 0 6px">Each intermediate version must be installed and its databases migrated before the next hop. An old hop may need an older OS/SQL than the final server supports — plan a temporary VM if no supported overlap exists.</div>
+      <table class="tbl"><thead><tr><th>Hop</th><th>Server OS supported</th><th>SQL supported</th></tr></thead><tbody>
+      ${ladder.slice(1).map(y=>{ const r=VAULT_SYSREQ[y];
+        return `<tr><td>Vault ${y}${r&&r.provisional?' <span style="color:var(--orange)" title="Historical values — verify against the official article">*</span>':''}</td><td>${r?esc(r.serverOS.map(v=>'Server '+v).join(', ')):'— no data —'}</td><td>${r?esc('SQL '+r.sql.join(', SQL ')):'— no data —'}</td></tr>`; }).join('')}
+      </tbody></table>`:''}
+      </div>`;
   }));
-  html+=`<div style="font-size:.71rem;color:var(--text-muted)">Requirements sourced from Autodesk's official “System requirements for Autodesk Vault products” articles (verified Aug 2026). Minimum SQL cumulative updates apply — 2024: SQL 2017 CU31 / 2019 CU18 · 2025: 2017 CU31 / 2019 CU23 / 2022 CU10 · 2026: 2019 CU29 / 2022 CU16. Data lives in <code>VAULT_SYSREQ</code> for future years.</div>`;
+  html+=`<div style="font-size:.71rem;color:var(--text-muted)">2024–2027 requirements sourced from Autodesk's official “System requirements for Autodesk Vault products” articles (verified Aug 2026); 2011–2023 are historical best-effort (marked *) — verify against the per-year article before a stepped upgrade. Minimum SQL cumulative updates apply — 2024: SQL 2017 CU31 / 2019 CU18 · 2025: 2017 CU31 / 2019 CU23 / 2022 CU10 · 2026: 2019 CU29 / 2022 CU16. Vault migrates forward at most ${VAULT_MAX_HOP} releases per hop. Data lives in <code>VAULT_SYSREQ</code>.</div>`;
   out.innerHTML=html;
 }
 // ---- Upgrade runbooks (from the Symetri upgrade project plan document) ----
