@@ -3178,13 +3178,19 @@ function doImportJSON(){
 // ═══════════════════════════════════════════════════════════════
 //  VAULT UPGRADE  (upgrade capture, sys-req check, runbooks)
 // ═══════════════════════════════════════════════════════════════
-// System requirements per Vault release year. 2026/2027 entries are provisional —
-// verify against the official Autodesk system requirements and adjust here.
+// System requirements per Vault release year, from Autodesk's official
+// "System requirements for Autodesk Vault <year> products" articles
+// (autodesk.com/support/.../System-requirements-for-Autodesk-Vault-products.html
+// links to each year). Verified 2026-08. Notes:
+//   2024: SQL 2017 (CU31+), 2019 (CU18+). SQL 2022 NOT supported.
+//   2025: SQL 2017 (CU31+), 2019 (CU23+), 2022 (CU10+).
+//   2026: SQL 2019 (CU29+), 2022 (CU16+). SQL 2017 dropped. Server 2025 NOT supported.
+//   2027: SQL 2022 only (2019 dropped). Server 2022/2025 (2019 dropped).
 const VAULT_SYSREQ={
-  2024:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
+  2024:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019],ramMinGB:8,ramRecGB:16,provisional:false},
   2025:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
-  2026:{serverOS:[2019,2022,2025],clientOSBasic:[10,11],sql:[2019,2022],ramMinGB:8,ramRecGB:16,provisional:true},
-  2027:{serverOS:[2022,2025],clientOSBasic:[11],sql:[2019,2022],ramMinGB:16,ramRecGB:32,provisional:true}
+  2026:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
+  2027:{serverOS:[2022,2025],clientOSBasic:[11],sql:[2022],ramMinGB:8,ramRecGB:16,provisional:false}
 };
 const SQL_EXPRESS_LIMIT_GB=10;
 function upgNum(s){ const m=String(s||'').replace(/,/g,'').match(/([\d.]+)/); if(!m)return null; let n=parseFloat(m[1]); if(/tb/i.test(s))n*=1000; return n; }
@@ -3261,7 +3267,7 @@ function upgCheckReqs(){
       ${rows.map(r=>`<tr><td>${icon[r.s]}</td><td>${esc(r.area)}</td><td>${esc(r.cur)}</td><td>${esc(r.req)}</td><td style="${r.s==='fail'?'color:var(--danger)':r.s==='warn'?'color:var(--orange)':''}">${esc(r.action)||'—'}</td></tr>`).join('')}
       </tbody></table></div>`;
   }));
-  html+=`<div style="font-size:.71rem;color:var(--text-muted)">2026/2027 requirement values are provisional placeholders — confirm against Autodesk's official system requirements (the data lives in <code>VAULT_SYSREQ</code> and is easy to update).</div>`;
+  html+=`<div style="font-size:.71rem;color:var(--text-muted)">Requirements sourced from Autodesk's official “System requirements for Autodesk Vault products” articles (verified Aug 2026). Minimum SQL cumulative updates apply — 2024: SQL 2017 CU31 / 2019 CU18 · 2025: 2017 CU31 / 2019 CU23 / 2022 CU10 · 2026: 2019 CU29 / 2022 CU16. Data lives in <code>VAULT_SYSREQ</code> for future years.</div>`;
   out.innerHTML=html;
 }
 // ---- Upgrade runbooks (from the Symetri upgrade project plan document) ----
