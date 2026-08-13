@@ -3178,28 +3178,30 @@ function doImportJSON(){
 // ═══════════════════════════════════════════════════════════════
 //  VAULT UPGRADE  (upgrade capture, sys-req check, runbooks)
 // ═══════════════════════════════════════════════════════════════
-// System requirements per Vault release year. 2024–2027 verified 2026-08 against
-// Autodesk's official "System requirements for Autodesk Vault <year> products"
-// articles; 2011–2023 are historical best-effort (marked provisional) — verify
-// against the per-year article before relying on them for a stepped upgrade.
-// SQL CU minimums: 2024: 2017 CU31 / 2019 CU18 · 2025: 2017 CU31 / 2019 CU23 /
-// 2022 CU10 · 2026: 2019 CU29 / 2022 CU16. OS/SQL entries are string keys so
-// "2008 R2"-style versions compare correctly.
+// System requirements per Vault release year, transcribed from Autodesk's official
+// per-version "System requirements for Autodesk Vault <year> products" articles.
+// Full detail (CPU, disk, replication sizing, client specs, CU/SP levels, sources)
+// lives in SYSTEM-REQUIREMENTS.md in this repo — keep the two in sync.
+// serverOS/clientOSBasic/sql are string keys so "2008 R2" compares distinctly from
+// "2008". ramMinGB/RecGB are single-site Vault Server values; full replication needs
+// more (16/32 GB from 2017 on) — see the md. SBS variants are omitted here.
+// Only Vault 2016 is unverified: Autodesk's 2016 article 404s (the index still
+// links it), so that row is interpolated from the 2015/2017 articles.
 const VAULT_SYSREQ={
-  2011:{serverOS:['2003','2008','2008 R2'],clientOSBasic:['XP','Vista','7'],sql:['2005','2008'],ramMinGB:2,ramRecGB:4,provisional:true},
-  2012:{serverOS:['2003','2008','2008 R2'],clientOSBasic:['XP','Vista','7'],sql:['2005','2008','2008 R2'],ramMinGB:2,ramRecGB:4,provisional:true},
-  2013:{serverOS:['2003','2008','2008 R2'],clientOSBasic:['XP','7'],sql:['2005','2008','2008 R2'],ramMinGB:2,ramRecGB:4,provisional:true},
-  2014:{serverOS:['2003','2008','2008 R2','2012'],clientOSBasic:['7','8'],sql:['2008','2008 R2','2012'],ramMinGB:4,ramRecGB:8,provisional:true},
-  2015:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8','8.1'],sql:['2008 R2','2012','2014'],ramMinGB:4,ramRecGB:8,provisional:true},
-  2016:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2008 R2','2012','2014'],ramMinGB:4,ramRecGB:8,provisional:true},
-  2017:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:8,ramRecGB:16,provisional:true},
-  2018:{serverOS:['2008 R2','2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:8,ramRecGB:16,provisional:true},
-  2019:{serverOS:['2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:true},
-  2020:{serverOS:['2012','2012 R2','2016','2019'],clientOSBasic:['8.1','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:false}, // verified: 2012 R2 needs KB2919442/KB2919355/KB4019990; bundles SQL Express 2017
-  2021:{serverOS:['2016','2019'],clientOSBasic:['8.1','10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true}, // OS verified: Server 2012/2012 R2 DROPPED in 2021 (Symetri blog); SQL 2019 confirmed (2012 compat level), SQL 2014 status unconfirmed
-  2022:{serverOS:['2016','2019'],clientOSBasic:['10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:true}, // SQL 2019 confirmed (2012 compat level); Server 2022 arrives with Vault 2024, not here
-  2023:{serverOS:['2016','2019'],clientOSBasic:['10','11'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false}, // verified: SQL 2016 SP3 / 2017 CU27 / 2019 CU13; Server 2022 NOT in the official list
-  2024:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false},
+  2011:{serverOS:['2003','2003 R2','2008','2008 R2'],clientOSBasic:['XP','Vista','7'],sql:['2005','2008'],ramMinGB:2,ramRecGB:4,provisional:false},
+  2012:{serverOS:['2003','2003 R2','2008','2008 R2'],clientOSBasic:['XP','Vista','7'],sql:['2008','2008 R2'],ramMinGB:1,ramRecGB:4,provisional:false},
+  2013:{serverOS:['2003','2003 R2','2008','2008 R2'],clientOSBasic:['XP','7'],sql:['2008','2008 R2'],ramMinGB:1,ramRecGB:4,provisional:false},
+  2014:{serverOS:['2008','2008 R2','2012'],clientOSBasic:['7','8'],sql:['2008','2008 R2','2012'],ramMinGB:2,ramRecGB:4,provisional:false},
+  2015:{serverOS:['2008 R2','2012','2012 R2'],clientOSBasic:['7','8','8.1'],sql:['2008','2008 R2','2012'],ramMinGB:4,ramRecGB:8,provisional:false},
+  2016:{serverOS:['2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2012','2014'],ramMinGB:4,ramRecGB:8,provisional:true}, // article 404s — interpolated; Server 2012 confirmed, 2008 R2 dropped; SQL 2012 SP2/2014 confirmed
+  2017:{serverOS:['2012','2012 R2'],clientOSBasic:['7','8.1','10'],sql:['2012','2014'],ramMinGB:4,ramRecGB:8,provisional:false},
+  2018:{serverOS:['2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2012','2014','2016'],ramMinGB:4,ramRecGB:8,provisional:false},
+  2019:{serverOS:['2012','2012 R2','2016'],clientOSBasic:['7','8.1','10'],sql:['2014','2016','2017'],ramMinGB:4,ramRecGB:8,provisional:false},
+  2020:{serverOS:['2012','2012 R2','2016'],clientOSBasic:['7','10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:false}, // 2012 R2 needs KB2919442/KB2919355/KB4019990
+  2021:{serverOS:['2016','2019'],clientOSBasic:['10'],sql:['2014','2016','2017'],ramMinGB:8,ramRecGB:16,provisional:false}, // Server 2012/2012 R2 dropped this release
+  2022:{serverOS:['2016','2019'],clientOSBasic:['10'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false},
+  2023:{serverOS:['2016','2019'],clientOSBasic:['10','11'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false},
+  2024:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2016','2017','2019'],ramMinGB:8,ramRecGB:16,provisional:false},
   2025:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2017','2019','2022'],ramMinGB:8,ramRecGB:16,provisional:false},
   2026:{serverOS:['2019','2022'],clientOSBasic:['10','11'],sql:['2019','2022'],ramMinGB:8,ramRecGB:16,provisional:false},
   2027:{serverOS:['2022','2025'],clientOSBasic:['11'],sql:['2022'],ramMinGB:8,ramRecGB:16,provisional:false}
@@ -3300,7 +3302,7 @@ function upgCheckReqs(){
       </tbody></table>`:''}
       </div>`;
   }));
-  html+=`<div style="font-size:.71rem;color:var(--text-muted)">2024–2027 requirements sourced from Autodesk's official “System requirements for Autodesk Vault products” articles (verified Aug 2026); 2011–2023 are historical best-effort (marked *) — verify against the per-year article before a stepped upgrade. Minimum SQL cumulative updates apply — 2024: SQL 2017 CU31 / 2019 CU18 · 2025: 2017 CU31 / 2019 CU23 / 2022 CU10 · 2026: 2019 CU29 / 2022 CU16. Vault migrates forward at most ${VAULT_MAX_HOP} releases per hop. Data lives in <code>VAULT_SYSREQ</code>.</div>`;
+  html+=`<div style="font-size:.71rem;color:var(--text-muted)">Requirements transcribed from Autodesk's official per-version “System requirements for Autodesk Vault &lt;year&gt; products” articles (2011–2027, retrieved Aug 2026). Only <b>Vault 2016</b> is interpolated (marked *) — Autodesk's 2016 article returns 404. Minimum SQL cumulative/service-pack levels apply and are <b>not</b> checked here (e.g. 2026 needs SQL 2019 CU29 / 2022 CU16) — see <code>SYSTEM-REQUIREMENTS.md</code> in the repo for CU levels, CPU/disk, client specs, and full-replication sizing (replication needs 16/32 GB RAM from 2017 on). RAM shown is single-site Vault Server. Vault migrates forward at most ${VAULT_MAX_HOP} releases per hop.</div>`;
   out.innerHTML=html;
 }
 // ---- Upgrade runbooks (from the Symetri upgrade project plan document) ----

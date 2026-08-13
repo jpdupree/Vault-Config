@@ -71,12 +71,12 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
   SQL Express size limit, remote-SQL-with-Basic, RAM, C:\ and data-drive space,
   upgrade-path gap (intermediate versions), and Pro→Basic downgrade — with a per-item
   pass/warn/fail table and the specific change needed. Requirements live in a
-  `VAULT_SYSREQ` data table covering **2011–2027**. 2024–2027 are from Autodesk's
-  official per-year system requirements articles (verified Aug 2026): 2024 = Server
-  2019/2022 + SQL 2017/2019 (no SQL 2022); 2025 = Server 2019/2022 + SQL
-  2017/2019/2022; 2026 = Server 2019/2022 + SQL 2019/2022; 2027 = Server 2022/2025 +
-  SQL 2022 only. 2011–2023 are historical best-effort (marked * — verify before a
-  stepped upgrade). OS/SQL matching understands "R2" versions (Server/SQL 2008 R2 vs
+  `VAULT_SYSREQ` data table covering **2011–2027**, transcribed from Autodesk's
+  official per-version system requirements articles and cross-checked against
+  `SYSTEM-REQUIREMENTS.md` (added alongside, with full CPU/disk/replication/client
+  detail and CU levels). Every year verified except **2016**, whose Autodesk article
+  returns 404 — that row is interpolated from 2015/2017 and flagged. OS/SQL matching
+  understands "R2" versions (Server/SQL 2008 R2 vs
   2008) and legacy client OSes (XP/Vista/7/8/8.1). The upgrade-path check enforces
   Vault's **max 2 releases per migration hop** (e.g. 2020→2022): a bigger jump fails
   with the required stepping ladder (e.g. 2015 → 2017 → 2019 → 2021 → 2023 → 2025 →
