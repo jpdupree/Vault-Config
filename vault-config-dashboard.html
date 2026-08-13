@@ -3276,6 +3276,25 @@ function upgPlatformPlan(hops,key,current){
   }
   return segs;
 }
+// Interleave the platform plans with the Vault hops into one ordered runbook:
+// a platform is put in place immediately before the first hop that needs it, OS
+// before SQL (SQL installs onto the server), then the Vault migrations it carries.
+function upgOrderedSteps(hops,osPlan,sqlPlan){
+  const osAt={},sqlAt={};
+  osPlan.forEach(s=>{ if(!s.keep) osAt[s.hops[0]]=s.pick; });
+  sqlPlan.forEach(s=>{ if(!s.keep) sqlAt[s.hops[0]]=s.pick; });
+  const sqlNow=y=>{ let v=null; sqlPlan.forEach(s=>{ if(s.hops[0]<=y) v=s.pick; }); return v; };
+  const steps=[];
+  hops.forEach(y=>{
+    if(osAt[y]) steps.push({k:'os',label:'Server '+osAt[y],
+      // A new server means the SQL instance is stood up there too, even when the
+      // SQL version itself isn't changing at this point in the path.
+      note:sqlAt[y]?'':'reinstall SQL '+(sqlNow(y)||'')+' on this server'});
+    if(sqlAt[y]) steps.push({k:'sql',label:'SQL '+sqlAt[y],note:''});
+    steps.push({k:'vault',label:'Vault '+y,note:''});
+  });
+  return steps;
+}
 const SQL_EXPRESS_LIMIT_GB=10;
 // Parse a size entry to GB. The unit must follow the number ("386 MB", "1.5TB");
 // a bare number is taken as GB. Binary factors (1024) are used deliberately: SQL
@@ -3406,20 +3425,16 @@ function upgCheckReqs(){
         const hops=ladder.slice(1);
         const osPlan=upgPlatformPlan(hops,'serverOS',(os&&os.kind==='server')?os.key:null);
         const sqlPlan=upgPlatformPlan(hops,'sql',sqlY);
-        const span=s=>s.hops.length>1?`Vault ${s.hops[0]} → ${s.hops[s.hops.length-1]}`:`Vault ${s.hops[0]}`;
-        const tag=s=>s.keep?' <span style="color:var(--green);font-size:.7rem;font-weight:600">keep current</span>':'';
-        const line=(label,plan,fmt)=>plan.map((s,ix)=>`<tr>
-          <td style="color:var(--text-muted)">${ix===0?esc(label):''}</td>
-          <td><b>${esc(fmt(s.pick))}</b>${tag(s)}</td><td>${esc(span(s))}</td>
-          <td style="color:var(--text-muted);font-size:.72rem">${ix===0?(s.keep?'No rebuild needed yet':'Build first'):'Rebuild / move here'}</td></tr>`).join('');
-        const builds=osPlan.length, sqls=sqlPlan.length;
-        return `<div style="margin-top:10px;font-weight:600;font-size:.78rem">Stepped migration: ${ladder.join(' → ')}</div>
-      <div style="font-size:.72rem;color:var(--text-muted);margin:2px 0 8px">Each intermediate version must be installed and its databases migrated before the next hop. The plan below is the path of least resistance — the fewest platform changes that cover every hop: <b>${builds} server build${builds===1?'':'s'}</b> and <b>${sqls} SQL version${sqls===1?'':'s'}</b>.</div>
-      <table class="tbl"><thead><tr><th style="width:110px">Component</th><th style="width:190px">Use</th><th>Carries</th><th style="width:150px">Action</th></tr></thead><tbody>
-      ${line('Server OS',osPlan,v=>'Windows Server '+v)}
-      ${line('SQL Server',sqlPlan,v=>'SQL Server '+v)}
-      </tbody></table>
-      <div style="font-size:.71rem;color:var(--text-muted);margin-top:6px">Each row is the version supported by <i>every</i> hop it carries, so nothing is rebuilt mid-span. Verify the Windows/SQL pairing against Microsoft's own compatibility (e.g. SQL 2016 doesn't install on Server 2022) — where an old hop and the final target share no platform, run the early hops on a temporary VM.</div>
+        const steps=upgOrderedSteps(hops,osPlan,sqlPlan);
+        const builds=osPlan.filter(s=>!s.keep).length, sqls=sqlPlan.filter(s=>!s.keep).length;
+        const CH={os:['var(--accent,#4f8ef7)','OS'],sql:['var(--orange,#f59e0b)','SQL'],vault:['var(--green,#22c55e)','Vault']};
+        const keptOs=osPlan[0]&&osPlan[0].keep?osPlan[0].pick:null, keptSql=sqlPlan[0]&&sqlPlan[0].keep?sqlPlan[0].pick:null;
+        const chip=(s,i)=>`${i?'<span style="color:var(--text-muted);margin:0 2px">›</span>':''}<span style="display:inline-block;border:1px solid ${CH[s.k][0]};color:${CH[s.k][0]};border-radius:5px;padding:2px 7px;margin:2px 1px;font-size:.76rem;white-space:nowrap"${s.note?` title="${esc(s.note)}"`:''}>${esc(s.label)}${s.note?' <span style="opacity:.75">＋SQL</span>':''}</span>`;
+        return `<div style="margin-top:10px;font-weight:600;font-size:.78rem">Order of operations</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin:2px 0 6px">Work top to bottom: put each platform in place, then run the Vault migrations it carries. Fewest changes that cover the whole path — <b>${builds} server build${builds===1?'':'s'}</b>, <b>${sqls} SQL version${sqls===1?'':'s'}</b>, <b>${hops.length} Vault migration${hops.length===1?'':'s'}</b>.${keptOs||keptSql?` Starting point stays as-is: ${[keptOs?'Windows Server '+keptOs:'',keptSql?'SQL '+keptSql:''].filter(Boolean).join(' · ')}.`:''}</div>
+      <div style="line-height:2">${steps.map(chip).join('')}</div>
+      ${steps.some(s=>s.note)?`<div style="font-size:.71rem;color:var(--text-muted);margin-top:6px">＋SQL — a new server means the SQL instance is stood up there as well, even where the SQL version itself isn't changing at that point.</div>`:''}
+      <div style="font-size:.71rem;color:var(--text-muted);margin-top:6px">Each platform is a version supported by <i>every</i> hop it carries, so nothing is rebuilt mid-span. Verify the Windows/SQL pairing against Microsoft's own compatibility (e.g. SQL 2016 doesn't install on Server 2022) — where an old hop and the final target share no platform, run the early hops on a temporary VM.</div>
       <details style="margin-top:6px"><summary style="cursor:pointer;font-size:.73rem;color:var(--text-muted)">All supported versions per hop</summary>
       <table class="tbl" style="margin-top:6px"><thead><tr><th>Hop</th><th>Server OS supported</th><th>SQL supported</th></tr></thead><tbody>
       ${hops.map(y=>{ const r=VAULT_SYSREQ[y];
