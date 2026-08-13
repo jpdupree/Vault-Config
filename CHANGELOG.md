@@ -62,6 +62,19 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
   writes a consistent internal name.
 
 ### Added
+- **Vault Upgrade page** (Deployment → ⬆️ Vault Upgrade) — captures the full upgrade
+  assessment from the Symetri upgrade project plan (ADMS server, SQL, current Vault,
+  accounts/services, sizing, backup, apps, clients, Job Processor, Symetri needs), a
+  **Target Version** picker (Basic/Professional × 2024–2027), and a **Check System
+  Requirements** button that compares the captured environment against the target
+  release's requirements — OS (flags a server move when unsupported), SQL version,
+  SQL Express size limit, remote-SQL-with-Basic, RAM, C:\ and data-drive space,
+  upgrade-path gap (intermediate versions), and Pro→Basic downgrade — with a per-item
+  pass/warn/fail table and the specific change needed. Requirements live in a
+  `VAULT_SYSREQ` data table (2026/2027 marked provisional pending official values).
+  Seven expandable **upgrade runbooks** (Basic notes/in-place; Professional in-place,
+  server move, filestore replication, full replication, replication server move) with
+  per-step checkboxes; progress and all fields persist with the configuration.
 - **Properties: Basic Search flag** — new **Basic Search** column on Property
   Definitions (click to toggle). Read from and written back to the `.cfg`
   (`BasicSearch` attribute); **new/duplicated properties default to ON**. Configs

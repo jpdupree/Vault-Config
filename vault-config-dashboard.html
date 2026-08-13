@@ -309,6 +309,7 @@ details.fm-act-dd>summary::-webkit-details-marker{display:none;}
 
   <div class="nav-section">Deployment</div>
   <div class="nav-item" onclick="showPage('checklist')" id="nav-checklist"><span class="ni">✅</span> Manual Checklist</div>
+  <div class="nav-item" onclick="showPage('upgrade')" id="nav-upgrade"><span class="ni">⬆️</span> Vault Upgrade</div>
 
   <div class="nav-section">Help</div>
   <div class="nav-item" onclick="showPage('help')" id="nav-help"><span class="ni">❓</span> Help &amp; Docs</div>
@@ -1058,6 +1059,143 @@ EXIT</textarea>
   </div>
 </div>
 
+<!-- VAULT UPGRADE -->
+<div class="page" id="page-upgrade">
+  <div class="page-title">Vault Upgrade</div>
+  <div class="page-sub">Capture the environment details for a Vault upgrade, pick the target version, and run a system-requirements check. Detailed upgrade runbooks are in the expandable sections at the bottom. <b>Note:</b> passwords entered here are stored with the saved configuration — share exports accordingly.</div>
+
+  <div class="card">
+    <h3>Upgrade Details — ADMS Server</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>ADMS Machine Name</label><input id="up-adms-name" placeholder="e.g. VAULT-ADMS01"></div>
+      <div class="form-group"><label>ADMS Machine IP</label><input id="up-adms-ip" placeholder="e.g. 192.168.1.50"></div>
+      <div class="form-group"><label>ADMS Machine OS</label><input id="up-adms-os" placeholder="e.g. Windows Server 2019"></div>
+      <div class="form-group"><label>ADMS Machine RAM</label><input id="up-adms-ram" placeholder="e.g. 16 GB"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>SQL</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>SQL Machine Name</label><input id="up-sql-name" placeholder="Same as ADMS, or remote SQL host"></div>
+      <div class="form-group"><label>SQL Year</label><input id="up-sql-year" placeholder="e.g. 2019"></div>
+      <div class="form-group"><label>SQL Type</label><select id="up-sql-type"><option></option><option>Standard</option><option>Express</option><option>Enterprise</option></select></div>
+      <div class="form-group"><label>SQL User</label><input id="up-sql-user" placeholder="e.g. sa"></div>
+      <div class="form-group"><label>SQL Password</label><input id="up-sql-pass" placeholder=""></div>
+      <div class="form-group"><label>SQL Service Account</label><input id="up-sql-svc" placeholder="e.g. NT Service\MSSQL$AUTODESKVAULT"></div>
+      <div class="form-group"><label>SQL Directory Location</label><input id="up-sql-dir" placeholder="e.g. D:\SQL"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Current Vault</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Vault Year</label><input id="up-vault-year" placeholder="e.g. 2023"></div>
+      <div class="form-group"><label>Vault Type</label><select id="up-vault-type"><option></option><option>Basic</option><option>Professional</option></select></div>
+      <div class="form-group"><label>Vault Build</label><input id="up-vault-build" placeholder="e.g. 28.2.10.0"></div>
+      <div class="form-group"><label>Vault Name(s)</label><input id="up-vault-names" placeholder="e.g. Vault, Standards"></div>
+      <div class="form-group"><label>Inventor Libraries</label><input id="up-inv-libs" placeholder="Ansi, Din, etc"></div>
+      <div class="form-group"><label>Custom Libraries</label><input id="up-custom-libs" placeholder=""></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Accounts &amp; Services</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Symetri Admin User</label><input id="up-sym-user"></div>
+      <div class="form-group"><label>Symetri Admin Password</label><input id="up-sym-pass"></div>
+      <div class="form-group"><label>Impersonation User</label><input id="up-imp-user"></div>
+      <div class="form-group"><label>Impersonation Password</label><input id="up-imp-pass"></div>
+      <div class="form-group"><label>Gateway Address</label><input id="up-gateway" placeholder="e.g. https://vaultgateway.company.com"></div>
+      <div class="form-group"><label>Email Notifications</label><input id="up-email-notif" placeholder="Enabled / SMTP host"></div>
+      <div class="form-group"><label>Content Indexing</label><input id="up-content-idx" placeholder="e.g. Enabled"></div>
+      <div class="form-group"><label>Purging Cadence</label><input id="up-purge" placeholder="e.g. Monthly"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Sizing</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Largest Database Size</label><input id="up-db-size" placeholder="e.g. 40 GB"></div>
+      <div class="form-group"><label>Filestore Size</label><input id="up-fs-size" placeholder="e.g. 850 GB"></div>
+      <div class="form-group"><label>Filestore Location</label><input id="up-fs-loc" placeholder="e.g. D:\VaultFileStore"></div>
+      <div class="form-group"><label>Quantity of Files</label><input id="up-file-qty" placeholder="e.g. 250,000"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Backup</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Backup Routine</label><input id="up-bk-routine" placeholder="e.g. Nightly ADMS backup, A/B cascade"></div>
+      <div class="form-group"><label>Backup Folder Location</label><input id="up-bk-folder" placeholder="e.g. E:\Vault_Backups"></div>
+      <div class="form-group"><label>Backup Script</label><input id="up-bk-script" placeholder="e.g. E:\Scripts\VaultBackup.bat"></div>
+      <div class="form-group"><label>Backup Log File</label><input id="up-bk-log" placeholder="e.g. E:\Vault_Backups\VaultBackup.log"></div>
+      <div class="form-group"><label>Backup Ran As</label><input id="up-bk-ranas" placeholder="Scheduled task account"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Apps &amp; Integrations</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Third Party Apps</label><input id="up-3rd" placeholder="e.g. coolOrange powerJobs"></div>
+      <div class="form-group"><label>Customizations</label><input id="up-customizations"></div>
+      <div class="form-group"><label>Ruler</label><input id="up-ruler"></div>
+      <div class="form-group"><label>Integrations</label><input id="up-integrations" placeholder="e.g. Fusion Manage connector"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Clients &amp; Disk Space</h3>
+    <div class="form-grid">
+      <div class="form-group" style="align-self:end"><label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="up-cad-client"><span>Upgrading CAD Client?</span></label></div>
+      <div class="form-group" style="align-self:end"><label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="up-vault-client"><span>Upgrading Vault Client?</span></label></div>
+      <div class="form-group"><label>Data Drive Free Space</label><input id="up-data-free" placeholder="e.g. 500 GB"></div>
+      <div class="form-group"><label>Free Drive Space on C:\</label><input id="up-c-free" placeholder="e.g. 120 GB"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Job Processor</h3>
+    <div class="form-grid">
+      <div class="form-group"><label>Job Processor Machine Name</label><input id="up-jp-name"></div>
+      <div class="form-group"><label>Windows Username</label><input id="up-jp-winuser"></div>
+      <div class="form-group"><label>Windows Password</label><input id="up-jp-winpass"></div>
+      <div class="form-group"><label>JP Vault Account Username</label><input id="up-jp-vaultuser"></div>
+      <div class="form-group"><label>JP Vault Account Password</label><input id="up-jp-vaultpass"></div>
+      <div class="form-group"><label>JP Email Address</label><input id="up-jp-email"></div>
+      <div class="form-group"><label>JP Email Address Password</label><input id="up-jp-emailpass"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Symetri Needs</h3>
+    <div class="toggle-stack">
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="up-need-vpn"><span class="slider"></span></label><span>VPN Access (preferred) or Zoho Assist Access</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="up-need-admin"><span class="slider"></span></label><span>Windows Administrative Account with access to all servers and job processors</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="up-need-inet"><span class="slider"></span></label><span>Internet Access on Server(s)</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="up-need-drives"><span class="slider"></span></label><span>C:\ Drive and additional Data Drive</span></div>
+      <div class="toggle-wrap"><label class="toggle"><input type="checkbox" id="up-need-coolorange"><span class="slider"></span></label><span>coolOrange Licensing</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Target Version</h3>
+    <div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:10px">
+      <div>
+        <div style="font-weight:600;font-size:.8rem;margin-bottom:6px">Edition</div>
+        <label class="toggle-wrap" style="gap:8px;margin-bottom:6px"><input type="checkbox" id="up-tgt-basic"><span>Vault Basic</span></label><br>
+        <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="up-tgt-pro"><span>Vault Professional</span></label>
+      </div>
+      <div>
+        <div style="font-weight:600;font-size:.8rem;margin-bottom:6px">Year</div>
+        <label class="toggle-wrap" style="gap:8px;margin-right:16px"><input type="checkbox" id="up-tgt-2024"><span>2024</span></label>
+        <label class="toggle-wrap" style="gap:8px;margin-right:16px"><input type="checkbox" id="up-tgt-2025"><span>2025</span></label>
+        <label class="toggle-wrap" style="gap:8px;margin-right:16px"><input type="checkbox" id="up-tgt-2026"><span>2026</span></label>
+        <label class="toggle-wrap" style="gap:8px"><input type="checkbox" id="up-tgt-2027"><span>2027</span></label>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="upgCheckReqs()">✓ Check System Requirements</button>
+    <div id="upg-req-results" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card">
+    <h3>Upgrade Runbooks</h3>
+    <p style="font-size:.75rem;color:var(--text-muted);margin:-6px 0 10px">Expand the path that applies. Check steps off as you complete them — progress is saved with the configuration.</p>
+    <div id="upg-plans"></div>
+  </div>
+</div>
+
 <!-- HELP & DOCS -->
 <div class="page" id="page-help">
   <div class="page-title">Help &amp; Docs</div>
@@ -1480,6 +1618,14 @@ const SETTING_FIELDS={
   email:['email-enable','email-account','email-from','email-user','email-domain','email-smtp','email-port','email-interval','email-ssl'],
   connections:['conn-vaultconnector','conn-thinclient','conn-vds','conn-forgeflow','conn-powerplm','conn-jitterbit','conn-desktop','conn-sovelia','conn-jobq','conn-powerjobs','conn-powergate','conn-ruler'],
   thinclient:['tc-hide-files','tc-default-landing','tc-released-only','tc-latest-only','tc-notes'],
+  upgrade:['up-adms-name','up-adms-ip','up-adms-os','up-adms-ram','up-sql-name','up-sql-year','up-sql-type','up-sql-user','up-sql-pass','up-sql-svc','up-sql-dir',
+    'up-vault-year','up-vault-type','up-vault-build','up-vault-names','up-inv-libs','up-custom-libs',
+    'up-sym-user','up-sym-pass','up-imp-user','up-imp-pass','up-gateway','up-email-notif','up-content-idx','up-purge',
+    'up-db-size','up-fs-size','up-fs-loc','up-file-qty','up-bk-routine','up-bk-folder','up-bk-script','up-bk-log','up-bk-ranas',
+    'up-3rd','up-customizations','up-ruler','up-integrations','up-cad-client','up-vault-client','up-data-free','up-c-free',
+    'up-jp-name','up-jp-winuser','up-jp-winpass','up-jp-vaultuser','up-jp-vaultpass','up-jp-email','up-jp-emailpass',
+    'up-need-vpn','up-need-admin','up-need-inet','up-need-drives','up-need-coolorange',
+    'up-tgt-basic','up-tgt-pro','up-tgt-2024','up-tgt-2025','up-tgt-2026','up-tgt-2027'],
   backup:['bk-path','bk-sched','bk-time','bk-retain','bk-last','bk-type','bk-compress','bk-encrypt','bk-notify','bk-script'],
   audit:['audit-retain','audit-level','audit-fmt','audit-login','audit-file','audit-admin','audit-lc'],
   revtable:['rt-enable','rt-content-version','rt-content-state','rt-limit','rt-limit-count','rt-hide-exceeding','rt-update-latest','rt-detect-scheme','rt-lvl-primary','rt-lvl-secondary','rt-lvl-tertiary','rt-precedence','rt-precedence-level','rt-omit-initial']
@@ -1607,7 +1753,7 @@ function renderAll(){
   renderLCList(); renderFolders(); renderCCLibs(); renderCategories(); renderRevisions(); renderRevSeqs();
   renderNumbering(); renderChangeLog();
   renderUsers(); renderGroups(); renderRoles(); renderCadApps();
-  renderRules(); renderFmProps(); renderFmStates(); renderChecklist(); renderRtMaps(); rtUpdateEnabled(); dbsRender();
+  renderRules(); renderFmProps(); renderFmStates(); renderChecklist(); renderRtMaps(); rtUpdateEnabled(); dbsRender(); renderUpgradePlans();
   updateMetrics(); updateBadge(); renderCompletionBars(); updateCfgIndicator(); updateConnectorVisibility(); gsUpdateConditional();
 }
 
@@ -3030,6 +3176,166 @@ function doImportJSON(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  VAULT UPGRADE  (upgrade capture, sys-req check, runbooks)
+// ═══════════════════════════════════════════════════════════════
+// System requirements per Vault release year. 2026/2027 entries are provisional —
+// verify against the official Autodesk system requirements and adjust here.
+const VAULT_SYSREQ={
+  2024:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
+  2025:{serverOS:[2019,2022],clientOSBasic:[10,11],sql:[2017,2019,2022],ramMinGB:8,ramRecGB:16,provisional:false},
+  2026:{serverOS:[2019,2022,2025],clientOSBasic:[10,11],sql:[2019,2022],ramMinGB:8,ramRecGB:16,provisional:true},
+  2027:{serverOS:[2022,2025],clientOSBasic:[11],sql:[2019,2022],ramMinGB:16,ramRecGB:32,provisional:true}
+};
+const SQL_EXPRESS_LIMIT_GB=10;
+function upgNum(s){ const m=String(s||'').replace(/,/g,'').match(/([\d.]+)/); if(!m)return null; let n=parseFloat(m[1]); if(/tb/i.test(s))n*=1000; return n; }
+function upgOsParse(s){ const sv=String(s||'').match(/server\s*(\d{4})/i); if(sv)return{kind:'server',year:+sv[1]}; const cl=String(s||'').match(/windows\s*(10|11)/i); if(cl)return{kind:'client',year:+cl[1]}; return String(s||'').trim()?{kind:'unknown'}:null; }
+function upgCheckReqs(){
+  const out=document.getElementById('upg-req-results'); if(!out)return;
+  const editions=[]; if(chk('up-tgt-basic'))editions.push('Basic'); if(chk('up-tgt-pro'))editions.push('Professional');
+  const years=[2024,2025,2026,2027].filter(y=>chk('up-tgt-'+y));
+  if(!editions.length||!years.length){ out.innerHTML='<div style="color:var(--orange);font-size:.82rem">Select at least one edition and one year first.</div>'; return; }
+  const os=upgOsParse(val('up-adms-os'));
+  const ram=upgNum(val('up-adms-ram'));
+  const sqlY=upgNum(val('up-sql-year'));
+  const sqlType=val('up-sql-type');
+  const dbGB=upgNum(val('up-db-size'));
+  const cFree=upgNum(val('up-c-free'));
+  const dataFree=upgNum(val('up-data-free'));
+  const curYear=upgNum(val('up-vault-year'));
+  const curType=val('up-vault-type');
+  const admsName=(val('up-adms-name')||'').trim().toLowerCase();
+  const sqlName=(val('up-sql-name')||'').trim().toLowerCase();
+  let html='';
+  editions.forEach(ed=>years.forEach(ty=>{
+    const rq=VAULT_SYSREQ[ty]; if(!rq)return;
+    const rows=[]; const add=(s,area,cur,req,action)=>rows.push({s,area,cur,req,action});
+    // Operating system
+    const osList=rq.serverOS.map(y=>'Windows Server '+y).join(', ');
+    if(!os) add('unknown','Operating system','— not filled in —',osList,'Enter the ADMS Machine OS to check.');
+    else if(os.kind==='server'){
+      if(rq.serverOS.includes(os.year)) add('ok','Operating system',val('up-adms-os'),osList,'');
+      else add('fail','Operating system',val('up-adms-os'),osList,`OS not supported by Vault ${ed} ${ty} — a server move (or in-place OS upgrade) to ${osList} is required before upgrading.`);
+    } else if(os.kind==='client'){
+      if(ed==='Basic'&&rq.clientOSBasic.includes(os.year)) add('ok','Operating system',val('up-adms-os'),osList+' (or Windows '+rq.clientOSBasic.join('/')+' for Basic)','');
+      else if(ed==='Basic') add('fail','Operating system',val('up-adms-os'),'Windows '+rq.clientOSBasic.join('/')+' or '+osList,`Windows ${os.year} is not supported for Vault Basic ${ty} — move to ${osList} or Windows ${rq.clientOSBasic.join('/')}.`);
+      else add('fail','Operating system',val('up-adms-os'),osList,`Vault Professional requires a Windows Server OS — a server move to ${osList} is required.`);
+    } else add('unknown','Operating system',val('up-adms-os'),osList,'Could not parse the OS — check manually.');
+    // SQL version
+    const sqlList=rq.sql.join(', ');
+    if(sqlY==null) add('unknown','SQL Server','— not filled in —','SQL '+sqlList,'Enter the SQL Year to check.');
+    else if(rq.sql.includes(sqlY)) add('ok','SQL Server','SQL '+val('up-sql-year')+(sqlType?' '+sqlType:''),'SQL '+sqlList,'');
+    else add('fail','SQL Server','SQL '+val('up-sql-year')+(sqlType?' '+sqlType:''),'SQL '+sqlList,`SQL ${val('up-sql-year')} is not supported by Vault ${ty} — upgrade (or move) SQL to ${sqlList}. Plan the SQL upgrade before the Vault upgrade.`);
+    // SQL Express size limit
+    if(sqlType==='Express'&&dbGB!=null){
+      if(dbGB>SQL_EXPRESS_LIMIT_GB) add('fail','SQL edition',`Express, largest DB ${val('up-db-size')}`,`Express limit ${SQL_EXPRESS_LIMIT_GB} GB per DB`,`The largest database exceeds SQL Express's ${SQL_EXPRESS_LIMIT_GB} GB limit — move to SQL Standard before upgrading.`);
+      else add('ok','SQL edition',`Express, largest DB ${val('up-db-size')}`,`Express limit ${SQL_EXPRESS_LIMIT_GB} GB per DB`,'');
+    }
+    // Remote SQL with Basic
+    if(ed==='Basic'&&admsName&&sqlName&&admsName!==sqlName)
+      add('fail','SQL location',`SQL on ${val('up-sql-name')}, ADMS on ${val('up-adms-name')}`,'Local SQL only','Remote SQL is not supported with Vault Basic — consolidate SQL onto the ADMS server or move to Vault Professional.');
+    // RAM
+    if(ram==null) add('unknown','RAM','— not filled in —',`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,'Enter the ADMS Machine RAM to check.');
+    else if(ram<rq.ramMinGB) add('fail','RAM',val('up-adms-ram'),`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,`Below the ${rq.ramMinGB} GB minimum — add memory (target ${rq.ramRecGB} GB+).`);
+    else if(ram<rq.ramRecGB) add('warn','RAM',val('up-adms-ram'),`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,`Meets the minimum but below the recommended ${rq.ramRecGB} GB.`);
+    else add('ok','RAM',val('up-adms-ram'),`${rq.ramMinGB} GB min, ${rq.ramRecGB} GB recommended`,'');
+    // Disk space
+    if(cFree!=null){ if(cFree<40) add('warn','C:\\ free space',val('up-c-free'),'≥ 40 GB free for install + updates','Free up space on C:\\ before installing the new ADMS.'); else add('ok','C:\\ free space',val('up-c-free'),'≥ 40 GB free',''); }
+    if(dataFree!=null&&dbGB!=null){ if(dataFree<dbGB*2) add('warn','Data drive space',`${val('up-data-free')} free, largest DB ${val('up-db-size')}`,'≥ 2× largest DB free for migration + backup','Migration needs working space — free up the data drive or stage backups elsewhere.'); else add('ok','Data drive space',`${val('up-data-free')} free`,'≥ 2× largest DB free',''); }
+    // Upgrade path (direct DB migration supported from the 3 prior releases)
+    if(curYear!=null){ const gap=ty-curYear;
+      if(gap<=0) add('warn','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,'Target newer than current','Target year is not newer than the current version — check the selection.');
+      else if(gap>3) add('warn','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,'Direct migration from the 3 prior releases',`A ${gap}-version jump likely needs intermediate Vault version(s) — plan a stepped migration (verify the supported path with Autodesk).`);
+      else add('ok','Upgrade path',`Vault ${val('up-vault-year')} → ${ty}`,'Direct migration from the 3 prior releases','');
+    }
+    // Edition change
+    if(curType==='Professional'&&ed==='Basic') add('fail','Edition',`${curType} → ${ed}`,'No downgrade path','Vault Professional cannot be downgraded to Basic.');
+    const fails=rows.filter(r=>r.s==='fail').length, warns=rows.filter(r=>r.s==='warn').length, unk=rows.filter(r=>r.s==='unknown').length;
+    const verdict=fails?`<span style="color:var(--danger);font-weight:700">✗ ${fails} blocking issue${fails===1?'':'s'} — changes required before this upgrade</span>`
+      :warns||unk?`<span style="color:var(--orange);font-weight:700">⚠ Passes with ${warns} warning${warns===1?'':'s'}${unk?` and ${unk} unchecked item${unk===1?'':'s'}`:''}</span>`
+      :`<span style="color:var(--green);font-weight:700">✓ Meets the system requirements — in-place upgrade looks viable</span>`;
+    const icon={ok:'✅',warn:'⚠️',fail:'❌',unknown:'❔'};
+    html+=`<div style="border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-weight:700;margin-bottom:2px">Vault ${esc(ed)} ${ty}${rq.provisional?' <span style="color:var(--orange);font-weight:600;font-size:.72rem">(provisional requirements — verify)</span>':''}</div>
+      <div style="font-size:.82rem;margin-bottom:8px">${verdict}</div>
+      <table class="tbl"><thead><tr><th style="width:26px"></th><th>Check</th><th>Current</th><th>Required</th><th>Action needed</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td>${icon[r.s]}</td><td>${esc(r.area)}</td><td>${esc(r.cur)}</td><td>${esc(r.req)}</td><td style="${r.s==='fail'?'color:var(--danger)':r.s==='warn'?'color:var(--orange)':''}">${esc(r.action)||'—'}</td></tr>`).join('')}
+      </tbody></table></div>`;
+  }));
+  html+=`<div style="font-size:.71rem;color:var(--text-muted)">2026/2027 requirement values are provisional placeholders — confirm against Autodesk's official system requirements (the data lives in <code>VAULT_SYSREQ</code> and is easy to update).</div>`;
+  out.innerHTML=html;
+}
+// ---- Upgrade runbooks (from the Symetri upgrade project plan document) ----
+const UPG_JP_STEPS=['Must use Administrative Job Processor Windows Account to set up Job Processor','Backup any customizations and robocopy to new Job Processor machine','Download new Vault Professional Client version and any patch updates','Install Vault Professional Client','Place all custom scripts in correct location if applicable','Install new version of coolOrange if applicable','Sign into Job Processor Licensed Email Account (email + password needed to approve MFA for the license)','Sign into Job Processor Vault Account (JP Vault username + password)'];
+const UPG_CLIENT_STEPS=['Client installs new version of Inventor, AutoCAD and Vault on one user\u2019s machine','Symetri assists in getting IPJ File, Templates and Design Data migrated and checked back into Vault','All other users run a \u2018get\u2019 on the IPJ, Templates and Design Data from Vault'];
+const UPGRADE_PLANS=[
+ {title:'Vault Basic — Limitations & Planning Notes',groups:[
+  {h:'Server & SQL Server',steps:['Vault Basic can be hosted on a supported Windows Server OS or Windows 11 depending on deployment requirements','Vault Basic typically uses a named AUTODESKVAULT SQL instance','Remote SQL is not supported with Vault Basic','Validate existing SQL architecture and versions before determining the upgrade path','Confirm sufficient storage for database, filestore, backups, and temporary migration space','Validate target OS and SQL version against the target Vault release requirements']},
+  {h:'Upgrade Path',steps:['Confirm current Vault version and desired target version','Determine whether a direct upgrade is supported or intermediate versions are required','Review the Autodesk-supported migration path before scheduling','Validate all integrating Autodesk CAD applications (Inventor, AutoCAD, AutoCAD Electrical, Civil 3D, Plant 3D, others)','Coordinate client applications and Vault add-ins with the server upgrade']},
+  {h:'Replication & Multi-Site',steps:['Replication is not supported with Vault Basic','If multiple sites / replicated data are needed, evaluate an upgrade to Vault Professional','Review network connectivity for remote offices and VPN users']},
+  {h:'Customization & Integrations',steps:['Direct customization of Vault Basic is not supported','Identify all CAD customizations, scripts, add-ins, and integrations during assessment','Validate third-party tools for compatibility before the upgrade','Remove, replace, or upgrade unsupported customizations before the production upgrade']}]},
+ {title:'Vault Basic In Place Upgrade',groups:[
+  {h:'Discovery & Readiness',steps:['Review current Vault Server version and edition','Confirm target Vault version','Review current Windows Server / Windows 11 version','Review SQL Server version and edition','Record Vault database size','Record Vault filestore size','Confirm available disk space','Record number of Vaults','Record number of users','Record Autodesk applications and versions','Record Vault clients and add-ins','Record Job Processor details, if applicable','Record customizations, integrations, scripts, third-party tools','Record current backup configuration','Record existing Vault/database health issues','GATE: Confirm existing infrastructure supports the target release and in-place is appropriate']},
+  {h:'Upgrade Path Validation',steps:['Determine the supported upgrade sequence to the target version','Identify whether a direct upgrade is supported','Identify required intermediate Vault versions','Validate Windows compatibility for each step','Validate SQL compatibility for each step','Confirm Autodesk application compatibility','Identify required client/application upgrades','Review disk space for migration and backups','GATE: Document and approve the upgrade sequence before changing production']},
+  {h:'Environment Health Check',steps:['Run Vault database/filestore validation','Review ADMS Console for errors','Review Vault Server logs','Confirm SQL database health','Review database and filestore consistency','Identify existing errors or failed operations','Confirm sufficient free disk space','Review antivirus/EDR exclusions','Verify Vault services operate normally','GATE: Environment healthy enough to proceed']},
+  {h:'Backup & Recovery Preparation',steps:['Perform a full ADMS Console backup','Confirm the backup completes successfully','Verify backup contains all Vault databases and filestore data','Confirm adequate backup storage','Document current Vault Server configuration','Document SQL configuration','Document service accounts and permissions','Confirm the rollback/recovery plan','Retain the backup until the upgraded environment is validated','STOP: Do not proceed without a successful Vault backup']},
+  {h:'Production Upgrade',steps:['Confirm all users are logged out of Vault','Stop Job Processor activity, if applicable','Stop/disable integrations and automated processes','Confirm the final backup completed successfully','Uninstall existing Vault Server software as required','Install the target/intermediate Vault Server version','Launch ADMS Console and let it detect/migrate databases','Complete database migrations','Validate all Vaults are available','Repeat for intermediate versions until the target is reached','Install all applicable updates/hotfixes for the target release']},
+  {h:'Server Validation',steps:['ADMS Console opens successfully','All Vaults visible','Databases migrated successfully','Filestore connectivity validated','Vault services running','Server logs reviewed for errors','Administrator login tested','Standard user login tested','Search validated','File download validated','Check-in/check-out validated','Properties and metadata validated','Visualization files validated, where applicable','Job Processor validated, where applicable']},
+  {h:'Client & CAD Deployment',steps:['Upgrade Vault Client','Upgrade Inventor Vault Add-in','Upgrade AutoCAD Vault Add-in','Upgrade AutoCAD Electrical integration','Upgrade Civil 3D integration','Upgrade Plant 3D integration','Upgrade other Autodesk integrations','Upgrade third-party applications/add-ins','Confirm client versions are compatible with the upgraded server','Custom Content Center Library migration','Design Data migration','Inventor templates migration']},
+  {h:'User Acceptance Testing',steps:['Login','Search','Open/download','Check-out','Check-in','CAD file relationships','Inventor assemblies','AutoCAD references','Properties','Visualization files','Release workflows (Vault Professional)','Job Processor','Integrations','Custom functionality, if applicable','GATE: Customer confirms the upgraded environment functions as expected']},
+  {h:'In-Place Upgrade Requirements',steps:['Existing hardware meets target release requirements','Existing operating system is supported','Existing SQL environment supports the upgrade path','Adequate disk space available','Vault environment is healthy','A successful ADMS backup can be completed','Upgrade path can be performed on existing infrastructure','No infrastructure replacement required']}]},
+ {title:'Vault Professional In Place Upgrade',groups:[
+  {h:'Server Side',steps:['Verify necessary space on C:\\ and Data Drive','Backup Vault via ADMS or Snapshot','Download new Vault Professional Server media, latest patches, Inventor Libraries','If Remote SQL: set up Shared Folder with Impersonation User, verify SQL Service Account','Install new ADMS Console','Migrate all Vault databases','Migrate custom libraries','Install new Inventor Content Center Libraries','Verify and update backup script','Set up Gateway (if applicable) — licensed Gateway user email + password needed','Set up Email Notifications (if applicable) — SMTP server, domain, port, email, username, password']},
+  {h:'Job Processor Set-Up',steps:UPG_JP_STEPS},
+  {h:'Client Side',steps:UPG_CLIENT_STEPS}]},
+ {title:'Vault Professional Server Move Upgrade',groups:[
+  {h:'1 Week Before',steps:['If filestore > 400 GB, start filestore robocopy','Verify access between servers is open','Verify which groups have access to which Vaults','Verify SQL ISO is mounted if using SQL Standard','If Remote SQL: set up Shared Folder with Impersonation User (same SQL Service Account)','Verify necessary space on C:\\ and Data Drive']},
+  {h:'Night Before',steps:['Backup Vault via ADMS or Snapshot']},
+  {h:'Day of Upgrade',steps:['Download new Vault Professional Server installation media','Install new ADMS Console','Migrate all Vault databases','Migrate all custom libraries','Install new Inventor Content Center Libraries','Verify and update backup script','Re-enable group access to necessary Vaults','Set up Gateway (if applicable) — licensed Gateway user email + password needed','Set up Email Notifications (if applicable) — SMTP server, domain, port, email, username, password']},
+  {h:'Job Processor Set-Up',steps:UPG_JP_STEPS},
+  {h:'Client Side',steps:UPG_CLIENT_STEPS}]},
+ {title:'Vault Professional Filestore Replication Upgrade',groups:[
+  {h:'ADMS Server',steps:['Verify necessary space on C:\\ and Data Drive','Backup Vault via ADMS or Snapshot','Download new server media, patches, and Inventor Libraries on the ADMS server','If Remote SQL: set up Shared Folder with Impersonation User, verify SQL Service Account','Install new ADMS Console','Migrate all Vault databases','Migrate custom libraries','Install new Inventor Content Center Libraries','Verify and update backup script','Set up Gateway (if applicable)','Set up Email Notifications (if applicable)']},
+  {h:'AVFS Server',steps:['Download new AVFS Server','Install AVFS Server','Connect to ADMS Server']},
+  {h:'Job Processor Set-Up',steps:UPG_JP_STEPS},
+  {h:'Client Side',steps:UPG_CLIENT_STEPS}]},
+ {title:'Vault Professional In Place Full Replication Upgrade',groups:[
+  {h:'Order of Operations',steps:['STOP: Subscriber ADMS must be upgraded first, and NOT opened']},
+  {h:'Pre-Work',steps:['Verify space on C:\\ and Data Drives on Publisher and Subscriber machines','Verify replication is working consistently','Verify logs','Backup all databases from Publisher','Verify SQL ISO is mounted if using SQL Standard','If Remote SQL: set up Shared Folder with Impersonation User (same SQL Service Account)']},
+  {h:'Subscriber',steps:['Download new ADMS installation media and patch updates','Install ADMS and necessary patch updates','Do NOT open ADMS on the subscriber']},
+  {h:'Publisher',steps:['Download new ADMS media, patches and Inventor Content Center Libraries','Install ADMS with SQL Share Folder and correct SQL Service Account','Apply patch updates','Migrate all Vault databases','Migrate all custom content libraries','Install Inventor Content Libraries','Re-enable replication','Verify and update backup script','Set up Gateway (if applicable)','Set up Email Notifications (if applicable)']},
+  {h:'Job Processor Set-Up',steps:UPG_JP_STEPS},
+  {h:'Client Side',steps:UPG_CLIENT_STEPS}]},
+ {title:'Vault Professional Replication Server Move Upgrade',groups:[
+  {h:'Pre-Work (1–2 Weeks Before)',steps:['Test access to all machines with the Administrative Account','Install SQL instances and SQL Share Folders','Robocopy filestores: Old Publisher → New Publisher, Old Subscriber → New Subscriber','Verify robocopy progress throughout the week(s)']},
+  {h:'Night Before',steps:['Backup Vault via ADMS or Snapshot']},
+  {h:'Day of Upgrade',steps:['Backup all databases','Run incremental robocopy']},
+  {h:'Subscriber',steps:['Download new ADMS installation media and patch updates','Install ADMS and patch updates','Do NOT open ADMS on the subscriber']},
+  {h:'Publisher',steps:['Download new ADMS installation media and patch updates','Install ADMS and patch updates','Migrate all databases','Migrate all custom content libraries','Install new Inventor Content Libraries','Enable replication to Subscriber','Replicate KVM','Replicate Vault(s)','Replicate libraries','Verify and update backup script','Set up Gateway (if applicable)','Set up Email Notifications (if applicable)']},
+  {h:'Job Processor Set-Up',steps:UPG_JP_STEPS},
+  {h:'Client Side',steps:UPG_CLIENT_STEPS}]}
+];
+let UPGSTEPS={}; // "planIdx.groupIdx.stepIdx" -> true
+function upgStepKey(p,g,s){ return p+'.'+g+'.'+s; }
+function upgStepToggle(p,g,s,on){ const k=upgStepKey(p,g,s); if(on)UPGSTEPS[k]=true; else delete UPGSTEPS[k]; saveLocal(false); upgUpdateBadge(p); }
+function upgPlanCounts(p){ const plan=UPGRADE_PLANS[p]; let total=0,done=0; plan.groups.forEach((g,gi)=>g.steps.forEach((_,si)=>{ total++; if(UPGSTEPS[upgStepKey(p,gi,si)])done++; })); return {total,done}; }
+function upgUpdateBadge(p){ const el=document.getElementById('upg-badge-'+p); if(el){ const {total,done}=upgPlanCounts(p); el.textContent=done+'/'+total; el.style.color=done===total?'var(--green)':'var(--text-muted)'; } }
+function renderUpgradePlans(){
+  const host=document.getElementById('upg-plans'); if(!host)return;
+  host.innerHTML=UPGRADE_PLANS.map((plan,p)=>{
+    const {total,done}=upgPlanCounts(p);
+    return `<details style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--surface2)">
+      <summary style="cursor:pointer;padding:10px 14px;font-weight:600;font-size:.86rem;list-style:revert">${esc(plan.title)} <span id="upg-badge-${p}" style="float:right;font-size:.75rem;color:${done===total&&total?'var(--green)':'var(--text-muted)'}">${done}/${total}</span></summary>
+      <div style="padding:4px 16px 12px">
+      ${plan.groups.map((g,gi)=>`<div style="font-weight:600;font-size:.78rem;margin:10px 0 4px;color:var(--accent,#4f8ef7)">${esc(g.h)}</div>
+        ${g.steps.map((s,si)=>{ const gate=/^(GATE|STOP):/i.test(s); const label=s.replace(/^(GATE|STOP):\s*/i,''); const kchk=UPGSTEPS[upgStepKey(p,gi,si)]?'checked':'';
+          return `<label style="display:flex;gap:8px;align-items:flex-start;font-size:.8rem;padding:2px 0;${gate?'color:var(--orange);font-weight:600;':''}">
+            <input type="checkbox" ${kchk} onchange="upgStepToggle(${p},${gi},${si},this.checked)" style="margin-top:2px">
+            <span>${gate?(s.slice(0,4).toUpperCase()==='STOP'?'🛑 ':'⚑ '):''}${esc(label)}</span></label>`; }).join('')}`).join('')}
+      </div></details>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  DATABASE GROWTH  (operational metrics — not written to the .cfg)
 // ═══════════════════════════════════════════════════════════════
 function dbsToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -3153,6 +3459,7 @@ function collectConfig(){
     email:collectFields(SETTING_FIELDS.email),
     connections:collectFields(SETTING_FIELDS.connections),
     thinClient:collectFields(SETTING_FIELDS.thinclient),
+    vaultUpgrade:{fields:collectFields(SETTING_FIELDS.upgrade),steps:UPGSTEPS},
     backup:collectFields(SETTING_FIELDS.backup),
     categoryRules:RULES, contentSourceMappings:CSMAPS,
     fusionConnector:{fields:collectFields(FM_FIELDS),propertyMappings:FMPROPMAPS,stateMappings:FMSTATEMAPS},
@@ -3275,6 +3582,7 @@ function normalizeConfig(raw){
   if(raw.email) out.emailFields=raw.email;
   if(raw.connections) out.connFields=raw.connections; else if(raw.api) out.connFields=raw.api;
   if(raw.thinClient) out.thinClientFields=raw.thinClient;
+  const vu=raw.vaultUpgrade||raw.VaultUpgrade; if(vu){ if(vu.fields)out.upgFields=vu.fields; if(vu.steps)out.upgSteps=vu.steps; }
   if(raw.backup) out.backupFields=raw.backup;
   if(raw.cad){ out.cadFields=raw.cad.settings||raw.cad; const mp=firstArr(raw.cad,'mappings','Mappings'); if(mp) out.propmaps=mp.map(normMap); const ap=firstArr(raw.cad,'applications','Applications','apps'); if(ap) out.cadapps=ap.map(a=>({app:pick(a,'app','application','name','App')||'',version:String(pick(a,'version','Version','ver')??''),workspace:pick(a,'workspace','Workspace','workspacePath')||''})); }
   const pm=firstArr(raw,'propMappings','propmaps','PropMaps'); if(pm&&!out.propmaps) out.propmaps=pm.map(normMap);
@@ -3331,6 +3639,7 @@ function applyConfig(raw,replace){
   grp(SETTING_FIELDS.server,c.serverFields); grp(SETTING_FIELDS.security,c.securityFields);
   grp(SETTING_FIELDS.cad,c.cadFields); grp(SETTING_FIELDS.email,c.emailFields);
   grp(SETTING_FIELDS.connections,c.connFields); grp(SETTING_FIELDS.thinclient,c.thinClientFields); grp(SETTING_FIELDS.backup,c.backupFields);
+  grp(SETTING_FIELDS.upgrade,c.upgFields); if(c.upgSteps)UPGSTEPS=c.upgSteps; else if(replace)UPGSTEPS={};
   updateConnectorVisibility();
   grp(SETTING_FIELDS.audit,c.auditFields);
   grp(SETTING_FIELDS.revtable,c.rtFields); rtUpdateEnabled();
