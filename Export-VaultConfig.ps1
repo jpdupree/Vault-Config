@@ -278,7 +278,8 @@ if (Want 'revisions') {
     try {
         Write-Host "Reading revision schemes ..."
         $revs = @()
-        foreach ($r in $mgr.RevisionService.GetAllRevisionDefinitions()) {
+        $revDefInfo = $mgr.RevisionService.GetAllRevisionDefinitionInfo()
+        foreach ($r in @($revDefInfo.RevDefArray)) {
             $revs += [ordered]@{
                 name      = [string](Get-Prop $r @('DispName','DisplayName','Name'))
                 format    = [string](Get-Prop $r @('SchemeType','Format','Typ'))
