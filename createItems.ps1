@@ -1016,6 +1016,12 @@ if (-not $SkipRename) {
                 $renamed = Rename-VaultFileIteration -CurrentFullPath $e.FullPath -NewFileName $e.NewName
                 if (-not $renamed) { throw 'Rename returned no result' }
 
+                # Confirm Vault actually holds the new name - CheckinFile can return without renaming
+                $latestFile = $vault.DocumentService.GetLatestFileByMasterId($e.File.MasterId)
+                if ($latestFile.Name -ne $e.NewName) {
+                    throw "RENAME NOT APPLIED: Vault still shows '$($latestFile.Name)' (version $($latestFile.VerNum), checked out: $($latestFile.CheckedOut))"
+                }
+
                 Write-Host "  $($e.Name) -> $($e.NewName)"
                 $renameCount++
                 $notes.Add("$($e.Name) -> $($e.NewName)")
