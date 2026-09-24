@@ -8,6 +8,18 @@
 
     ALL SETTINGS ARE IN THE CONFIGURATION REGION DIRECTLY BELOW - edit those and run.
 
+    v3.2 - Linking rebuilt on the calls proven against this Vault.
+      * Primary link: ItemService.AssignFileToItem. UpdateItemFileAssociations
+        returned OK but created no primary link on a new item.
+      * Attachments: EditItems + ItemService.UpdateAttachments (existing
+        attachments are kept).
+      * Secondary / tertiary: UpdateItemFileAssociations once the item has a
+        primary link - NOT YET CONFIRMED against this Vault.
+      * Every link is read back from Vault afterwards; anything missing is
+        logged as "NOT LINKED" instead of being reported as linked.
+      * $RelinkExistingItems: rename and link files for items that already
+        exist (only adds missing links, never replaces an existing primary).
+
     v3.1 - Multi-file linking and LL prefix rename.
       * Every Vault file whose name starts with a PartNum (followed by a
         separator . - _ or space) is matched to that item. When several
@@ -20,8 +32,6 @@
                        other IAM > other IPT), the rest Secondary
           IDW/DWG   -> Primary only if there is no IPT/IAM, otherwise Tertiary
           Other     -> Attachment
-      * Links are written with ItemService.UpdateItemFileAssociations and
-        attachments with ItemService.UpdateAttachments, in one edit/commit.
 
     v3.0 - Master list switched to "Wildeck LL Parts - Current Revisions" format.
       Master columns: PartNum | Latest Revision | RevShortDesc | Effective Date |
@@ -108,6 +118,11 @@ $SkipPromote = $false    # $true = skip the BOM promote / assign-update stage
 # Master rows with no matching file in Vault: $true = still create the item
 # (number-only, nothing to link/rename), $false = skip the row entirely.
 $CreateItemsWithoutFiles = $true
+
+# Items that already exist in Vault: $true = still rename and link their files
+# (only adds links that are missing - an existing primary link to a different
+# file is never replaced). $false = leave existing items untouched.
+$RelinkExistingItems = $false
 
 # --- File name prefix -------------------------------------------------------
 # Item numbers carry this prefix, Vault file names may not
@@ -343,6 +358,96 @@ function Get-LatestFileId {
     <#  Latest version Id for a gathered file (renames/check-ins create new versions). #>
     param($Entry)
     return $vault.DocumentService.GetLatestFileByMasterId($Entry.File.MasterId).Id
+}
+
+function Test-LinkEligible {
+    <#  Items created in this run, plus existing items when $RelinkExistingItems is on. #>
+    param($Row)
+    if ($Row.itemCreated) { return $true }
+    return ($RelinkExistingItems -and $null -ne $Row.item)
+}
+
+function Get-ItemLinks {
+    <#  All file links on an item as Type/Name/FileId rows (one query per link type -
+        filtering by a single type is confirmed to work). #>
+    param([long] $ItemId)
+    foreach ($opt in [enum]::GetNames([Autodesk.Connectivity.WebServices.ItemFileLnkTypOpt])) {
+        foreach ($a in @($vault.ItemService.GetItemFileAssociationsByItemIds(@($ItemId), $opt))) {
+            if ($a) { [PSCustomObject]@{ Type = $opt; Name = $a.FileName; FileId = [long]$a.CldFileId } }
+        }
+    }
+}
+
+$fileMasterCache = @{}
+function Get-FileMasterId {
+    <#  MasterId for a file version Id (cached). #>
+    param([long] $FileId)
+    if (-not $fileMasterCache.ContainsKey($FileId)) {
+        $fileMasterCache[$FileId] = $vault.DocumentService.GetFileById($FileId).MasterId
+    }
+    return $fileMasterCache[$FileId]
+}
+
+function Get-MissingEntries {
+    <#  Entries whose file (compared by MasterId) is not among the item's links of the given types. #>
+    param([object[]] $Entries, [object[]] $Links, [string[]] $Types)
+    $have = @($Links | Where-Object { $_ -and $Types -contains $_.Type } |
+              ForEach-Object { Get-FileMasterId $_.FileId })
+    @($Entries | Where-Object { $_ -and ($have -notcontains $_.File.MasterId) })
+}
+
+function Get-ItemAttachmentInfo {
+    <#  Current attachments (Attmt objects with FileId/Pin). Readable = $false when the
+        result object has no Attmt* property, so existing attachments are never overwritten blind. #>
+    param([long] $ItemId)
+    $info = [PSCustomObject]@{ Readable = $false; Items = @() }
+    $att  = @($vault.ItemService.GetAttachmentsByItemIds(@($ItemId)))
+    if ($att.Count -gt 0 -and $att[0]) {
+        $prop = $att[0].PSObject.Properties | Where-Object { $_.Name -like 'Attmt*' } | Select-Object -First 1
+        if ($prop) {
+            $info.Readable = $true
+            if ($prop.Value) { $info.Items = @($prop.Value) }
+        }
+    }
+    else { $info.Readable = $true }    # nothing returned = no attachments
+    return $info
+}
+
+function Set-ItemFileAssociations {
+    <#  Writes the item's full link set with UpdateItemFileAssociations.
+        NOT YET CONFIRMED for secondary/tertiary links: on a new item without a primary
+        link this call returned OK but created nothing, so callers always read the links
+        back. -UseEdit puts the item in edit first; without it the call is made on the
+        committed item, the same way AssignFileToItem works. #>
+    param(
+        [Parameter(Mandatory)][string] $ItemNumber,
+        [long]   $PrimaryId,
+        [bool]   $PrimaryIsSub,
+        [long[]] $SecondaryIds = @(),
+        [long[]] $StdCompIds   = @(),
+        [long[]] $SecSubIds    = @(),
+        [long[]] $TertiaryIds  = @(),
+        [switch] $UseEdit
+    )
+
+    $item   = $vault.ItemService.GetLatestItemByItemNumber($ItemNumber)
+    $revId  = $item.RevId
+    $inEdit = $false
+    try {
+        if ($UseEdit) {
+            $revId  = ($vault.ItemService.EditItems(@($item.RevId)))[0].RevId
+            $inEdit = $true
+        }
+        $r = $vault.ItemService.UpdateItemFileAssociations(
+                $revId, $PrimaryId, $PrimaryIsSub,
+                [long[]]@($SecondaryIds), [long[]]@($StdCompIds), [long[]]@($SecSubIds), [long[]]@($TertiaryIds))
+        $inEdit = $true
+        $vault.ItemService.UpdateAndCommitItems(@($r)) | Out-Null
+    }
+    catch {
+        if ($inEdit) { try { $vault.ItemService.UndoEditItems(@($revId)) | Out-Null } catch { } }
+        throw
+    }
 }
 
 function New-VaultItemRecord {
@@ -842,6 +947,7 @@ foreach ($row in $itemList) {
         comment              = $null
         dataRow              = $row
         linkPlan             = $plan
+        linkedThisRun        = $false
     })
 }
 
@@ -988,7 +1094,7 @@ $renameCount = 0
 
 if (-not $SkipRename) {
     foreach ($w in $workList) {
-        if (-not $w.itemCreated) { $w.fileRenamedComment = 'File not renamed'; continue }
+        if (-not (Test-LinkEligible $w)) { $w.fileRenamedComment = 'File not renamed'; continue }
 
         $plan = $w.linkPlan
         $all  = @(@($plan.Primary) + $plan.Secondary + $plan.Tertiary + $plan.Attachments |
@@ -1050,13 +1156,21 @@ else { Write-Stage 'Rename stage skipped ($SkipRename = $true).' }
 
 #region ------------------------------------------------------------ Link files to items
 
+# Link methods, as tested against this Vault:
+#   Primary     -> AssignFileToItem           (confirmed; UpdateItemFileAssociations returned
+#                                              OK on a new item but created no primary link)
+#   Attachments -> EditItems + UpdateAttachments  (confirmed)
+#   Secondary / Tertiary -> UpdateItemFileAssociations once the item has a primary link
+#                                             (NOT YET CONFIRMED - see Set-ItemFileAssociations)
+# Everything is read back from Vault at the end; anything missing is logged as NOT LINKED.
+
 foreach ($w in $workList) {
-    if (-not $w.itemCreated) { continue }
+    if (-not (Test-LinkEligible $w)) { continue }
 
     $plan = $w.linkPlan
     if (-not $plan.Primary -and $plan.Attachments.Count -eq 0) {
         $w.itemLinkComment = 'No file to link'
-        $w.comment         = 'Item created (number only, no file)'
+        if ($w.itemCreated) { $w.comment = 'Item created (number only, no file)' }
         continue
     }
 
@@ -1068,103 +1182,167 @@ foreach ($w in $workList) {
         continue
     }
 
-    $edit      = $null
-    $primaryId = $null
-    $attachIds = [long[]]@()
+    $notes           = [System.Collections.Generic.List[string]]::new()
+    $problem         = $false
+    $primaryConflict = $false
+    $assocErr        = $null
 
     try {
-        # Resolve every file to its latest version Id (renames created new versions)
-        $primaryId    = if ($plan.Primary) { Get-LatestFileId $plan.Primary } else { $null }
-        $secondaryIds = [long[]]@($plan.Secondary   | ForEach-Object { Get-LatestFileId $_ })
-        $tertiaryIds  = [long[]]@($plan.Tertiary    | ForEach-Object { Get-LatestFileId $_ })
-        $attachIds    = [long[]]@($plan.Attachments | ForEach-Object { Get-LatestFileId $_ })
+        # --- 1) Primary link: AssignFileToItem
+        if ($plan.Primary) {
+            $item  = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+            $prim  = @(Get-ItemLinks -ItemId $item.Id | Where-Object { $_.Type -in 'Primary', 'PrimarySub' })
 
-        # Put the item in edit
-        $latestItem = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
-        $edit       = ($vault.ItemService.EditItems(@($latestItem.RevId)))[0]
-        $item       = $edit
+            if ($prim.Count -eq 0) {
+                $primaryId = Get-LatestFileId $plan.Primary
+                $linked    = $vault.ItemService.AssignFileToItem($item.RevId, $primaryId)
+                $vault.ItemService.UpdateAndCommitItems(@($linked)) | Out-Null
+                $w.linkedThisRun = $true
 
-        # Primary / secondary / tertiary in one call
-        if ($primaryId) {
-            $item = $vault.ItemService.UpdateItemFileAssociations(
-                $item.RevId,
-                [long]$primaryId,
-                $false,              # isPrimarySubComp
-                $secondaryIds,
-                [long[]]@(),         # stdComp
-                [long[]]@(),         # secSubComp
-                $tertiaryIds)
-        }
-
-        # Attachments
-        if ($attachIds.Count -gt 0) {
-            $attmts = foreach ($id in $attachIds) {
-                $a = New-Object Autodesk.Connectivity.WebServices.Attmt
-                $a.FileId = $id
-                $a.Pin    = $PinAttachments
-                $a
+                # Property sync on the newly linked primary file
+                try {
+                    $primaryFile = Get-VaultFile -FileId $primaryId
+                    if ($primaryFile) { $null = Add-PropSyncJob -File $primaryFile -NewFileName $primaryFile.Name }
+                }
+                catch { Write-Warning "[$($w.itemNumber)] PropSync job not queued: $($_.Exception.Message)" }
             }
-            $item = $vault.ItemService.UpdateAttachments(
-                $item.RevId, [Autodesk.Connectivity.WebServices.Attmt[]]@($attmts))
-        }
-
-        $vault.ItemService.UpdateAndCommitItems(@($item)) | Out-Null
-        $edit   = $null                       # committed - nothing to undo
-        $w.item = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
-
-        $notes = [System.Collections.Generic.List[string]]::new()
-        if ($plan.Primary)               { $notes.Add("Primary: $($plan.Primary.Name)") }
-        if ($plan.Secondary.Count -gt 0) { $notes.Add("Secondary: $(Format-LinkNames $plan.Secondary)") }
-        if ($plan.Tertiary.Count  -gt 0) { $notes.Add("Tertiary: $(Format-LinkNames $plan.Tertiary)") }
-        if ($attachIds.Count      -gt 0) { $notes.Add("Attached: $(Format-LinkNames $plan.Attachments)") }
-
-        # Verify what Vault actually holds (a failure here does not undo the commit)
-        try {
-            $expectedLinks = [int][bool]$primaryId + $secondaryIds.Count + $tertiaryIds.Count
-            $linkOpts = [Autodesk.Connectivity.WebServices.ItemFileLnkTypOpt]::Primary -bor
-                        [Autodesk.Connectivity.WebServices.ItemFileLnkTypOpt]::Secondary -bor
-                        [Autodesk.Connectivity.WebServices.ItemFileLnkTypOpt]::Tertiary
-            $assocs = @($vault.ItemService.GetItemFileAssociationsByItemIds(@($w.item.Id), $linkOpts))
-
-            $attCount = 0
-            $att = @($vault.ItemService.GetAttachmentsByItemIds(@($w.item.Id)))
-            if ($att.Count -gt 0 -and $att[0]) {
-                # Property name differs between API versions - take whichever array property exists
-                $arrProp = $att[0].PSObject.Properties |
-                           Where-Object { $_.Name -like 'Attmt*' -and $_.Value -is [array] } |
-                           Select-Object -First 1
-                if ($arrProp) { $attCount = @($arrProp.Value).Count }
-            }
-
-            if ($assocs.Count -lt $expectedLinks -or $attCount -lt $attachIds.Count) {
-                $notes.Add("CHECK: expected $expectedLinks link(s)/$($attachIds.Count) attachment(s), Vault shows $($assocs.Count)/$attCount")
-                Write-Warning "[$($w.itemNumber)] $($notes[-1])"
+            elseif (@(Get-MissingEntries -Entries @($plan.Primary) -Links $prim -Types 'Primary', 'PrimarySub').Count -gt 0) {
+                # Never replace a primary link that points at a different file
+                $notes.Add("Item already has primary $($prim[0].Name) - $($plan.Primary.Name) NOT LINKED")
+                $primaryConflict = $true
+                $problem         = $true
             }
         }
-        catch {
-            $notes.Add("Link check skipped: $($_.Exception.Message)")
+
+        # --- 2) Secondary / tertiary links (need a primary link on the item)
+        if ($plan.Secondary.Count -gt 0 -or $plan.Tertiary.Count -gt 0) {
+            $item    = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+            $links   = @(Get-ItemLinks -ItemId $item.Id)
+            $prim    = @($links | Where-Object { $_.Type -in 'Primary', 'PrimarySub' })
+            $missSec = @(Get-MissingEntries -Entries $plan.Secondary -Links $links -Types 'Secondary')
+            $missTer = @(Get-MissingEntries -Entries $plan.Tertiary  -Links $links -Types 'Tertiary')
+
+            if (($missSec.Count -gt 0 -or $missTer.Count -gt 0) -and $prim.Count -gt 0) {
+                # Pass the item's full existing link set plus the new files, so nothing is dropped
+                $assocArgs = @{
+                    ItemNumber   = $w.itemNumber
+                    PrimaryId    = $prim[0].FileId
+                    PrimaryIsSub = ($prim[0].Type -eq 'PrimarySub')
+                    SecondaryIds = [long[]]@(@($links | Where-Object Type -eq 'Secondary' | ForEach-Object FileId) +
+                                             @($missSec | ForEach-Object { Get-LatestFileId $_ }))
+                    StdCompIds   = [long[]]@($links | Where-Object Type -eq 'StandardComponent' | ForEach-Object FileId)
+                    SecSubIds    = [long[]]@($links | Where-Object Type -eq 'SecondarySub' | ForEach-Object FileId)
+                    TertiaryIds  = [long[]]@(@($links | Where-Object Type -eq 'Tertiary' | ForEach-Object FileId) +
+                                             @($missTer | ForEach-Object { Get-LatestFileId $_ }))
+                }
+
+                # Not yet confirmed which form Vault accepts: try on the committed item, then after EditItems
+                foreach ($useEdit in @($false, $true)) {
+                    try   { Set-ItemFileAssociations @assocArgs -UseEdit:$useEdit }
+                    catch { $assocErr = Get-VaultErrorText $_ }
+
+                    $item  = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+                    $links = @(Get-ItemLinks -ItemId $item.Id)
+                    if (@(Get-MissingEntries -Entries $plan.Secondary -Links $links -Types 'Secondary').Count -eq 0 -and
+                        @(Get-MissingEntries -Entries $plan.Tertiary  -Links $links -Types 'Tertiary').Count  -eq 0) {
+                        $assocErr = $null
+                        break
+                    }
+                }
+            }
+        }
+
+        # --- 3) Attachments: EditItems + UpdateAttachments, keeping existing attachments
+        if ($plan.Attachments.Count -gt 0) {
+            $item = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+            $cur  = Get-ItemAttachmentInfo -ItemId $item.Id
+
+            if (-not $cur.Readable -and -not $w.itemCreated) {
+                $notes.Add('Attachments NOT ADDED: existing attachments could not be read, so they were left unchanged')
+                $problem = $true
+            }
+            else {
+                $haveAtt = @($cur.Items | Where-Object { $_ } | ForEach-Object { Get-FileMasterId $_.FileId })
+                $missAtt = @($plan.Attachments | Where-Object { $_ -and ($haveAtt -notcontains $_.File.MasterId) })
+
+                if ($missAtt.Count -gt 0) {
+                    $attmts = @(
+                        foreach ($a in $cur.Items) { if ($a) { $a } }     # keep existing attachments
+                        foreach ($e in $missAtt) {
+                            $n = New-Object Autodesk.Connectivity.WebServices.Attmt
+                            $n.FileId = Get-LatestFileId $e
+                            $n.Pin    = $PinAttachments
+                            $n
+                        }
+                    )
+                    $edit = ($vault.ItemService.EditItems(@($item.RevId)))[0]
+                    try {
+                        $r = $vault.ItemService.UpdateAttachments(
+                                $edit.RevId, [Autodesk.Connectivity.WebServices.Attmt[]]$attmts)
+                        $vault.ItemService.UpdateAndCommitItems(@($r)) | Out-Null
+                    }
+                    catch {
+                        try { $vault.ItemService.UndoEditItems(@($edit.RevId)) | Out-Null } catch { }
+                        throw
+                    }
+                }
+            }
+        }
+
+        # --- 4) Read back what Vault actually holds and log it
+        $item   = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+        $w.item = $item
+        $links  = @(Get-ItemLinks -ItemId $item.Id)
+
+        $checks = @(
+            @{ Label = 'Primary';   Entries = @($plan.Primary);   Types = @('Primary', 'PrimarySub') }
+            @{ Label = 'Secondary'; Entries = @($plan.Secondary); Types = @('Secondary') }
+            @{ Label = 'Tertiary';  Entries = @($plan.Tertiary);  Types = @('Tertiary') }
+        )
+        foreach ($c in $checks) {
+            $entries = @($c.Entries | Where-Object { $_ })
+            if ($entries.Count -eq 0) { continue }
+            if ($c.Label -eq 'Primary' -and $primaryConflict) { continue }    # already logged
+
+            $miss    = @(Get-MissingEntries -Entries $entries -Links $links -Types $c.Types)
+            $missIds = @($miss | ForEach-Object { $_.File.MasterId })
+            $ok      = @($entries | Where-Object { $missIds -notcontains $_.File.MasterId })
+            if ($ok.Count   -gt 0) { $notes.Add("$($c.Label): $(Format-LinkNames $ok)") }
+            if ($miss.Count -gt 0) {
+                $why = if ($c.Label -ne 'Primary' -and $assocErr) { " ($assocErr)" } else { '' }
+                $notes.Add("$($c.Label) NOT LINKED: $(Format-LinkNames $miss)$why")
+                $problem = $true
+            }
+        }
+
+        $attEntries = @($plan.Attachments | Where-Object { $_ })
+        if ($attEntries.Count -gt 0) {
+            $attNow = Get-ItemAttachmentInfo -ItemId $item.Id
+            if ($attNow.Readable) {
+                $attHave = @($attNow.Items | Where-Object { $_ } | ForEach-Object { Get-FileMasterId $_.FileId })
+                $okA     = @($attEntries | Where-Object { $attHave -contains    $_.File.MasterId })
+                $missA   = @($attEntries | Where-Object { $attHave -notcontains $_.File.MasterId })
+                if ($okA.Count   -gt 0) { $notes.Add("Attached: $(Format-LinkNames $okA)") }
+                if ($missA.Count -gt 0) { $notes.Add("NOT ATTACHED: $(Format-LinkNames $missA)"); $problem = $true }
+            }
+            elseif ($w.itemCreated) { $notes.Add("Attachments sent (could not read back): $(Format-LinkNames $attEntries)") }
         }
 
         $w.itemLinkComment = $notes -join ' | '
-        $w.comment         = 'Item created and file linked'
+        $w.comment = if ($problem) {
+                         if ($w.itemCreated) { 'Item created, some files not linked' } else { 'Existing item, some files not linked' }
+                     }
+                     elseif ($w.itemCreated) { 'Item created and files linked' }
+                     else                    { 'Existing item - files linked' }
 
-        # Property sync on the primary file
-        if ($primaryId) {
-            try {
-                $primaryFile = Get-VaultFile -FileId $primaryId
-                if ($primaryFile) { $null = Add-PropSyncJob -File $primaryFile -NewFileName $primaryFile.Name }
-            }
-            catch { Write-Warning "[$($w.itemNumber)] PropSync job not queued: $($_.Exception.Message)" }
-        }
+        if ($problem) { Write-Warning "[$($w.itemNumber)] $($w.itemLinkComment)" }
     }
     catch {
-        if ($edit) {
-            try { $vault.ItemService.UndoEditItems(@($edit.RevId)) | Out-Null } catch { }
-        }
         $msg = "Link failed: $(Get-VaultErrorText $_)"
-        $w.errorMessage    = if ($w.errorMessage) { "$($w.errorMessage); $msg" } else { $msg }
-        $w.itemLinkComment = 'Files not linked (error)'
-        $w.comment         = 'Item created but files not linked'
+        $w.errorMessage = if ($w.errorMessage) { "$($w.errorMessage); $msg" } else { $msg }
+        $notes.Add('Files not linked (error)')
+        $w.itemLinkComment = $notes -join ' | '
+        $w.comment         = 'Files not linked (error)'
         Write-Warning "[$($w.itemNumber)] $msg"
     }
 }
@@ -1174,7 +1352,9 @@ foreach ($w in $workList) {
 #region ------------------------------------------------------------ Promote, log, summary
 
 if (-not $SkipPromote) {
-    $numbers = @($workList | Where-Object { $_.itemCreated } | Select-Object -ExpandProperty itemNumber)
+    # New items, plus existing items that got their primary link in this run
+    $numbers = @($workList | Where-Object { $_.itemCreated -or $_.linkedThisRun } |
+                 Select-Object -ExpandProperty itemNumber)
     if ($numbers.Count -gt 0 -and $PSCmdlet.ShouldProcess("$($numbers.Count) items", 'Promote components')) {
         Write-Stage "Promoting $($numbers.Count) item(s)..."
         Invoke-ItemPromote -ItemNumbers $numbers
@@ -1187,7 +1367,8 @@ foreach ($w in $workList) { Add-LogRow -Row $w -Path $LogFile }
 
 $created  = @($workList | Where-Object itemCreated).Count
 $failed   = @($workList | Where-Object errorMessage).Count
-$linked   = @($workList | Where-Object { $_.comment -eq 'Item created and file linked' }).Count
+$linked   = @($workList | Where-Object { $_.comment -like '*files linked' }).Count
+$linkProb = @($workList | Where-Object { $_.comment -like '*not linked*' }).Count
 $revSet   = @($workList | Where-Object { $_.revisionComment -like 'Revision set*' }).Count
 $existed  = @($workList | Where-Object { $_.itemComment -like 'Item already exists*' }).Count
 
@@ -1201,7 +1382,8 @@ Write-Host ("  Items created        : {0}" -f $created)
 Write-Host ("  Items already existed: {0}" -f $existed)
 Write-Host ("  Revisions set        : {0}" -f $revSet)
 Write-Host ("  Files renamed        : {0}" -f $renameCount)
-Write-Host ("  Items with files     : {0}" -f $linked)
+Write-Host ("  Items fully linked   : {0}" -f $linked)
+Write-Host ("  Items with link gaps : {0}" -f $linkProb) -ForegroundColor $(if ($linkProb) { 'Yellow' } else { 'Green' })
 Write-Host ("  Rows with errors     : {0}" -f $failed) -ForegroundColor $(if ($failed) { 'Yellow' } else { 'Green' })
 Write-Host ("  Log                  : {0}" -f $LogFile)
 Write-Host '=======================================================' -ForegroundColor Green
