@@ -210,6 +210,7 @@ function Add-LogRow {
             'File Renamed?'          = $Row.fileRenamedComment
             'New File Name'          = $Row.newFileName
             'File Linked to Item?'   = $Row.itemLinkComment
+            'Links in Vault (final)' = $Row.finalLinks
             'Secondary Links'        = Format-LinkNames $Row.linkPlan.Secondary
             'Tertiary Links'         = Format-LinkNames $Row.linkPlan.Tertiary
             'Attachments'            = Format-LinkNames $Row.linkPlan.Attachments
@@ -963,6 +964,7 @@ foreach ($row in $itemList) {
         dataRow              = $row
         linkPlan             = $plan
         linkedThisRun        = $false
+        finalLinks           = $null
     })
 }
 
@@ -1391,6 +1393,30 @@ if (-not $SkipPromote) {
     }
 }
 else { Write-Stage 'Promote stage skipped ($SkipPromote = $true).' }
+
+# --- Final check AFTER the promote stage: record what Vault really holds, and flag any
+#     item whose primary link is no longer the planned file (the promote updates items
+#     after the link step, so it can change links the link step already verified).
+foreach ($w in $workList) {
+    if (-not (Test-LinkEligible $w) -or -not $w.linkPlan) { continue }
+    try {
+        $it = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+        $fl = @(Get-ItemLinks -ItemId $it.Id)
+        $w.finalLinks = ($fl | ForEach-Object { "$($_.Type)=$($_.Name)" }) -join '; '
+
+        if ($w.linkPlan.Primary) {
+            $primNow = @($fl | Where-Object { $_.Type -in 'Primary', 'PrimarySub' })
+            $primIds = @($primNow | ForEach-Object { Get-FileMasterId $_.FileId })
+            if ($primNow.Count -gt 0 -and $primIds -notcontains $w.linkPlan.Primary.File.MasterId) {
+                $msg = "FINAL CHECK: primary is $($primNow[0].Name), expected $($w.linkPlan.Primary.Name)"
+                $w.itemLinkComment = (@($w.itemLinkComment, $msg) | Where-Object { $_ }) -join ' | '
+                if ($w.comment -notlike '*not linked*') { $w.comment = "$($w.comment) - primary changed after promote" }
+                Write-Warning "[$($w.itemNumber)] $msg"
+            }
+        }
+    }
+    catch { $w.finalLinks = "could not read links: $($_.Exception.Message)" }
+}
 
 Write-Stage 'Writing log...'
 foreach ($w in $workList) { Add-LogRow -Row $w -Path $LogFile }
