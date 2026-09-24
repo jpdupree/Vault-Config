@@ -8,13 +8,17 @@
 
     ALL SETTINGS ARE IN THE CONFIGURATION REGION DIRECTLY BELOW - edit those and run.
 
-    v3.2 - Linking rebuilt on the calls proven against this Vault.
-      * Primary link: ItemService.AssignFileToItem. UpdateItemFileAssociations
-        returned OK but created no primary link on a new item.
-      * Attachments: EditItems + ItemService.UpdateAttachments (existing
-        attachments are kept).
-      * Secondary / tertiary: UpdateItemFileAssociations once the item has a
-        primary link - NOT YET CONFIRMED against this Vault.
+    v3.3 - Secondary and tertiary links use the methods that worked in testing.
+      * Primary:    ItemService.AssignFileToItem.
+      * Tertiary:   promote the drawing (AddFilesToPromote / PromoteComponents);
+                    Vault links it to its model's item as a tertiary link. Only
+                    this item's promote result is committed - any other item the
+                    promote touched is undone and named in the log.
+      * Secondary:  AssignFileToItem on an item that already has its primary link.
+                    If that ever takes over the primary, the primary is put back.
+      * Attachments: EditItems + ItemService.UpdateAttachments (existing kept).
+      * UpdateItemFileAssociations is no longer used: it returned OK without
+        linking anything, and failed with 1307 when given MasterIds.
       * Every link is read back from Vault afterwards; anything missing is
         logged as "NOT LINKED" instead of being reported as linked.
       * $RelinkExistingItems: rename and link files for items that already
@@ -413,41 +417,52 @@ function Get-ItemAttachmentInfo {
     return $info
 }
 
-function Set-ItemFileAssociations {
-    <#  Writes the item's full link set with UpdateItemFileAssociations.
-        NOT YET CONFIRMED for secondary/tertiary links: on a new item without a primary
-        link this call returned OK but created nothing, so callers always read the links
-        back. -UseEdit puts the item in edit first; without it the call is made on the
-        committed item, the same way AssignFileToItem works. #>
-    param(
-        [Parameter(Mandatory)][string] $ItemNumber,
-        [long]   $PrimaryId,
-        [bool]   $PrimaryIsSub,
-        [long[]] $SecondaryIds = @(),
-        [long[]] $StdCompIds   = @(),
-        [long[]] $SecSubIds    = @(),
-        [long[]] $TertiaryIds  = @(),
-        [switch] $UseEdit
-    )
+function Add-SecondaryLink {
+    <#  AssignFileToItem on an item that already has a primary link adds the file as a
+        secondary link (seen in testing). If the commit fails, the edit is undone so
+        the item is not left locked (error 1387). #>
+    param([Parameter(Mandatory)][string] $ItemNumber, [Parameter(Mandatory)][long] $FileId)
 
-    $item   = $vault.ItemService.GetLatestItemByItemNumber($ItemNumber)
-    $revId  = $item.RevId
-    $inEdit = $false
+    $item = $vault.ItemService.GetLatestItemByItemNumber($ItemNumber)
     try {
-        if ($UseEdit) {
-            $revId  = ($vault.ItemService.EditItems(@($item.RevId)))[0].RevId
-            $inEdit = $true
-        }
-        $r = $vault.ItemService.UpdateItemFileAssociations(
-                $revId, $PrimaryId, $PrimaryIsSub,
-                [long[]]@($SecondaryIds), [long[]]@($StdCompIds), [long[]]@($SecSubIds), [long[]]@($TertiaryIds))
-        $inEdit = $true
-        $vault.ItemService.UpdateAndCommitItems(@($r)) | Out-Null
+        $linked = $vault.ItemService.AssignFileToItem($item.RevId, $FileId)
+        $vault.ItemService.UpdateAndCommitItems(@($linked)) | Out-Null
     }
     catch {
-        if ($inEdit) { try { $vault.ItemService.UndoEditItems(@($revId)) | Out-Null } catch { } }
+        try { $vault.ItemService.UndoEditItems(@($item.RevId)) | Out-Null } catch { }
         throw
     }
+}
+
+function Invoke-DrawingPromote {
+    <#  Promotes drawing files. Vault links a promoted drawing to its model's item as a
+        tertiary link (seen in testing). Only $ItemNumber's result is committed; any other
+        item the promote created or changed is undone, and its number is returned so the
+        log can name it. The promote is always run to completion so no item stays locked. #>
+    param([Parameter(Mandatory)][string] $ItemNumber, [Parameter(Mandatory)][long[]] $FileIds)
+
+    $IS = $vault.ItemService
+    $IS.AddFilesToPromote($FileIds, [Autodesk.Connectivity.WebServices.ItemAssignAll]::Default, $true)
+    $ts    = [DateTime]::Now
+    $order = $IS.GetPromoteComponentOrder([ref]$ts)
+    if ($order -and $order.PrimaryArray) { $IS.PromoteComponents($ts, $order.PrimaryArray) }
+    $res = $IS.GetPromoteComponentsResults($ts)
+
+    $keep   = @()
+    $others = @()
+    if ($res -and $res.ItemRevArray) {
+        for ($i = 0; $i -lt $res.ItemRevArray.Length; $i++) {
+            if ($res.StatusArray[$i] -le 1) { continue }        # 1 = Unaffected
+            $it = $res.ItemRevArray[$i]
+            if ($it.ItemNum -eq $ItemNumber) { $keep += $it }
+            else {
+                try { $IS.UndoEditItems(@($it.RevId)) | Out-Null } catch { }
+                $others += "$($it.ItemNum)"
+            }
+        }
+    }
+    if ($keep.Count -gt 0) { $IS.UpdateAndCommitItems($keep) | Out-Null }
+    return $others          # callers wrap in @() - empty when nothing else was touched
 }
 
 function New-VaultItemRecord {
@@ -1157,11 +1172,11 @@ else { Write-Stage 'Rename stage skipped ($SkipRename = $true).' }
 #region ------------------------------------------------------------ Link files to items
 
 # Link methods, as tested against this Vault:
-#   Primary     -> AssignFileToItem           (confirmed; UpdateItemFileAssociations returned
-#                                              OK on a new item but created no primary link)
-#   Attachments -> EditItems + UpdateAttachments  (confirmed)
-#   Secondary / Tertiary -> UpdateItemFileAssociations once the item has a primary link
-#                                             (NOT YET CONFIRMED - see Set-ItemFileAssociations)
+#   Primary     -> AssignFileToItem
+#   Tertiary    -> promote the drawing (Invoke-DrawingPromote)
+#   Secondary   -> AssignFileToItem once the item has its primary link (Add-SecondaryLink)
+#   Attachments -> EditItems + UpdateAttachments
+# (UpdateItemFileAssociations is not used: it returned OK without linking anything.)
 # Everything is read back from Vault at the end; anything missing is logged as NOT LINKED.
 
 foreach ($w in $workList) {
@@ -1185,7 +1200,7 @@ foreach ($w in $workList) {
     $notes           = [System.Collections.Generic.List[string]]::new()
     $problem         = $false
     $primaryConflict = $false
-    $assocErr        = $null
+    $linkErr         = @{}      # link type -> reason it failed
 
     try {
         # --- 1) Primary link: AssignFileToItem
@@ -1214,45 +1229,60 @@ foreach ($w in $workList) {
             }
         }
 
-        # --- 2) Secondary / tertiary links (need a primary link on the item)
-        if ($plan.Secondary.Count -gt 0 -or $plan.Tertiary.Count -gt 0) {
+        # --- 2) Tertiary links: promote the drawing(s) - Vault links them to the model's item
+        if ($plan.Tertiary.Count -gt 0) {
+            $item    = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
+            $links   = @(Get-ItemLinks -ItemId $item.Id)
+            $missTer = @(Get-MissingEntries -Entries $plan.Tertiary -Links $links -Types 'Tertiary')
+
+            if ($missTer.Count -gt 0) {
+                if (@($links | Where-Object { $_.Type -in 'Primary', 'PrimarySub' }).Count -eq 0) {
+                    $linkErr['Tertiary'] = 'item has no primary link'
+                }
+                else {
+                    try {
+                        $touched = @(Invoke-DrawingPromote -ItemNumber $w.itemNumber `
+                                        -FileIds ([long[]]@($missTer | ForEach-Object { Get-LatestFileId $_ })))
+                        if ($touched.Count -gt 0) {
+                            $notes.Add("Drawing promote also touched item(s) $($touched -join ', ') - not committed")
+                        }
+                    }
+                    catch { $linkErr['Tertiary'] = Get-VaultErrorText $_ }
+                }
+            }
+        }
+
+        # --- 3) Secondary links: AssignFileToItem on the item that already has its primary
+        if ($plan.Secondary.Count -gt 0) {
             $item    = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
             $links   = @(Get-ItemLinks -ItemId $item.Id)
             $prim    = @($links | Where-Object { $_.Type -in 'Primary', 'PrimarySub' })
             $missSec = @(Get-MissingEntries -Entries $plan.Secondary -Links $links -Types 'Secondary')
-            $missTer = @(Get-MissingEntries -Entries $plan.Tertiary  -Links $links -Types 'Tertiary')
 
-            if (($missSec.Count -gt 0 -or $missTer.Count -gt 0) -and $prim.Count -gt 0) {
-                # Pass the item's full existing link set plus the new files, so nothing is dropped
-                $assocArgs = @{
-                    ItemNumber   = $w.itemNumber
-                    PrimaryId    = $prim[0].FileId
-                    PrimaryIsSub = ($prim[0].Type -eq 'PrimarySub')
-                    SecondaryIds = [long[]]@(@($links | Where-Object Type -eq 'Secondary' | ForEach-Object FileId) +
-                                             @($missSec | ForEach-Object { Get-LatestFileId $_ }))
-                    StdCompIds   = [long[]]@($links | Where-Object Type -eq 'StandardComponent' | ForEach-Object FileId)
-                    SecSubIds    = [long[]]@($links | Where-Object Type -eq 'SecondarySub' | ForEach-Object FileId)
-                    TertiaryIds  = [long[]]@(@($links | Where-Object Type -eq 'Tertiary' | ForEach-Object FileId) +
-                                             @($missTer | ForEach-Object { Get-LatestFileId $_ }))
-                }
+            if ($missSec.Count -gt 0 -and $prim.Count -eq 0) {
+                $linkErr['Secondary'] = 'item has no primary link'
+            }
+            elseif ($missSec.Count -gt 0) {
+                $primMaster = Get-FileMasterId $prim[0].FileId
+                foreach ($e in $missSec) {
+                    try   { Add-SecondaryLink -ItemNumber $w.itemNumber -FileId (Get-LatestFileId $e) }
+                    catch { $linkErr['Secondary'] = Get-VaultErrorText $_ }
 
-                # Not yet confirmed which form Vault accepts: try on the committed item, then after EditItems
-                foreach ($useEdit in @($false, $true)) {
-                    try   { Set-ItemFileAssociations @assocArgs -UseEdit:$useEdit }
-                    catch { $assocErr = Get-VaultErrorText $_ }
-
+                    # The secondary must not take over the primary - put the primary back if it did
                     $item  = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
-                    $links = @(Get-ItemLinks -ItemId $item.Id)
-                    if (@(Get-MissingEntries -Entries $plan.Secondary -Links $links -Types 'Secondary').Count -eq 0 -and
-                        @(Get-MissingEntries -Entries $plan.Tertiary  -Links $links -Types 'Tertiary').Count  -eq 0) {
-                        $assocErr = $null
-                        break
+                    $still = @(Get-ItemLinks -ItemId $item.Id |
+                               Where-Object { $_.Type -in 'Primary', 'PrimarySub' -and (Get-FileMasterId $_.FileId) -eq $primMaster })
+                    if ($still.Count -eq 0) {
+                        $primId = $vault.DocumentService.GetLatestFileByMasterId($primMaster).Id
+                        $vault.ItemService.UpdateAndCommitItems(@($vault.ItemService.AssignFileToItem($item.RevId, $primId))) | Out-Null
+                        $notes.Add("Linking $($e.Name) replaced the primary link - tried to put the primary back (see check below)")
+                        $problem = $true
                     }
                 }
             }
         }
 
-        # --- 3) Attachments: EditItems + UpdateAttachments, keeping existing attachments
+        # --- 4) Attachments: EditItems + UpdateAttachments, keeping existing attachments
         if ($plan.Attachments.Count -gt 0) {
             $item = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
             $cur  = Get-ItemAttachmentInfo -ItemId $item.Id
@@ -1289,7 +1319,7 @@ foreach ($w in $workList) {
             }
         }
 
-        # --- 4) Read back what Vault actually holds and log it
+        # --- 5) Read back what Vault actually holds and log it
         $item   = $vault.ItemService.GetLatestItemByItemNumber($w.itemNumber)
         $w.item = $item
         $links  = @(Get-ItemLinks -ItemId $item.Id)
@@ -1309,7 +1339,7 @@ foreach ($w in $workList) {
             $ok      = @($entries | Where-Object { $missIds -notcontains $_.File.MasterId })
             if ($ok.Count   -gt 0) { $notes.Add("$($c.Label): $(Format-LinkNames $ok)") }
             if ($miss.Count -gt 0) {
-                $why = if ($c.Label -ne 'Primary' -and $assocErr) { " ($assocErr)" } else { '' }
+                $why = if ($linkErr.ContainsKey($c.Label)) { " ($($linkErr[$c.Label]))" } else { '' }
                 $notes.Add("$($c.Label) NOT LINKED: $(Format-LinkNames $miss)$why")
                 $problem = $true
             }
