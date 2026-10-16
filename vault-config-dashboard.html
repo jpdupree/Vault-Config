@@ -1013,7 +1013,7 @@ EXIT</textarea>
       <div class="form-group"><label>File Store (GB)</label><input id="dbm-fstore" type="number" step="0.01" min="0" placeholder="e.g. 850"></div>
     </div>
     <div style="margin-top:6px;font-weight:600;font-size:.82rem">Individual Databases</div>
-    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px">Each Vault has its own SQL database (plus the ADMS master). Add a row per database you want to trend; names are remembered for the next measurement.</div>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px">Each Vault has its own SQL database (plus the ADMS master) and its own filestore. Add a row per database you want to trend with its database and filestore size — either can be left blank; names are remembered for the next measurement.</div>
     <div id="dbm-dbrows"></div>
     <div style="margin:8px 0"><button class="btn btn-sm" onclick="dbsAddDbRow('','')">+ Add Database</button></div>
     <div style="margin-top:10px"><button class="btn btn-primary" onclick="dbsAddMeasurement()">Add Measurement</button></div>
@@ -3524,11 +3524,13 @@ function dbsToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.get
 function dbsNum(v){ const n=parseFloat(v); return isFinite(n)?n:null; }
 function dbsFmtNum(n){ return (Math.round(n*100)/100).toLocaleString(); }
 function dbsFmt(n){ return n==null?'—':dbsFmtNum(n)+' GB'; }
-function dbsAddDbRow(name,size){
+function dbsAddDbRow(name,size,fs){
   const wrap=document.getElementById('dbm-dbrows'); if(!wrap)return;
   const row=document.createElement('div'); row.className='dbm-dbrow'; row.style.cssText='display:flex;gap:8px;margin-bottom:6px';
+  const v=x=>(x===''||x==null)?'':esc(String(x));
   row.innerHTML=`<input class="inp dbm-name" placeholder="Database name (e.g. Vault, ADMS master)" value="${esc(name||'')}" style="flex:2">
-    <input class="inp dbm-size" type="number" step="0.01" min="0" placeholder="Size (GB)" value="${(size===''||size==null)?'':esc(String(size))}" style="flex:1">
+    <input class="inp dbm-size" type="number" step="0.01" min="0" placeholder="Database (GB)" title="Database size (GB)" value="${v(size)}" style="flex:1">
+    <input class="inp dbm-fs" type="number" step="0.01" min="0" placeholder="Filestore (GB)" title="Filestore size (GB)" value="${v(fs)}" style="flex:1">
     <button class="btn btn-danger btn-icon" title="Remove" onclick="this.parentNode.remove()">✕</button>`;
   wrap.appendChild(row);
 }
@@ -3545,9 +3547,9 @@ function dbsAddMeasurement(){
   const dbs=[];
   document.querySelectorAll('#dbm-dbrows .dbm-dbrow').forEach(r=>{
     const name=(r.querySelector('.dbm-name')?.value||'').trim();
-    if(name) dbs.push({name,size:dbsNum(r.querySelector('.dbm-size')?.value)});
+    if(name) dbs.push({name,size:dbsNum(r.querySelector('.dbm-size')?.value),fileStore:dbsNum(r.querySelector('.dbm-fs')?.value)});
   });
-  if(total==null&&fstore==null&&!dbs.some(d=>d.size!=null)){ notify('Enter at least one size to record'); return; }
+  if(total==null&&fstore==null&&!dbs.some(d=>d.size!=null||d.fileStore!=null)){ notify('Enter at least one size to record'); return; }
   const snap={date,totalDb:total,fileStore:fstore,dbs};
   const i=DBSIZES.findIndex(s=>s.date===date);
   if(i>=0){ if(!confirm('A measurement for '+date+' already exists. Replace it?'))return; DBSIZES[i]=snap; }
@@ -3555,7 +3557,7 @@ function dbsAddMeasurement(){
   DBSIZES.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   saveLocal(false); dbsRender(); notify('Measurement recorded for '+date);
   setVal('dbm-total',''); setVal('dbm-fstore','');
-  document.querySelectorAll('#dbm-dbrows .dbm-size').forEach(el=>el.value='');
+  document.querySelectorAll('#dbm-dbrows .dbm-size, #dbm-dbrows .dbm-fs').forEach(el=>el.value='');
 }
 function dbsDelMeasurement(i){ if(i<0||i>=DBSIZES.length)return; if(!confirm('Delete the measurement for '+DBSIZES[i].date+'?'))return; DBSIZES.splice(i,1); saveLocal(false); dbsRender(); }
 const DBS_PALETTE=['#f59e0b','#a855f7','#ec4899','#14b8a6','#ef4444','#06b6d4','#eab308','#8b5cf6'];
@@ -3563,10 +3565,20 @@ function dbsSeries(){
   const snaps=[...DBSIZES].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   const series=[{label:'Total Vault DB',color:'#4f8ef7',get:s=>dbsNum(s.totalDb)},
                 {label:'File Store',color:'#22c55e',get:s=>dbsNum(s.fileStore)}];
-  const names=[]; snaps.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); }));
-  names.forEach((nm,i)=>series.push({label:nm,color:DBS_PALETTE[i%DBS_PALETTE.length],get:s=>{const d=(s.dbs||[]).find(x=>x.name===nm);return d?dbsNum(d.size):null;}}));
+  const names=dbsNames(snaps);
+  // Each database gets a solid line; its filestore shares the colour as a dashed
+  // line so the pair reads together. A filestore line only appears once that
+  // database has at least one filestore measurement.
+  names.forEach((nm,i)=>{
+    const color=DBS_PALETTE[i%DBS_PALETTE.length];
+    const db=s=>(s.dbs||[]).find(x=>x.name===nm);
+    series.push({label:nm,color,get:s=>{const d=db(s);return d?dbsNum(d.size):null;}});
+    if(dbsHasFs(snaps,nm)) series.push({label:nm+' filestore',color,dash:true,get:s=>{const d=db(s);return d?dbsNum(d.fileStore):null;}});
+  });
   return {snaps,series};
 }
+function dbsNames(list){ const names=[]; list.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); })); return names; }
+function dbsHasFs(list,nm){ return list.some(s=>(s.dbs||[]).some(d=>d.name===nm&&dbsNum(d.fileStore)!=null)); }
 function dbsRender(){ dbsRenderChart(); dbsRenderHistory(); }
 function dbsRenderChart(){
   const host=document.getElementById('dbs-chart'), sum=document.getElementById('dbs-summary'); if(!host)return;
@@ -3587,10 +3599,13 @@ function dbsRenderChart(){
     const pts=snaps.map(s=>({t:Date.parse(s.date),v:se.get(s)})).filter(p=>!isNaN(p.t)&&p.v!=null);
     if(pts.length){
       const d=pts.map((p,i)=>(i?'L':'M')+X(p.t).toFixed(1)+' '+Y(p.v).toFixed(1)).join(' ');
-      paths+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2"/>`;
-      pts.forEach(p=>{ paths+=`<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="${se.color}"><title>${esc(se.label)}: ${dbsFmt(p.v)}</title></circle>`; });
+      paths+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2"${se.dash?' stroke-dasharray="6 4"':''}/>`;
+      pts.forEach(p=>{ paths+=`<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="${se.dash?'var(--surface,#fff)':se.color}" stroke="${se.color}" stroke-width="${se.dash?1.5:0}"><title>${esc(se.label)}: ${dbsFmt(p.v)}</title></circle>`; });
     }
-    legend+=`<rect x="${padL+pw+18}" y="${ly-9}" width="11" height="11" rx="2" fill="${se.color}"/><text x="${padL+pw+34}" y="${ly}" font-size="11" fill="var(--text)">${esc(se.label)}</text>`;
+    legend+=(se.dash
+      ?`<line x1="${padL+pw+16}" y1="${ly-3.5}" x2="${padL+pw+30}" y2="${ly-3.5}" stroke="${se.color}" stroke-width="2" stroke-dasharray="4 2"/>`
+      :`<rect x="${padL+pw+18}" y="${ly-9}" width="11" height="11" rx="2" fill="${se.color}"/>`)
+      +`<text x="${padL+pw+34}" y="${ly}" font-size="11" fill="var(--text)">${esc(se.label)}</text>`;
     ly+=20;
   });
   const axis=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ph}" stroke="var(--border)"/><line x1="${padL}" y1="${padT+ph}" x2="${padL+pw}" y2="${padT+ph}" stroke="var(--border)"/>`;
@@ -3607,21 +3622,26 @@ function dbsRenderChart(){
 function dbsRenderHistory(){
   const host=document.getElementById('dbs-history'); if(!host)return;
   if(!DBSIZES.length){ host.innerHTML='<div style="color:var(--text-muted)">No measurements recorded.</div>'; return; }
-  const names=[]; DBSIZES.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); }));
+  // One column per database, plus a filestore column for any database that has
+  // filestore data (older measurements simply show — there).
+  const cols=dbsCols(DBSIZES);
   const rows=DBSIZES.map((s,i)=>({s,i})).sort((a,b)=>a.s.date<b.s.date?1:a.s.date>b.s.date?-1:0).map(({s,i})=>`<tr>
     <td>${esc(s.date)}</td><td>${dbsFmt(dbsNum(s.totalDb))}</td><td>${dbsFmt(dbsNum(s.fileStore))}</td>
-    ${names.map(nm=>{const d=(s.dbs||[]).find(x=>x.name===nm);return `<td>${d?dbsFmt(dbsNum(d.size)):'—'}</td>`;}).join('')}
+    ${cols.map(c=>{const d=(s.dbs||[]).find(x=>x.name===c.name);const v=d?dbsNum(c.fs?d.fileStore:d.size):null;return `<td>${v==null?'—':dbsFmt(v)}</td>`;}).join('')}
     <td><button class="btn btn-danger btn-icon" onclick="dbsDelMeasurement(${i})">✕</button></td></tr>`).join('');
-  host.innerHTML=`<table class="tbl"><thead><tr><th>Date</th><th>Total Vault DB</th><th>File Store</th>${names.map(nm=>`<th>${esc(nm)}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  host.innerHTML=`<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Date</th><th>Total Vault DB</th><th>File Store</th>${cols.map(c=>`<th>${esc(c.name)}${c.fs?' <span style="font-weight:500;opacity:.75">filestore</span>':''}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+// Per-database columns for the history table and CSV: the database size, then its
+// filestore if that database has any filestore measurements.
+function dbsCols(list){ const out=[]; dbsNames(list).forEach(nm=>{ out.push({name:nm,fs:false}); if(dbsHasFs(list,nm)) out.push({name:nm,fs:true}); }); return out; }
 function dbsExportCsv(){
   if(!DBSIZES.length){ notify('No measurements to export'); return; }
-  const names=[]; DBSIZES.forEach(s=>(s.dbs||[]).forEach(d=>{ if(d.name&&!names.includes(d.name))names.push(d.name); }));
-  const head=['Date','Total Vault DB (GB)','File Store (GB)',...names.map(n=>n+' (GB)')];
+  const cols=dbsCols(DBSIZES);
+  const head=['Date','Total Vault DB (GB)','File Store (GB)',...cols.map(c=>c.name+(c.fs?' Filestore':'')+' (GB)')];
   const cell=v=>{ const t=String(v); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; };
   const lines=[head.map(cell).join(',')];
   [...DBSIZES].sort((a,b)=>a.date<b.date?-1:1).forEach(s=>{
-    lines.push([s.date,s.totalDb??'',s.fileStore??'',...names.map(nm=>{const d=(s.dbs||[]).find(x=>x.name===nm);return d&&d.size!=null?d.size:'';})].map(cell).join(','));
+    lines.push([s.date,s.totalDb??'',s.fileStore??'',...cols.map(c=>{const d=(s.dbs||[]).find(x=>x.name===c.name);const v=d?(c.fs?d.fileStore:d.size):null;return v!=null?v:'';})].map(cell).join(','));
   });
   const blob=new Blob([lines.join('\n')],{type:'text/csv'}), url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download='vault-db-growth.csv'; a.click(); URL.revokeObjectURL(url);

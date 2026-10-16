@@ -6,6 +6,14 @@ All notable changes to `vault-config-dashboard.html`. Dates are `YYYY-MM-DD`.
 
 ## Unreleased
 
+### Added
+- **Database Growth: per-database filestore size** — each Individual Databases row
+  now has a **Filestore (GB)** field alongside the database size (either can be
+  left blank). On the chart, a database's filestore is a dashed line in the same
+  colour as its database line; the history table and CSV gain a "<name> filestore"
+  column for any database with filestore data. Existing measurements are unaffected
+  and show "—" for the new column.
+
 ### Fixed
 - **Stale entity-class registrations never cleared on export** — the ESB patcher only
   ever *added* to the entity-class behavior lists, so a bad entry from a previous
